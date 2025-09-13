@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Calendar, 
   Clock, 
@@ -11,13 +11,18 @@ import {
   Menu,
   Sun,
   Moon,
-  Wallet
+  Wallet,
+  TrendingUp,
+  TrendingDown,
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { useAccount, useBalance, useChainId, useDisconnect } from 'wagmi';
-import { pepuTestnet } from '../chains';
+import { useAccount, useBalance, useChainId, useDisconnect, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { pepuMainnet } from '../chains';
 import { useTheme } from '../context/ThemeContext';
+import { parseEther, formatEther } from 'viem';
 
 export default function CreateMarketPage() {
   const { isDarkMode, toggleTheme } = useTheme();
@@ -32,17 +37,184 @@ export default function CreateMarketPage() {
   const [minimumStake, setMinimumStake] = useState('');
   const [endDate, setEndDate] = useState('');
   const [endTime, setEndTime] = useState('');
+  const [minDateTime, setMinDateTime] = useState('');
+  const [maxDateTime, setMaxDateTime] = useState('');
   const [outcomeType, setOutcomeType] = useState<'yesno' | 'multiple'>('yesno');
   const [multipleOptions, setMultipleOptions] = useState(['', '']);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [supportedTokens, setSupportedTokens] = useState<string[]>([]);
+  const [creatorDeposit, setCreatorDeposit] = useState('');
+  const [creatorOutcome, setCreatorOutcome] = useState('');
+  const [selectedToken, setSelectedToken] = useState('0x0000000000000000000000000000000000000000'); // Default to PEPU
+  const [isCreating, setIsCreating] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  // Contract addresses from environment
+  const P2P_MARKETMANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS as `0x${string}`;
+
+  // Get supported tokens from contract
+  const { data: supportedTokensData } = useReadContract({
+    address: P2P_MARKETMANAGER_ADDRESS,
+    abi: [
+      {
+        "inputs": [],
+        "name": "getSupportedTokens",
+        "outputs": [
+          {"name": "tokens", "type": "address[]"},
+          {"name": "symbols", "type": "string[]"}
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ],
+    functionName: 'getSupportedTokens',
+  });
+
+  // Process supported tokens from contract
+  const tokens = supportedTokensData ? supportedTokensData[0].map((address, index) => ({
+    address: address as `0x${string}`,
+    symbol: supportedTokensData[1][index],
+    name: address === '0x0000000000000000000000000000000000000000' ? 'PEPU (Native)' : `${supportedTokensData[1][index]} Token`,
+    isNative: address === '0x0000000000000000000000000000000000000000'
+  })) : [];
+
+  // Find P2P token from supported tokens (non-native token)
+  const p2pToken = tokens.find(token => !token.isNative);
+  const P2P_TOKEN_ADDRESS = p2pToken?.address;
+
+  // Helper function to format numbers with commas
+  const formatNumber = (value: string | number) => {
+    const num = typeof value === 'string' ? parseFloat(value) : value;
+    if (isNaN(num)) return '0';
+    
+    // For very large numbers, show in a more readable format
+    if (num >= 1000000) {
+      return (num / 1000000).toFixed(2) + 'M';
+    } else if (num >= 1000) {
+      return (num / 1000).toFixed(2) + 'K';
+    } else {
+      return num.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 6
+      });
+    }
+  };
 
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const { disconnect } = useDisconnect();
   const { data: balance } = useBalance({
     address,
-    chainId: pepuTestnet.id,
+    chainId: pepuMainnet.id,
+  });
+
+  // P2P Token balance check
+  const { data: p2pBalance } = useBalance({
+    address,
+    token: P2P_TOKEN_ADDRESS,
+    chainId: pepuMainnet.id,
+  });
+
+  // State to store other token balances
+  const [tokenBalances, setTokenBalances] = useState<Array<{address: string, balance: any}>>([]);
+
+  // Get balances for other supported tokens (excluding native PEPU and P2P token)
+  const otherTokens = tokens.filter(token => 
+    token.address !== '0x0000000000000000000000000000000000000000' && 
+    token.address !== P2P_TOKEN_ADDRESS
+  );
+
+  // Fetch balances for other tokens dynamically using wagmi's useBalance hook
+  useEffect(() => {
+    if (!address || otherTokens.length === 0) {
+      setTokenBalances([]);
+      return;
+    }
+
+    const fetchTokenBalances = async () => {
+      const balances: Array<{address: string, balance: any}> = [];
+      
+      for (const token of otherTokens) {
+        try {
+          // Use wagmi's useBalance hook through a custom hook approach
+          const response = await fetch('/api/contract-read', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contractAddress: token.address,
+              abi: [
+                {
+                  "inputs": [{"name": "account", "type": "address"}],
+                  "name": "balanceOf",
+                  "outputs": [{"name": "", "type": "uint256"}],
+                  "stateMutability": "view",
+                  "type": "function"
+                }
+              ],
+              functionName: 'balanceOf',
+              args: [address]
+            })
+          });
+          
+          const data = await response.json();
+          if (data.success) {
+            const balanceValue = BigInt(data.data);
+            const formatted = (Number(data.data) / 1e18).toFixed(6);
+            
+            balances.push({
+              address: token.address,
+              balance: {
+                value: balanceValue,
+                decimals: 18,
+                symbol: token.symbol,
+                formatted: formatted
+              }
+            });
+          }
+        } catch (error) {
+          console.warn(`Failed to fetch balance for ${token.symbol}:`, error);
+        }
+      }
+      
+      setTokenBalances(balances);
+    };
+
+    fetchTokenBalances();
+  }, [address, otherTokens]);
+
+  // Contract hooks
+  const { writeContract, data: hash, isPending, error: writeError } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+    hash,
+  });
+
+
+  // Separate hooks for approval
+  const { writeContract: writeApprovalContract, data: approvalHash, isPending: isApprovalPending, error: approvalError } = useWriteContract();
+  const { isLoading: isApprovalConfirming, isSuccess: isApprovalConfirmed } = useWaitForTransactionReceipt({
+    hash: approvalHash,
+  });
+
+  // Determine which token to check allowance for
+  const tokenToCheck = outcomeType === 'multiple' ? P2P_TOKEN_ADDRESS : selectedToken as `0x${string}`;
+  
+  // Check token allowance
+  const { data: allowance, refetch: refetchAllowance } = useReadContract({
+    address: tokenToCheck as `0x${string}`,
+    abi: [
+      {
+        "inputs": [
+          {"name": "owner", "type": "address"},
+          {"name": "spender", "type": "address"}
+        ],
+        "name": "allowance",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ],
+    functionName: 'allowance',
+    args: address && P2P_MARKETMANAGER_ADDRESS && tokenToCheck ? [address, P2P_MARKETMANAGER_ADDRESS] : undefined,
   });
 
   const categories = [
@@ -50,7 +222,71 @@ export default function CreateMarketPage() {
     "Finance", "Entertainment", "Science", "Gaming"
   ];
 
-  const tokenOptions = ["PEPU", "PENK", "P2P"];
+  // Check if user has minimum P2P token balance (100K tokens)
+  const hasMinimumP2PBalance = p2pBalance && p2pBalance.value >= parseEther("100000");
+
+  // Refetch allowance when approval is confirmed
+  useEffect(() => {
+    if (isApprovalConfirmed) {
+      refetchAllowance();
+      setSuccess('P2P tokens approved successfully! You can now create the market.');
+    }
+  }, [isApprovalConfirmed, refetchAllowance]);
+
+  // Check if user has sufficient allowance for P2P tokens
+  const requiredAmount = creatorDeposit ? parseEther(creatorDeposit) : BigInt(0);
+  const hasSufficientAllowance = allowance !== undefined && creatorDeposit ? allowance >= requiredAmount : false;
+  
+  // Debug logging
+  useEffect(() => {
+    console.log('Debug - Allowance check:', {
+      allowance: allowance?.toString(),
+      creatorDeposit,
+      requiredAmount: requiredAmount.toString(),
+      hasSufficientAllowance,
+      outcomeType,
+      paymentToken: outcomeType === 'multiple' ? P2P_TOKEN_ADDRESS : selectedToken,
+      shouldShowApprovalButton: outcomeType === 'multiple' && !hasSufficientAllowance
+    });
+  }, [allowance, creatorDeposit, requiredAmount, hasSufficientAllowance, outcomeType, selectedToken]);
+
+  // Set min and max datetime constraints
+  useEffect(() => {
+    const now = new Date();
+    const minDate = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours from now
+    const maxDate = new Date(now.getTime() + 2 * 365 * 24 * 60 * 60 * 1000); // 2 years from now
+    
+    const formatDateTime = (date: Date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return {
+        date: `${year}-${month}-${day}`,
+        time: `${hours}:${minutes}`
+      };
+    };
+
+    const min = formatDateTime(minDate);
+    const max = formatDateTime(maxDate);
+    
+    setMinDateTime(`${min.date}T${min.time}`);
+    setMaxDateTime(`${max.date}T${max.time}`);
+  }, []);
+
+  // Get user's token balances
+  const getUserTokenBalance = (tokenAddress: string) => {
+    if (tokenAddress === '0x0000000000000000000000000000000000000000') {
+      return balance;
+    } else if (tokenAddress === P2P_TOKEN_ADDRESS) {
+      return p2pBalance;
+    } else {
+      // Find balance for other supported tokens
+      const tokenBalanceData = tokenBalances.find(tb => tb.address === tokenAddress);
+      return tokenBalanceData?.balance || null;
+    }
+  };
 
   const onMenuClick = () => setSidebarOpen(!sidebarOpen);
   const onSidebarClose = () => setSidebarOpen(false);
@@ -64,13 +300,6 @@ export default function CreateMarketPage() {
     }
   };
 
-  const handleTokenToggle = (token: string) => {
-    if (supportedTokens.includes(token)) {
-      setSupportedTokens(supportedTokens.filter(t => t !== token));
-    } else {
-      setSupportedTokens([...supportedTokens, token]);
-    }
-  };
 
   const handleMultipleOptionChange = (index: number, value: string) => {
     const newOptions = [...multipleOptions];
@@ -90,6 +319,266 @@ export default function CreateMarketPage() {
       setMultipleOptions(newOptions);
     }
   };
+
+  // Approve tokens function
+  const approveTokens = async () => {
+    if (!isConnected || !address || !creatorDeposit) {
+      setError('Please connect your wallet and enter creator deposit');
+      return;
+    }
+
+    if (!P2P_MARKETMANAGER_ADDRESS) {
+      setError('Contract addresses not found');
+      return;
+    }
+
+    // Determine which token to approve
+    const tokenToApprove = outcomeType === 'multiple' ? P2P_TOKEN_ADDRESS : selectedToken;
+    
+    if (!tokenToApprove) {
+      setError('Token address not found');
+      return;
+    }
+
+    try {
+      const tokenSymbol = tokens.find(t => t.address === tokenToApprove)?.symbol || 'Token';
+      setSuccess(`Approving ${tokenSymbol} tokens...`);
+      setError('');
+      
+      const approvalAmount = parseEther(creatorDeposit);
+      console.log('Approving amount:', approvalAmount.toString());
+      
+      await writeApprovalContract({
+        address: tokenToApprove as `0x${string}`,
+        abi: [
+          {
+            "inputs": [
+              {"name": "spender", "type": "address"},
+              {"name": "amount", "type": "uint256"}
+            ],
+            "name": "approve",
+            "outputs": [{"name": "", "type": "bool"}],
+            "stateMutability": "nonpayable",
+            "type": "function"
+          }
+        ],
+        functionName: 'approve',
+        args: [P2P_MARKETMANAGER_ADDRESS!, approvalAmount],
+        gas: BigInt(100000)
+      });
+    } catch (err: any) {
+      setError(err.message || 'Failed to approve tokens');
+      setSuccess('');
+    }
+  };
+
+  // Create market function
+  const createMarket = async () => {
+    console.log('Create market button clicked!');
+    console.log('isConnected:', isConnected);
+    console.log('address:', address);
+    console.log('hasMinimumP2PBalance:', hasMinimumP2PBalance);
+    console.log('P2P_TOKEN_ADDRESS:', P2P_TOKEN_ADDRESS);
+    
+    if (!isConnected || !address) {
+      setError('Please connect your wallet');
+      return;
+    }
+
+    if (!hasMinimumP2PBalance) {
+      setError('You need at least 100,000 P2P tokens to create a market');
+      return;
+    }
+
+    // Check if approval is needed BEFORE doing anything else
+    const isMultiOption = outcomeType === 'multiple';
+    const paymentToken = isMultiOption ? P2P_TOKEN_ADDRESS : selectedToken;
+    
+    // Approval needed for any ERC20 token (not native PEPU)
+    if (paymentToken !== '0x0000000000000000000000000000000000000000' && !hasSufficientAllowance) {
+      const tokenSymbol = tokens.find(t => t.address === paymentToken)?.symbol || 'Token';
+      setError(`Please approve ${tokenSymbol} tokens first by clicking the "Approve Tokens" button`);
+      return;
+    }
+
+    console.log('Form validation:', {
+      title, description, minimumStake, endDate, endTime, creatorDeposit, creatorOutcome
+    });
+    
+    if (!title || !description || !minimumStake || !endDate || !endTime || !creatorDeposit || !creatorOutcome) {
+      setError('Please fill in all required fields');
+      return;
+    }
+
+    if (parseFloat(creatorDeposit) < parseFloat(minimumStake)) {
+      setError('Creator deposit must be at least the minimum stake amount');
+      return;
+    }
+
+    // Validate end date/time
+    const endDateTime = new Date(`${endDate}T${endTime}`);
+    const now = new Date();
+    const minDateTime = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours from now
+    const maxDateTime = new Date(now.getTime() + 2 * 365 * 24 * 60 * 60 * 1000); // 2 years from now
+
+    if (endDateTime <= now) {
+      setError('End date/time must be in the future');
+      return;
+    }
+
+    if (endDateTime < minDateTime) {
+      setError('End date/time must be at least 24 hours from now');
+      return;
+    }
+
+    if (endDateTime > maxDateTime) {
+      setError('End date/time cannot be more than 2 years from now');
+      return;
+    }
+
+    if (outcomeType === 'multiple' && multipleOptions.some(opt => !opt.trim())) {
+      setError('Please fill in all multiple options');
+      return;
+    }
+
+    setIsCreating(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      // Step 1: Upload market data to IPFS
+      setSuccess('Uploading market data to IPFS...');
+      const ipfsResponse = await fetch('/api/upload-ipfs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title,
+          description,
+          categories: selectedCategories,
+          outcomeType,
+          multipleOptions: outcomeType === 'multiple' ? multipleOptions : ['Yes', 'No']
+        }),
+      });
+
+      if (!ipfsResponse.ok) {
+        const errorData = await ipfsResponse.json();
+        throw new Error(errorData.error || 'Failed to upload to IPFS');
+      }
+
+      const { ipfsHash, gatewayUrl } = await ipfsResponse.json();
+      setSuccess(`Market data uploaded! IPFS Link: ${gatewayUrl} Creating market...`);
+
+      // Step 2: Calculate duration in hours (minimum 24 hours)
+      const endDateTime = new Date(`${endDate}T${endTime}`);
+      const now = new Date();
+      const durationMs = endDateTime.getTime() - now.getTime();
+      const durationHours = Math.max(24, Math.ceil(durationMs / (1000 * 60 * 60)));
+
+      // Step 3: Determine payment token and max options
+      const maxOptions = isMultiOption ? multipleOptions.length : 2;
+
+      // Ensure paymentToken is defined
+      if (!paymentToken) {
+        throw new Error('Payment token not found');
+      }
+
+      const args: [string, boolean, bigint, `0x${string}`, bigint, bigint, bigint, bigint] = [
+        ipfsHash,
+        isMultiOption,
+        BigInt(maxOptions),
+        paymentToken as `0x${string}`,
+        parseEther(minimumStake),
+        parseEther(creatorDeposit),
+        BigInt(parseInt(creatorOutcome)),
+        BigInt(durationHours)
+      ];
+
+      // Step 4: Create market on blockchain
+      // Calculate total value to send: market creation fee + creator deposit (for native PEPU)
+      const marketCreationFee = parseEther("1"); // Always 1 PEPU
+      const totalValue = paymentToken === '0x0000000000000000000000000000000000000000' 
+        ? marketCreationFee + parseEther(creatorDeposit) 
+        : marketCreationFee;
+
+      await writeContract({
+        address: P2P_MARKETMANAGER_ADDRESS,
+        abi: [
+          {
+            "inputs": [
+              {"name": "ipfsHash", "type": "string"},
+              {"name": "isMultiOption", "type": "bool"},
+              {"name": "maxOptions", "type": "uint256"},
+              {"name": "paymentToken", "type": "address"},
+              {"name": "minStake", "type": "uint256"},
+              {"name": "creatorDeposit", "type": "uint256"},
+              {"name": "creatorOutcome", "type": "uint256"},
+              {"name": "durationHours", "type": "uint256"}
+            ],
+            "name": "createMarket",
+            "outputs": [{"name": "", "type": "uint256"}],
+            "stateMutability": "payable",
+            "type": "function"
+          }
+        ],
+        functionName: 'createMarket',
+        args: args,
+        value: totalValue, // Market creation fee + creator deposit (for native PEPU)
+        gas: BigInt(1000000) // Gas limit for market creation
+      });
+
+    } catch (err: any) {
+      setError(err.message || 'Failed to create market');
+      setIsCreating(false);
+      setSuccess('');
+    }
+  };
+
+  // Handle approval success
+  useEffect(() => {
+    if (isApprovalConfirmed) {
+      const tokenSymbol = tokens.find(t => t.address === tokenToCheck)?.symbol || 'Token';
+      setSuccess(`${tokenSymbol} tokens approved successfully! You can now create the market.`);
+      setError('');
+    }
+  }, [isApprovalConfirmed, tokenToCheck, tokens]);
+
+  // Handle approval error
+  useEffect(() => {
+    if (approvalError) {
+      setError(`Approval failed: ${approvalError.message}`);
+      setSuccess('');
+    }
+  }, [approvalError]);
+
+  // Handle transaction success
+  useEffect(() => {
+    if (isConfirmed) {
+      setSuccess('Market created successfully! Check the transaction on the block explorer.');
+      setIsCreating(false);
+      setError('');
+      // Reset form
+      setTitle('');
+      setDescription('');
+      setMinimumStake('');
+      setEndDate('');
+      setEndTime('');
+      setCreatorDeposit('');
+      setCreatorOutcome('');
+      setSelectedToken('0x0000000000000000000000000000000000000000');
+      setMultipleOptions(['', '']);
+    }
+  }, [isConfirmed]);
+
+  // Handle transaction error
+  useEffect(() => {
+    if (writeError) {
+      setError(`Transaction failed: ${writeError.message}`);
+      setIsCreating(false);
+      setSuccess('');
+    }
+  }, [writeError]);
 
   return (
       <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
@@ -257,6 +746,54 @@ export default function CreateMarketPage() {
           {/* Page Content */}
           <div className="p-4 lg:p-6">
             <div className="max-w-4xl mx-auto">
+              {/* P2P Balance Check */}
+              {isConnected && (
+                <div className={`mb-6 p-4 rounded-lg border ${
+                  hasMinimumP2PBalance 
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
+                    : 'bg-red-50 border-red-200 text-red-800'
+                } ${isDarkMode ? 'dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-300' : ''}`}>
+                  <div className="flex items-center gap-2">
+                    <Coins size={20} />
+                    <span className="font-medium">
+                      P2P Token Balance: {p2pBalance ? formatNumber(formatEther(p2pBalance.value)) : '0'} P2P
+                    </span>
+                    {hasMinimumP2PBalance ? (
+                      <CheckCircle size={20} className="text-emerald-600" />
+                    ) : (
+                      <AlertCircle size={20} className="text-red-600" />
+                    )}
+                  </div>
+                  <p className="text-sm mt-1">
+                    {hasMinimumP2PBalance 
+                      ? 'You can create markets!' 
+                      : 'You need at least 1,000,000 P2P tokens to create markets'
+                    }
+                  </p>
+                </div>
+              )}
+
+              {/* Error/Success Messages */}
+              {error && (
+                <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-800 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle size={20} />
+                    <span className="font-medium">Error</span>
+                  </div>
+                  <p className="text-sm mt-1">{error}</p>
+                </div>
+              )}
+
+              {success && (
+                <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle size={20} />
+                    <span className="font-medium">Success</span>
+                  </div>
+                  <p className="text-sm mt-1">{success}</p>
+                </div>
+              )}
+
               {/* Form */}
             <div className={`rounded-xl border shadow-sm ${
               isDarkMode 
@@ -287,12 +824,37 @@ export default function CreateMarketPage() {
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium mb-2">Minimum Stake</label>
+                        <label className="block text-sm font-medium mb-2">Payment Token</label>
+                        <select
+                          value={selectedToken}
+                          onChange={(e) => setSelectedToken(e.target.value)}
+                          disabled={outcomeType === 'multiple'} // Multi-option markets must use P2P token
+                        className={`w-full px-3 py-2.5 border rounded-lg focus:border-emerald-500 focus:outline-none text-sm ${
+                          isDarkMode 
+                            ? 'bg-gray-700 border-gray-600 text-white' 
+                            : 'bg-gray-50 border-gray-300 text-gray-900'
+                        }`}
+                        >
+                          {tokens.map((token) => (
+                            <option key={token.address} value={token.address}>
+                              {token.name} {outcomeType === 'multiple' && token.address !== P2P_TOKEN_ADDRESS ? '(Not available for multi-option)' : ''}
+                            </option>
+                          ))}
+                        </select>
+                        {outcomeType === 'multiple' && (
+                          <p className="text-xs text-gray-500 mt-1">Multi-option markets must use P2P token</p>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium mb-2">
+                          Minimum Stake ({tokens.find(t => t.address === selectedToken)?.symbol || 'PEPU'})
+                        </label>
                         <input
                           type="number"
                           value={minimumStake}
                           onChange={(e) => setMinimumStake(e.target.value)}
-                          placeholder="0.00"
+                          placeholder="0.01"
                           min="0"
                           step="0.01"
                         className={`w-full px-3 py-2.5 border rounded-lg focus:border-emerald-500 focus:outline-none text-sm ${
@@ -301,7 +863,11 @@ export default function CreateMarketPage() {
                             : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500'
                         }`}
                         />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Balance: {getUserTokenBalance(selectedToken) ? formatNumber(formatEther(getUserTokenBalance(selectedToken)!.value)) : '0'} {tokens.find(t => t.address === selectedToken)?.symbol || 'PEPU'}
+                        </p>
                       </div>
+
                     </div>
 
                     <div>
@@ -329,12 +895,15 @@ export default function CreateMarketPage() {
                     <div className="grid grid-cols-1 gap-4">
                       <div>
                         <label className="block text-sm font-medium mb-2">End Date</label>
+                        <p className="text-xs text-gray-500 mb-2">Minimum 24 hours from now, maximum 2 years</p>
                         <div className="relative">
                           <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
                           <input
                             type="date"
                             value={endDate}
                             onChange={(e) => setEndDate(e.target.value)}
+                            min={minDateTime.split('T')[0]}
+                            max={maxDateTime.split('T')[0]}
                           className={`w-full pl-10 pr-3 py-2.5 border rounded-lg focus:border-emerald-500 focus:outline-none text-sm ${
                             isDarkMode 
                               ? 'bg-gray-700 border-gray-600 text-white' 
@@ -393,34 +962,6 @@ export default function CreateMarketPage() {
                       </div>
                     </div>
 
-                    {/* Supported Tokens */}
-                    <div className="space-y-3">
-                    <h2 className={`text-base lg:text-lg font-semibold ${
-                      isDarkMode ? 'text-emerald-400' : 'text-emerald-600'
-                    }`}>Supported Tokens</h2>
-                      
-                      <div className="flex flex-wrap gap-2">
-                        {tokenOptions.map((token) => (
-                          <button
-                            key={token}
-                            onClick={() => handleTokenToggle(token)}
-                            className={`
-                              px-3 py-1.5 rounded-full text-xs font-medium transition-colors flex items-center gap-1.5
-                              ${supportedTokens.includes(token)
-                                ? 'bg-emerald-600 text-white'
-                              : isDarkMode
-                                ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                              }
-                            `}
-                          >
-                            <Coins size={14} />
-                            {token}
-                            {supportedTokens.includes(token) && <CheckCircle size={14} />}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
                   </div>
 
                   {/* Outcome Type */}
@@ -462,6 +1003,37 @@ export default function CreateMarketPage() {
                         `}
                       >
                         Multiple Options
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Buy Yes Buttons */}
+                  <div className="space-y-4">
+                    <h2 className={`text-base lg:text-lg font-semibold ${
+                      isDarkMode ? 'text-emerald-400' : 'text-emerald-600'
+                    }`}>Quick Actions</h2>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <button className={`
+                        px-4 py-3 rounded-lg border-2 transition-colors flex items-center justify-center gap-2 text-sm font-medium
+                        ${isDarkMode
+                          ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'
+                          : 'border-emerald-500 bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
+                        }
+                      `}>
+                        <TrendingUp size={18} />
+                        Buy Yes
+                      </button>
+                      
+                      <button className={`
+                        px-4 py-3 rounded-lg border-2 transition-colors flex items-center justify-center gap-2 text-sm font-medium
+                        ${isDarkMode
+                          ? 'border-red-500 bg-red-500/10 text-red-400 hover:bg-red-500/20'
+                          : 'border-red-500 bg-red-50 text-red-600 hover:bg-red-100'
+                        }
+                      `}>
+                        <TrendingDown size={18} />
+                        Buy No
                       </button>
                     </div>
                   </div>
@@ -510,11 +1082,157 @@ export default function CreateMarketPage() {
                     </div>
                   )}
 
+                  {/* Creator Deposit & Outcome */}
+                  <div className="space-y-4">
+                    <h2 className={`text-base lg:text-lg font-semibold ${
+                      isDarkMode ? 'text-emerald-400' : 'text-emerald-600'
+                    }`}>Creator Requirements</h2>
+                    
+                    <div>
+                      <label className="block text-sm font-medium mb-2">
+                        Creator Deposit ({tokens.find(t => t.address === selectedToken)?.symbol || 'PEPU'}) - Must be ≥ Minimum Stake
+                      </label>
+                      <input
+                        type="number"
+                        value={creatorDeposit}
+                        onChange={(e) => setCreatorDeposit(e.target.value)}
+                        placeholder={minimumStake || "0.1"}
+                        min={minimumStake || "0"}
+                        step="0.01"
+                      className={`w-full px-3 py-2.5 border rounded-lg focus:border-emerald-500 focus:outline-none text-sm ${
+                        isDarkMode 
+                          ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                          : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500'
+                      }`}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Balance: {getUserTokenBalance(selectedToken) ? formatNumber(formatEther(getUserTokenBalance(selectedToken)!.value)) : '0'} {tokens.find(t => t.address === selectedToken)?.symbol || 'PEPU'}
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-2">
+                        Creator Outcome Prediction
+                      </label>
+                      {outcomeType === 'yesno' ? (
+                        <select
+                          value={creatorOutcome}
+                          onChange={(e) => setCreatorOutcome(e.target.value)}
+                        className={`w-full px-3 py-2.5 border rounded-lg focus:border-emerald-500 focus:outline-none text-sm ${
+                          isDarkMode 
+                            ? 'bg-gray-700 border-gray-600 text-white' 
+                            : 'bg-gray-50 border-gray-300 text-gray-900'
+                        }`}
+                        >
+                          <option value="">Select your prediction</option>
+                          <option value="1">Yes</option>
+                          <option value="2">No</option>
+                        </select>
+                      ) : (
+                        <select
+                          value={creatorOutcome}
+                          onChange={(e) => setCreatorOutcome(e.target.value)}
+                        className={`w-full px-3 py-2.5 border rounded-lg focus:border-emerald-500 focus:outline-none text-sm ${
+                          isDarkMode 
+                            ? 'bg-gray-700 border-gray-600 text-white' 
+                            : 'bg-gray-50 border-gray-300 text-gray-900'
+                        }`}
+                        >
+                          <option value="">Select your prediction</option>
+                          {multipleOptions.map((option, index) => (
+                            <option key={index} value={index + 1}>
+                              {option || `Option ${index + 1}`}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  </div>
+
                   {/* Submit Button */}
                   <div className="pt-4">
-                    <button className="w-full px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg transition-colors">
-                      Create Market
+                    {/* Debug info */}
+                    <div className={`mb-4 p-3 rounded-lg text-sm border ${
+                      isDarkMode 
+                        ? 'bg-gray-800 border-gray-600 text-gray-200' 
+                        : 'bg-gray-100 border-gray-300 text-gray-800'
+                    }`}>
+                      <p className={`font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Debug Info:</p>
+                      <div className="space-y-1 text-xs">
+                        <p>Outcome Type: <span className="font-mono">{outcomeType}</span></p>
+                        <p>Has Sufficient Allowance: <span className={`font-semibold ${hasSufficientAllowance ? 'text-green-500' : 'text-red-500'}`}>{hasSufficientAllowance ? 'Yes' : 'No'}</span></p>
+                        <p>Creator Deposit: <span className="font-mono">{creatorDeposit || 'Not set'}</span></p>
+                        <p>Required Amount: <span className="font-mono">{requiredAmount.toString()}</span></p>
+                        <p>Current Allowance: <span className="font-mono">{allowance ? allowance.toString() : 'Loading...'}</span></p>
+                        <p>Should Show Approval Button: <span className={`font-semibold ${((outcomeType === 'multiple' && !hasSufficientAllowance) || (outcomeType === 'yesno' && selectedToken !== '0x0000000000000000000000000000000000000000' && !hasSufficientAllowance)) ? 'text-green-500' : 'text-red-500'}`}>{((outcomeType === 'multiple' && !hasSufficientAllowance) || (outcomeType === 'yesno' && selectedToken !== '0x0000000000000000000000000000000000000000' && !hasSufficientAllowance)) ? 'YES' : 'NO'}</span></p>
+                      </div>
+                    </div>
+
+                    {/* Single button that switches between Approve and Create Market */}
+                    <button 
+                      onClick={() => {
+                        console.log('Button clicked!');
+                        console.log('P2P_TOKEN_ADDRESS:', P2P_TOKEN_ADDRESS);
+                        console.log('outcomeType:', outcomeType);
+                        console.log('selectedToken:', selectedToken);
+                        console.log('hasSufficientAllowance:', hasSufficientAllowance);
+                        
+                        // Multiple outcomes always use P2P token, Linear can use any supported token
+                        // Approval needed for any ERC20 token (not native PEPU)
+                        const needsApproval = (outcomeType === 'multiple' && !hasSufficientAllowance) || 
+                                           (outcomeType === 'yesno' && selectedToken !== '0x0000000000000000000000000000000000000000' && !hasSufficientAllowance);
+                        
+                        console.log('Needs approval:', needsApproval);
+                        
+                        if (needsApproval) {
+                          approveTokens();
+                        } else {
+                          createMarket();
+                        }
+                      }}
+                      disabled={
+                        !isConnected || 
+                        !hasMinimumP2PBalance || 
+                        !creatorDeposit ||
+                        (((outcomeType === 'multiple' && !hasSufficientAllowance) || 
+                          (outcomeType === 'yesno' && selectedToken !== '0x0000000000000000000000000000000000000000' && !hasSufficientAllowance)) 
+                          ? (isApprovalPending || isApprovalConfirming) 
+                          : (isCreating || isPending || isConfirming))
+                      }
+                      className={`w-full px-6 py-3 font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 ${
+                        !isConnected || 
+                        !hasMinimumP2PBalance || 
+                        !creatorDeposit ||
+                        (((outcomeType === 'multiple' && !hasSufficientAllowance) || 
+                          (outcomeType === 'yesno' && selectedToken !== '0x0000000000000000000000000000000000000000' && !hasSufficientAllowance)) 
+                          ? (isApprovalPending || isApprovalConfirming) 
+                          : (isCreating || isPending || isConfirming))
+                          ? 'bg-gray-400 cursor-not-allowed text-gray-200'
+                          : ((outcomeType === 'multiple' && !hasSufficientAllowance) || 
+                             (outcomeType === 'yesno' && selectedToken !== '0x0000000000000000000000000000000000000000' && !hasSufficientAllowance))
+                            ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                            : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                      }`}
+                    >
+                      {(isApprovalPending || isApprovalConfirming || isCreating || isPending || isConfirming) && <Loader2 size={20} className="animate-spin" />}
+                      {isApprovalPending ? 'Approving...' : 
+                       isApprovalConfirming ? 'Processing Approval...' :
+                       isCreating ? 'Creating Market...' : 
+                       isPending ? 'Confirming Transaction...' :
+                       isConfirming ? 'Processing...' :
+                       ((outcomeType === 'multiple' && !hasSufficientAllowance) || 
+                        (outcomeType === 'yesno' && selectedToken !== '0x0000000000000000000000000000000000000000' && !hasSufficientAllowance)) ? 'Approve Tokens' :
+                       'Create Market'}
                     </button>
+                    {!isConnected && (
+                      <p className="text-sm text-gray-500 mt-2 text-center">Please connect your wallet to create a market</p>
+                    )}
+                    {isConnected && !hasMinimumP2PBalance && (
+                      <p className="text-sm text-red-500 mt-2 text-center">You need at least 100,000 P2P tokens to create markets</p>
+                    )}
+                    <p className="text-xs text-gray-500 mt-2 text-center">
+                      Market creation fee: 1 PEPU (always paid in PEPU)
+                    </p>
                   </div>
                 </div>
               </div>

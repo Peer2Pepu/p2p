@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useBalance, useChainId, useDisconnect } from 'wagmi';
-import { pepuTestnet } from '../chains';
+import { pepuMainnet } from '../chains';
 import { usePathname } from 'next/navigation';
 
 interface SidebarProps {

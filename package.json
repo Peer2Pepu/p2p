@@ -6,9 +6,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "get-markets": "node scripts/get-markets.js",
+    "get-markets-simple": "node scripts/get-markets-simple.js",
+    "get-markets-fixed": "node scripts/get-markets-fixed.js"
   },
   "dependencies": {
+    "@lighthouse-web3/sdk": "^0.4.1",
     "@rainbow-me/rainbowkit": "^2.2.8",
     "@tanstack/react-query": "^5.85.3",
     "lucide-react": "^0.539.0",
@@ -19,10 +23,14 @@
     "wagmi": "^2.16.3"
   },
   "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^6.1.0",
+    "@openzeppelin/contracts": "^5.4.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "autoprefixer": "^10.4.21",
+    "dotenv": "^17.2.1",
+    "hardhat": "^2.26.3",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17",
     "typescript": "^5"
