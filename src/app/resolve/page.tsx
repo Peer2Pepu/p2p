@@ -457,12 +457,12 @@ function MarketResolutionCard({ marketId, isDarkMode, onVote }: {
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0 pr-4">
             <div className="flex items-center gap-2 mb-1">
-              <h3 className={`font-semibold text-sm truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h3 className={`font-semibold text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 {getMarketTitle()}
               </h3>
               {hasVotedInMarket && <Check size={14} className="text-green-500 flex-shrink-0" />}
             </div>
-            <p className={`text-xs leading-tight line-clamp-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+            <p className={`text-xs leading-tight ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
               {getMarketDescription()}
             </p>
           </div>

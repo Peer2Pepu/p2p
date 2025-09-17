@@ -446,7 +446,7 @@ function CleanMarketCard({ marketId, isDarkMode, onBet, onEndMarket }: {
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1 min-w-0 pr-4">
             <div className="flex items-center gap-2 mb-1">
-              <h3 className={`font-semibold text-base truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h3 className={`font-semibold text-base ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 {getMarketTitle()}
               </h3>
               <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${
@@ -457,9 +457,9 @@ function CleanMarketCard({ marketId, isDarkMode, onBet, onEndMarket }: {
                 {marketData.isMultiOption ? 'Multiple' : 'Yes/No'}
               </div>
             </div>
-            <p className={`text-sm line-clamp-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-              {getMarketDescription()}
-            </p>
+             <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                {getMarketDescription()}
+              </p>
           </div>
           
           <div className="flex flex-col items-end text-right">
