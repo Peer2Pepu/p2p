@@ -32,7 +32,8 @@ import {
   ExternalLink,
   Timer,
   Target,
-  Award
+  Award,
+  AlertTriangle
 } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useBalance, useChainId, useSwitchChain, useDisconnect, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
@@ -162,76 +163,30 @@ const MARKET_MANAGER_ABI = [
     ],
     "stateMutability": "view",
     "type": "function"
-  }
-];
-
-const ANALYTICS_ABI = [
-  {
-    "inputs": [{"name": "limit", "type": "uint256"}],
-    "name": "getActiveMarketsByVolume",
-    "outputs": [
-      {"name": "", "type": "uint256[]"},
-      {"name": "", "type": "uint256[]"}
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [{"name": "limit", "type": "uint256"}],
-    "name": "getTodayActiveMarkets",
-    "outputs": [
-      {"name": "", "type": "uint256[]"},
-      {"name": "", "type": "uint256[]"}
-    ],
-    "stateMutability": "view",
-    "type": "function"
   },
   {
     "inputs": [{"name": "marketId", "type": "uint256"}],
-    "name": "getMarketStats",
-    "outputs": [
-      {
-        "components": [
-          {"name": "totalVolume", "type": "uint256"},
-          {"name": "totalBettors", "type": "uint256"},
-          {"name": "totalSupporters", "type": "uint256"},
-          {"name": "averageBetSize", "type": "uint256"},
-          {"name": "largestBet", "type": "uint256"},
-          {"name": "mostPopularOption", "type": "uint256"},
-          {"name": "resolutionTime", "type": "uint256"},
-          {"name": "wasResolved", "type": "bool"},
-          {"name": "creatorWinnings", "type": "uint256"}
-        ],
-        "name": "",
-        "type": "tuple"
-      }
-    ],
-    "stateMutability": "view",
+    "name": "endMarket",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   }
 ];
 
-// Market Card Component
-function MarketCard({ marketId, isDarkMode, onBet, onSupport }: {
+// Clean Market Card Component
+function CleanMarketCard({ marketId, isDarkMode, onBet, onEndMarket }: {
   marketId: number;
   isDarkMode: boolean;
   onBet: (marketId: number, option: number, amount: string, isApproval?: boolean) => void;
-  onSupport: (marketId: number, amount: string) => void;
+  onEndMarket: (marketId: number) => void;
 }) {
   const MARKET_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS as `0x${string}`;
-  const ANALYTICS_ADDRESS = process.env.NEXT_PUBLIC_P2P_ANALYTICS_ADDRESS as `0x${string}`;
 
-  // All hooks must be called at the top level
   const [betAmount, setBetAmount] = useState('');
-  const [supportAmount, setSupportAmount] = useState('');
   const [selectedOption, setSelectedOption] = useState(1);
-  const [showBetModal, setShowBetModal] = useState(false);
-  const [showSupportModal, setShowSupportModal] = useState(false);
   const [marketMetadata, setMarketMetadata] = useState<any>(null);
   const [loadingMetadata, setLoadingMetadata] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
   const [needsApproval, setNeedsApproval] = useState(false);
-  const [isApproving, setIsApproving] = useState(false);
 
   // Fetch market data
   const { data: market } = useReadContract({
@@ -241,21 +196,7 @@ function MarketCard({ marketId, isDarkMode, onBet, onSupport }: {
     args: [BigInt(marketId)],
   }) as { data: MarketData | undefined };
 
-  const { data: marketInfo } = useReadContract({
-    address: MARKET_MANAGER_ADDRESS,
-    abi: MARKET_MANAGER_ABI,
-    functionName: 'getMarketInfo',
-    args: [BigInt(marketId)],
-  });
-
-  const { data: stats } = useReadContract({
-    address: ANALYTICS_ADDRESS,
-    abi: ANALYTICS_ABI,
-    functionName: 'getMarketStats',
-    args: [BigInt(marketId)],
-  });
-
-  // Get token symbol from payment token address - must be before early return
+  // Get token symbol
   const { data: tokenSymbol } = useReadContract({
     address: MARKET_MANAGER_ADDRESS,
     abi: [
@@ -271,7 +212,7 @@ function MarketCard({ marketId, isDarkMode, onBet, onSupport }: {
     args: [market?.paymentToken || '0x0000000000000000000000000000000000000000'],
   });
 
-  // Get option pool data for each option - fetch all possible options (up to 4)
+  // Get option pools
   const { data: option1Pool } = useReadContract({
     address: MARKET_MANAGER_ADDRESS,
     abi: [
@@ -332,7 +273,7 @@ function MarketCard({ marketId, isDarkMode, onBet, onSupport }: {
     args: [BigInt(marketId), BigInt(4), market?.paymentToken || '0x0000000000000000000000000000000000000000'],
   });
 
-  // Get actual bettor count from contract
+  // Get participant counts
   const { data: bettorCount } = useReadContract({
     address: MARKET_MANAGER_ADDRESS,
     abi: [
@@ -348,7 +289,6 @@ function MarketCard({ marketId, isDarkMode, onBet, onSupport }: {
     args: [BigInt(marketId)],
   });
 
-  // Get supporter count from contract
   const { data: supporterCount } = useReadContract({
     address: MARKET_MANAGER_ADDRESS,
     abi: [
@@ -368,7 +308,7 @@ function MarketCard({ marketId, isDarkMode, onBet, onSupport }: {
   const { address: userAddress } = useAccount();
 
   // Check token allowance for ERC20 markets
-  const { data: tokenAllowance, refetch: refetchAllowance } = useReadContract({
+  const { data: tokenAllowance } = useReadContract({
     address: market?.paymentToken as `0x${string}`,
     abi: [
       {
@@ -389,57 +329,21 @@ function MarketCard({ marketId, isDarkMode, onBet, onSupport }: {
     ] : undefined,
   });
 
-  // Check if this is an ERC20 market (not native PEPU)
+  // Check if this is an ERC20 market
   const isERC20Market = market?.paymentToken && market.paymentToken !== '0x0000000000000000000000000000000000000000';
 
-  // Calculate total pool for display
-  const getTotalPool = () => {
-    const optionPools = [
-      option1Pool || BigInt(0),
-      option2Pool || BigInt(0),
-      option3Pool || BigInt(0),
-      option4Pool || BigInt(0)
-    ];
-    
-    const maxOptions = market ? Number(market.maxOptions) : 2;
-    const relevantPools = optionPools.slice(0, maxOptions);
-    
-    return relevantPools.reduce((sum, pool) => sum + pool, BigInt(0));
-  };
-
-  // Check if user needs to approve tokens for ERC20 markets
+  // Check approval needs
   const requiredAmount = betAmount ? parseEther(betAmount) : BigInt(0);
   const hasSufficientAllowance = tokenAllowance !== undefined && betAmount ? tokenAllowance >= requiredAmount : false;
   const needsTokenApproval = isERC20Market && betAmount && !hasSufficientAllowance;
 
-  // Debug logging to check pool data
-  console.log('Market ID:', marketId);
-  console.log('Option 1 Pool:', option1Pool);
-  console.log('Option 2 Pool:', option2Pool);
-  console.log('Option 3 Pool:', option3Pool);
-  console.log('Option 4 Pool:', option4Pool);
-  console.log('Max Options:', market ? Number(market.maxOptions) : 2);
-  console.log('Total Pool:', getTotalPool().toString());
-  console.log('Bettor Count:', bettorCount);
-  console.log('Supporter Count:', supporterCount);
-  console.log('Is ERC20 Market:', isERC20Market);
-  console.log('Token Allowance:', tokenAllowance?.toString());
-  console.log('Required Amount:', requiredAmount.toString());
-  console.log('Needs Approval:', needsTokenApproval);
-  
-  // Calculate total participants (bettors + supporters + creator)
-  const totalParticipants = (bettorCount ? Number(bettorCount) : 0) + 
-                           (supporterCount ? Number(supporterCount) : 0) + 1; // +1 for creator
-  console.log('Total Participants:', totalParticipants);
-
-  // Fetch IPFS metadata when market data is available
+  // Fetch IPFS metadata
   useEffect(() => {
     const marketData = market as any;
     if (market && marketData.ipfsHash && !marketMetadata && !loadingMetadata) {
       setLoadingMetadata(true);
       const fetchMetadata = async () => {
         try {
-          // Convert IPFS hash to gateway URL
           const ipfsHash = marketData.ipfsHash;
           const gatewayUrl = `https://gateway.lighthouse.storage/ipfs/${ipfsHash}`;
           
@@ -447,8 +351,6 @@ function MarketCard({ marketId, isDarkMode, onBet, onSupport }: {
           if (response.ok) {
             const metadata = await response.json();
             setMarketMetadata(metadata);
-          } else {
-            console.warn('Failed to fetch IPFS metadata:', response.status);
           }
         } catch (error) {
           console.error('Error fetching IPFS metadata:', error);
@@ -461,46 +363,31 @@ function MarketCard({ marketId, isDarkMode, onBet, onSupport }: {
     }
   }, [market, marketMetadata, loadingMetadata]);
 
-  if (!market || !marketInfo || !stats) {
+  if (!market) {
     return (
-      <div className={`rounded-lg border p-6 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+      <div className={`border rounded-lg p-4 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
         <div className="animate-pulse">
-          <div className={`h-4 bg-gray-300 rounded mb-2 ${isDarkMode ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
-          <div className={`h-3 bg-gray-300 rounded mb-4 ${isDarkMode ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div className={`h-8 bg-gray-300 rounded ${isDarkMode ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
-            <div className={`h-8 bg-gray-300 rounded ${isDarkMode ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
+          <div className={`h-4 rounded mb-2 ${isDarkMode ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
+          <div className={`h-3 rounded mb-3 ${isDarkMode ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
+          <div className="flex justify-between">
+            <div className={`h-6 w-20 rounded ${isDarkMode ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
+            <div className={`h-6 w-16 rounded ${isDarkMode ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
           </div>
         </div>
       </div>
     );
   }
 
-  // Market data is now properly typed
   const marketData = market;
-  const marketInfoData = marketInfo as any;
-  const statsData = stats as any;
-
-  // Debug logging to check data accuracy
-  console.log('Market Info Data:', marketInfoData);
-  console.log('Stats Data:', statsData);
-  console.log('Option 1 Pool:', option1Pool);
-  console.log('Option 2 Pool:', option2Pool);
-  console.log('Bettor Count:', bettorCount);
-  console.log('Total Pool:', marketInfoData?.totalPool);
-
   const timeLeft = Number(marketData.endTime) - Math.floor(Date.now() / 1000);
   const hoursLeft = Math.max(0, Math.floor(timeLeft / 3600));
   const minutesLeft = Math.max(0, Math.floor((timeLeft % 3600) / 60));
+  const canEndMarket = marketData.state === 0 && timeLeft <= 0;
 
-  const isBettingClosed = timeLeft <= 12 * 3600; // 12 hours before end
-
-  const formatTime = () => {
-    if (hoursLeft > 0) {
-      return `${hoursLeft}h ${minutesLeft}m`;
-    }
-    return `${minutesLeft}m`;
-  };
+  // Skip markets that are not active (ended, resolved, etc.)
+  if (marketData.state !== 0) {
+    return null; // Don't render non-active markets
+  }
 
   const getMarketTitle = () => {
     if (loadingMetadata) return 'Loading...';
@@ -509,230 +396,177 @@ function MarketCard({ marketId, isDarkMode, onBet, onSupport }: {
   };
 
   const getMarketDescription = () => {
-    if (loadingMetadata) return 'Loading market details...';
+    if (loadingMetadata) return 'Loading...';
     if (marketMetadata?.description) return marketMetadata.description;
-    return marketData.isMultiOption ? 'Multiple choice prediction market' : 'Yes/No prediction market';
+    return marketData.isMultiOption ? 'Multiple choice market' : 'Yes/No market';
   };
 
   const getMarketOptions = () => {
     if (marketMetadata?.options && Array.isArray(marketMetadata.options)) {
       return marketMetadata.options;
     }
-    return ['Yes', 'No']; // Default for linear markets
+    return ['Yes', 'No'];
   };
 
-  const getMarketCategory = () => {
-    if (marketMetadata?.categories && Array.isArray(marketMetadata.categories) && marketMetadata.categories.length > 0) {
-      return marketMetadata.categories[0]; // Show first category
-    }
-    return null;
-  };
-
-  // Calculate option percentages using real pool data for all options
-  const getOptionPercentage = (optionIndex: number) => {
-    const optionPools = [
-      option1Pool || BigInt(0),
-      option2Pool || BigInt(0),
-      option3Pool || BigInt(0),
-      option4Pool || BigInt(0)
-    ];
-    
-    // Only consider pools for options that actually exist (based on maxOptions)
+  // Calculate total pool
+  const getTotalPool = () => {
+    const optionPools = [option1Pool || BigInt(0), option2Pool || BigInt(0), option3Pool || BigInt(0), option4Pool || BigInt(0)];
     const maxOptions = market ? Number(market.maxOptions) : 2;
     const relevantPools = optionPools.slice(0, maxOptions);
-    
+    return relevantPools.reduce((sum, pool) => sum + pool, BigInt(0));
+  };
+
+  // Calculate option percentages
+  const getOptionPercentage = (optionIndex: number) => {
+    const optionPools = [option1Pool || BigInt(0), option2Pool || BigInt(0), option3Pool || BigInt(0), option4Pool || BigInt(0)];
+    const maxOptions = market ? Number(market.maxOptions) : 2;
+    const relevantPools = optionPools.slice(0, maxOptions);
     const totalPool = relevantPools.reduce((sum, pool) => sum + pool, BigInt(0));
     
     if (totalPool === BigInt(0)) return 0;
-    
     const optionPool = relevantPools[optionIndex] || BigInt(0);
     return Number((optionPool * BigInt(100)) / totalPool);
   };
 
-  // Approve ERC20 tokens for betting
-  const approveTokens = async () => {
-    if (!userAddress || !market?.paymentToken || !betAmount) return;
-    
-    setIsApproving(true);
-    try {
-      const approvalAmount = parseEther(betAmount);
-      
-      // Use the same writeContract hook from the parent component
-      // This will be passed down as a prop
-      console.log('Approving tokens:', {
-        token: market.paymentToken,
-        amount: approvalAmount.toString(),
-        spender: MARKET_MANAGER_ADDRESS
-      });
-      
-      // The actual approval will be handled by the parent component
-      // We just need to trigger it here
-      onBet(marketId, selectedOption, betAmount, true); // true indicates this is an approval
-      
-    } catch (error) {
-      console.error('Approval failed:', error);
-    } finally {
-      setIsApproving(false);
-    }
+  const totalParticipants = (bettorCount ? Number(bettorCount) : 0) + (supporterCount ? Number(supporterCount) : 0) + 1;
+
+  const formatTime = () => {
+    if (canEndMarket) return 'Ready to End';
+    if (hoursLeft > 24) return `${Math.floor(hoursLeft / 24)}d ${hoursLeft % 24}h`;
+    if (hoursLeft > 0) return `${hoursLeft}h ${minutesLeft}m`;
+    return `${minutesLeft}m`;
   };
 
   return (
-    <div className={`rounded-lg border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} transition-all duration-200 hover:shadow-md`}>
-      {/* Compact Header - Always Visible */}
-      <div 
-        className="p-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-        onClick={() => setIsExpanded(!isExpanded)}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex-1 min-w-0">
+    <div className={`border rounded-lg overflow-hidden transition-all duration-200 hover:shadow-md ${
+      isDarkMode ? 'bg-gray-800 border-gray-700 hover:shadow-gray-900/20' : 'bg-white border-gray-200 hover:shadow-gray-900/10'
+    }`}>
+      {/* Header */}
+      <div className="p-4">
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex-1 min-w-0 pr-4">
             <div className="flex items-center gap-2 mb-1">
-              <h3 className={`text-base font-semibold truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h3 className={`font-semibold text-base truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 {getMarketTitle()}
               </h3>
               <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                 marketData.isMultiOption 
-                  ? (isDarkMode ? 'bg-purple-900 text-purple-300' : 'bg-purple-100 text-purple-800')
+                  ? (isDarkMode ? 'bg-purple-900/50 text-purple-300' : 'bg-purple-100 text-purple-800')
                   : (isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-800')
               }`}>
                 {marketData.isMultiOption ? 'Multiple' : 'Yes/No'}
               </div>
             </div>
-            <p className={`text-xs truncate mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+            <p className={`text-sm line-clamp-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
               {getMarketDescription()}
             </p>
-            {getMarketCategory() && (
-              <div className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-                isDarkMode ? 'bg-blue-900 text-blue-300' : 'bg-blue-100 text-blue-800'
-              }`}>
-                {getMarketCategory()}
-              </div>
-            )}
           </div>
           
-          <div className="flex items-center gap-6 ml-4">
-            <div className="text-right">
-               <p className={`text-sm font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                 {getTotalPool() > BigInt(0) ? formatEther(getTotalPool()) : '0'} {tokenSymbol || marketInfoData?.tokenSymbol || 'PEPU'}
-               </p>
+          <div className="flex flex-col items-end text-right">
+            <div className={`text-base font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              {formatEther(getTotalPool())} {tokenSymbol || 'PEPU'}
             </div>
-            <div className="text-right">
-              <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                {totalParticipants} participants
-              </p>
+            <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
+              <div className="flex items-center gap-1">
+                <Users size={12} />
+                <span>{totalParticipants}</span>
             </div>
-            <div className="text-right">
-              <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                {formatTime()}
-              </p>
+              <div className="flex items-center gap-1">
+                <Clock size={12} />
+                <span className={canEndMarket ? 'text-orange-500' : ''}>{formatTime()}</span>
             </div>
-            <div className="text-right">
-              <p className={`text-xs font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                {new Date(Number(marketData.endTime) * 1000).toLocaleDateString()}
-              </p>
-            </div>
-            <ChevronDown className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''} ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
           </div>
         </div>
       </div>
 
-      {/* Expanded Content - Only Visible When Expanded */}
-      {isExpanded && (
-        <div className="border-t px-4 py-4 border-gray-200 dark:border-gray-700">
-          {/* Market Stats */}
-          <div className="grid grid-cols-3 gap-4 mb-3">
-            <div>
-              <p className={`text-xs font-medium uppercase tracking-wide ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Total Pool</p>
-              <p className={`text-sm font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                {getTotalPool() > BigInt(0) ? formatEther(getTotalPool()) : '0'} {tokenSymbol || marketInfoData?.tokenSymbol || 'PEPU'}
-              </p>
-            </div>
-            <div>
-              <p className={`text-xs font-medium uppercase tracking-wide ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Participants</p>
-              <p className={`text-sm font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                {totalParticipants}
-              </p>
-            </div>
-            <div>
-              <p className={`text-xs font-medium uppercase tracking-wide ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Time Left</p>
-              <p className={`text-sm font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                {formatTime()}
-              </p>
-            </div>
-          </div>
-
-          {/* Market Options with Percentages */}
-          <div className="mb-4">
-            <p className={`text-xs font-medium uppercase tracking-wide mb-3 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              Market Options
-            </p>
-            <div className="space-y-2">
+        {/* Market Options */}
+        <div className="space-y-2 mb-4">
               {getMarketOptions().map((option: string, index: number) => {
                 const percentage = getOptionPercentage(index);
                 const isSelected = selectedOption === index + 1;
                 
                 return (
-                  <label 
+              <div
                     key={index}
-                    className={`flex items-center gap-3 p-2 rounded border cursor-pointer transition-all ${
+                className={`flex items-center justify-between p-2 rounded border text-sm cursor-pointer transition-colors ${
                       isSelected 
-                        ? (isDarkMode ? 'border-green-500 bg-green-500/10' : 'border-green-500 bg-green-50')
-                        : (isDarkMode ? 'border-gray-600 hover:border-gray-500' : 'border-gray-200 hover:border-gray-300')
+                    ? (isDarkMode ? 'border-blue-500 bg-blue-500/10' : 'border-blue-500 bg-blue-50')
+                    : (isDarkMode ? 'border-gray-600 hover:bg-gray-700' : 'border-gray-200 hover:bg-gray-50')
                     }`}
+                onClick={() => !canEndMarket && setSelectedOption(index + 1)}
                   >
+                <div className="flex items-center gap-2 min-w-0 flex-1">
                     <input
                       type="radio"
-                      name="option"
+                    name={`option-${marketId}`}
                       value={index + 1}
                       checked={isSelected}
-                      onChange={(e) => setSelectedOption(Number(e.target.value))}
-                      className="w-4 h-4"
+                    onChange={() => !canEndMarket && setSelectedOption(index + 1)}
+                    disabled={canEndMarket}
+                    className="w-3 h-3 flex-shrink-0"
                     />
-                    <span className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  <span className={`font-medium truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                       {option}
                     </span>
-                    <span className={`text-sm font-semibold ml-auto ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                </div>
+                
+                <div className="flex items-center gap-2 text-xs">
+                  <span className={`font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                       {percentage}%
                     </span>
-                  </label>
+                </div>
+              </div>
                 );
               })}
-            </div>
           </div>
 
-          {/* Betting Input */}
-          {selectedOption > 0 && !isBettingClosed && (
-            <div className="mb-3">
+        {/* Actions */}
+        {canEndMarket ? (
+          // Only show end market button if market can be ended
+          <button
+            onClick={() => onEndMarket(marketId)}
+            className={`w-full py-2 px-3 rounded text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+              isDarkMode 
+                ? 'bg-orange-600 hover:bg-orange-700 text-white' 
+                : 'bg-orange-500 hover:bg-orange-600 text-white'
+            }`}
+          >
+            <Timer size={16} />
+            End Market
+          </button>
+        ) : (
+          // Show betting interface if market is still active
               <div className="flex gap-2">
                 <input
                   type="number"
                   value={betAmount}
                   onChange={(e) => setBetAmount(e.target.value)}
                   placeholder="Amount"
-                  className={`w-32 px-3 py-2 border rounded text-sm ${
+              className={`flex-1 px-2 py-1.5 border rounded text-sm ${
                     isDarkMode 
-                      ? 'bg-gray-700 border-gray-600 text-white' 
+                  ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
                       : 'bg-white border-gray-300 text-gray-900'
                   }`}
                 />
                 {needsTokenApproval ? (
                   <button
-                    onClick={approveTokens}
-                    disabled={isApproving || !betAmount}
-                    className={`px-4 py-2 rounded text-sm font-medium ${
-                      isApproving || !betAmount
+                onClick={() => onBet(marketId, selectedOption, betAmount, true)}
+                disabled={!betAmount}
+                className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                  !betAmount
                         ? 'bg-gray-400 cursor-not-allowed text-gray-200'
                         : isDarkMode 
                           ? 'bg-blue-600 hover:bg-blue-700 text-white' 
                           : 'bg-blue-500 hover:bg-blue-600 text-white'
                     }`}
                   >
-                    {isApproving ? 'Approving...' : 'Approve Tokens'}
+                Approve
                   </button>
                 ) : (
                   <button
                     onClick={() => onBet(marketId, selectedOption, betAmount)}
                     disabled={!betAmount}
-                    className={`px-4 py-2 rounded text-sm font-medium ${
+                className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
                       !betAmount
                         ? 'bg-gray-400 cursor-not-allowed text-gray-200'
                         : isDarkMode 
@@ -744,184 +578,15 @@ function MarketCard({ marketId, isDarkMode, onBet, onSupport }: {
                   </button>
                 )}
               </div>
+        )}
+
+        {/* Warning for token approval */}
               {needsTokenApproval && (
                 <p className="text-xs text-yellow-600 mt-1">
-                  ⚠️ You need to approve {tokenSymbol || 'tokens'} before betting
+            Approve {tokenSymbol || 'tokens'} before betting
                 </p>
               )}
             </div>
-          )}
-
-          {/* Market Details */}
-          <div className="grid grid-cols-2 gap-4 text-xs">
-            <div>
-              <span className={isDarkMode ? 'text-gray-400' : 'text-gray-500'}>Creator:</span>
-              <span className={`ml-1 font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                {marketData.creator ? `${marketData.creator.slice(0, 6)}...${marketData.creator.slice(-4)}` : 'Unknown'}
-              </span>
-            </div>
-            <div>
-              <span className={isDarkMode ? 'text-gray-400' : 'text-gray-500'}>Min Stake:</span>
-              <span className={`ml-1 font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                {marketData?.minStake ? formatEther(marketData.minStake) : '0'} {tokenSymbol || marketInfoData?.tokenSymbol || 'PEPU'}
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Bet Modal */}
-      {showBetModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className={`max-w-md w-full rounded-lg shadow-xl ${isDarkMode ? 'bg-gray-800' : 'bg-white'} p-6`}>
-            <h3 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-              Place Bet
-            </h3>
-            
-            <div className="space-y-4">
-              <div>
-                <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  Select Option
-                </label>
-                <div className="space-y-2">
-                  {marketData.isMultiOption ? (
-                    // Multiple options from IPFS
-                    getMarketOptions().map((option: string, index: number) => (
-                      <label key={index} className="flex items-center">
-                        <input
-                          type="radio"
-                          name="option"
-                          value={index + 1}
-                          checked={selectedOption === index + 1}
-                          onChange={(e) => setSelectedOption(Number(e.target.value))}
-                          className="mr-2"
-                        />
-                        <span className={isDarkMode ? 'text-gray-300' : 'text-gray-700'}>{option}</span>
-                      </label>
-                    ))
-                  ) : (
-                    <>
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          name="option"
-                          value={1}
-                          checked={selectedOption === 1}
-                          onChange={(e) => setSelectedOption(Number(e.target.value))}
-                          className="mr-2"
-                        />
-                        <span className={isDarkMode ? 'text-gray-300' : 'text-gray-700'}>Yes</span>
-                      </label>
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          name="option"
-                          value={2}
-                          checked={selectedOption === 2}
-                          onChange={(e) => setSelectedOption(Number(e.target.value))}
-                          className="mr-2"
-                        />
-                        <span className={isDarkMode ? 'text-gray-300' : 'text-gray-700'}>No</span>
-                      </label>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  Amount ({tokenSymbol || marketInfoData?.tokenSymbol || 'PEPU'})
-                </label>
-                <input
-                  type="number"
-                  value={betAmount}
-                  onChange={(e) => setBetAmount(e.target.value)}
-                  placeholder={`Min: ${marketData?.minStake ? formatEther(marketData.minStake) : '0'}`}
-                  className={`w-full px-3 py-2 border rounded-lg ${
-                    isDarkMode 
-                      ? 'bg-gray-700 border-gray-600 text-white' 
-                      : 'bg-white border-gray-300 text-gray-900'
-                  }`}
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowBetModal(false)}
-                  className={`flex-1 py-2 px-4 rounded-lg font-medium ${
-                    isDarkMode ? 'bg-gray-600 hover:bg-gray-700 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
-                  }`}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    onBet(marketId, selectedOption, betAmount);
-                    setShowBetModal(false);
-                  }}
-                  className={`flex-1 py-2 px-4 rounded-lg font-medium ${
-                    isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-white border border-gray-600' : 'bg-gray-900 hover:bg-gray-800 text-white'
-                  }`}
-                >
-                  Place Bet
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Support Modal */}
-      {showSupportModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className={`max-w-md w-full rounded-lg shadow-xl ${isDarkMode ? 'bg-gray-800' : 'bg-white'} p-6`}>
-            <h3 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-              Support Market
-            </h3>
-            
-            <div className="space-y-4">
-              <div>
-                <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  Amount ({tokenSymbol || marketInfoData?.tokenSymbol || 'PEPU'})
-                </label>
-                <input
-                  type="number"
-                  value={supportAmount}
-                  onChange={(e) => setSupportAmount(e.target.value)}
-                  placeholder="Enter amount"
-                  className={`w-full px-3 py-2 border rounded-lg ${
-                    isDarkMode 
-                      ? 'bg-gray-700 border-gray-600 text-white' 
-                      : 'bg-white border-gray-300 text-gray-900'
-                  }`}
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowSupportModal(false)}
-                  className={`flex-1 py-2 px-4 rounded-lg font-medium ${
-                    isDarkMode ? 'bg-gray-600 hover:bg-gray-700 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
-                  }`}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    onSupport(marketId, supportAmount);
-                    setShowSupportModal(false);
-                  }}
-                  className={`flex-1 py-2 px-4 rounded-lg font-medium ${
-                    isDarkMode ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-green-500 hover:bg-green-600 text-white'
-                  }`}
-                >
-                  Support
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -931,45 +596,76 @@ export default function HomePage() {
   const { isDarkMode, toggleTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [filterCategory, setFilterCategory] = useState('all');
-  const [filterStatus, setFilterStatus] = useState('active');
   const [sortBy, setSortBy] = useState('newest');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
   const { address, isConnected } = useAccount();
-  const chainId = useChainId();
-  const { data: balance } = useBalance({
-    address,
-    chainId: pepuMainnet.id,
-  });
 
   // Contract addresses
   const MARKET_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS as `0x${string}`;
-  const ANALYTICS_ADDRESS = process.env.NEXT_PUBLIC_P2P_ANALYTICS_ADDRESS as `0x${string}`;
 
-  const { writeContract, data: hash, isPending, error: writeError } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
-    hash,
-  });
+  const { writeContract } = useWriteContract();
 
-  // Fetch active markets
+  // Fetch only truly active markets (state = 0)
   const { data: activeMarketIds } = useReadContract({
     address: MARKET_MANAGER_ADDRESS,
     abi: MARKET_MANAGER_ABI,
     functionName: 'getActiveMarkets',
   });
 
-  // Fetch total markets count
-  const { data: totalMarkets } = useReadContract({
-    address: MARKET_MANAGER_ADDRESS,
-    abi: MARKET_MANAGER_ABI,
-    functionName: 'getNextMarketId',
-  });
+  // State to store market details for filtering
+  const [marketDetails, setMarketDetails] = useState<Map<number, any>>(new Map());
 
-  // No need for complex state management - each MarketCard handles its own data
+  // Fetch market details for proper filtering
+  useEffect(() => {
+    if (!Array.isArray(activeMarketIds)) return;
+    
+    const fetchMarketDetails = async () => {
+      const details = new Map();
+      
+      for (const marketId of activeMarketIds) {
+        try {
+          const provider = new ethers.JsonRpcProvider('https://rpc-pepu-v2-mainnet-0.t.conduit.xyz');
+          const contract = new ethers.Contract(MARKET_MANAGER_ADDRESS, MARKET_MANAGER_ABI, provider);
+          
+          // Get market data
+          const market = await contract.getMarket(marketId);
+          
+          const marketDetails = {
+            id: Number(marketId),
+            state: Number(market.state),
+            endTime: Number(market.endTime),
+            isMultiOption: market.isMultiOption,
+          };
+          
+          details.set(Number(marketId), marketDetails);
+          
+        } catch (error) {
+          console.error(`Error fetching market ${marketId}:`, error);
+        }
+      }
+      
+      setMarketDetails(details);
+    };
+    
+    fetchMarketDetails();
+  }, [activeMarketIds, MARKET_MANAGER_ADDRESS]);
+
+  // Filter markets to only show truly active ones (state 0)
+  const filteredActiveMarkets = useMemo(() => {
+    if (!Array.isArray(activeMarketIds)) return [];
+    
+    return [...activeMarketIds].map(id => Number(id)).filter(marketId => {
+      const details = marketDetails.get(marketId);
+      if (!details) return true; // Include if no details available yet
+      
+      // Only include markets with state 0 (active)
+      return details.state === 0;
+    });
+  }, [activeMarketIds, marketDetails]);
 
   const handleBet = async (marketId: number, option: number, amount: string, isApproval = false) => {
     if (!isConnected || !address) {
@@ -1028,6 +724,7 @@ export default function HomePage() {
           functionName: 'placeBetWithToken',
           args: [BigInt(marketId), BigInt(option), betAmount],
         });
+        setSuccess('Bet placed successfully!');
       } else {
         // Handle native PEPU betting
         await writeContract({
@@ -1037,223 +734,43 @@ export default function HomePage() {
           args: [BigInt(marketId), BigInt(option)],
           value: betAmount,
         });
+        setSuccess('Bet placed successfully!');
       }
     } catch (err: any) {
       setError(err.message || 'Failed to place bet');
     }
   };
 
-  const handleSupport = async (marketId: number, amount: string) => {
+  const handleEndMarket = async (marketId: number) => {
     if (!isConnected || !address) {
       setError('Please connect your wallet');
       return;
     }
 
     try {
-      const supportAmount = parseEther(amount);
-      
       await writeContract({
         address: MARKET_MANAGER_ADDRESS,
         abi: MARKET_MANAGER_ABI,
-        functionName: 'supportMarket',
-        args: [BigInt(marketId), supportAmount],
+        functionName: 'endMarket',
+        args: [BigInt(marketId)],
       });
+      setSuccess(`Market #${marketId} ended successfully! Resolution period has started.`);
     } catch (err: any) {
-      setError(err.message || 'Failed to support market');
+      setError(err.message || 'Failed to end market');
     }
   };
 
-  // State to store market details for filtering
-  const [marketDetails, setMarketDetails] = useState<Map<number, any>>(new Map());
-
-  // Fetch market details for filtering - simplified approach
+  // Clear success/error messages after 5 seconds
   useEffect(() => {
-    if (!Array.isArray(activeMarketIds)) return;
-    
-    const fetchMarketDetails = async () => {
-      const details = new Map();
-      
-      for (const marketId of activeMarketIds) {
-        try {
-          // Use direct contract calls instead of API
-          const provider = new ethers.JsonRpcProvider('https://rpc-pepu-v2-mainnet-0.t.conduit.xyz');
-          const contract = new ethers.Contract(MARKET_MANAGER_ADDRESS, MARKET_MANAGER_ABI, provider);
-          
-          // Get market data
-          const market = await contract.getMarket(marketId);
-          
-          // Fetch IPFS metadata
-          let metadata = null;
-          if (market.ipfsHash) {
-            try {
-              const ipfsUrl = `https://gateway.lighthouse.storage/ipfs/${market.ipfsHash}`;
-              const metadataResponse = await fetch(ipfsUrl);
-              if (metadataResponse.ok) {
-                metadata = await metadataResponse.json();
-              }
-            } catch (error) {
-              console.warn(`Failed to fetch IPFS metadata for market ${marketId}:`, error);
-            }
-          }
-          
-          // Get category from metadata, fallback to 'uncategorized'
-          const category = metadata?.categories?.[0] || 'uncategorized';
-          
-          // Get market info for volume data
-          let totalPool = 0;
-          let bettorCount = 0;
-          try {
-            const marketInfo = await contract.getMarketInfo(marketId);
-            totalPool = Number(marketInfo.totalPool);
-            bettorCount = Number(marketInfo.bettorCount);
-          } catch (error) {
-            console.warn(`Failed to fetch market info for market ${marketId}:`, error);
-          }
-          
-          const marketDetails = {
-            id: Number(marketId),
-            isMultiOption: market.isMultiOption,
-            category: category,
-            startTime: Number(market.startTime) * 1000, // Convert to milliseconds
-            endTime: Number(market.endTime) * 1000, // Convert to milliseconds
-            totalPool: totalPool,
-            bettorCount: bettorCount,
-          };
-          
-          console.log(`Market ${marketId} details:`, marketDetails);
-          details.set(Number(marketId), marketDetails);
-          
-        } catch (error) {
-          console.error(`Error fetching market ${marketId}:`, error);
-        }
-      }
-      
-      console.log('All market details:', details);
-      setMarketDetails(details);
-    };
-    
-    fetchMarketDetails();
-  }, [activeMarketIds, MARKET_MANAGER_ADDRESS]);
-
-  // Filter and sort markets based on current filter settings
-  const filteredMarketIds = useMemo(() => {
-    if (!Array.isArray(activeMarketIds)) return [];
-    
-    console.log('🔄 Filtering markets...', {
-      totalMarkets: activeMarketIds.length,
-      filterCategory,
-      filterType,
-      filterStatus,
-      marketDetailsSize: marketDetails.size
-    });
-    
-    let filtered = [...activeMarketIds].map(id => Number(id));
-    
-    // If no market details loaded yet, return all markets
-    if (marketDetails.size === 0) {
-      console.log('⚠️ No market details loaded yet, showing all markets');
-      return filtered;
-    }
-    
-    // Apply filters - all filters should work together (AND logic)
-    filtered = filtered.filter(marketId => {
-      const details = marketDetails.get(marketId);
-      if (!details) {
-        console.log(`⚠️ No details for market ${marketId}, including it`);
-        return true; // Include if no details available
-      }
-      
-      let passesTypeFilter = true;
-      let passesCategoryFilter = true;
-      let passesStatusFilter = true;
-      
-      // Filter by type
-      if (filterType === 'yesno' && details.isMultiOption) {
-        passesTypeFilter = false;
-      }
-      if (filterType === 'multiple' && !details.isMultiOption) {
-        passesTypeFilter = false;
-      }
-      
-      // Filter by category - handle case-insensitive matching
-      if (filterCategory !== 'all') {
-        const marketCategory = details.category?.toLowerCase() || 'uncategorized';
-        const filterCategoryLower = filterCategory.toLowerCase();
-        
-        if (marketCategory !== filterCategoryLower) {
-          passesCategoryFilter = false;
-        }
-      }
-      
-      // Filter by status
-      const now = Date.now();
-      const hoursUntilEnd = (details.endTime - now) / (1000 * 60 * 60);
-      const daysSinceStart = (now - details.startTime) / (1000 * 60 * 60 * 24);
-      
-      if (filterStatus === 'ending-soon' && hoursUntilEnd > 24) {
-        passesStatusFilter = false;
-      }
-      if (filterStatus === 'high-volume' && details.totalPool < 5000) {
-        passesStatusFilter = false;
-      }
-      if (filterStatus === 'new' && daysSinceStart > 7) {
-        passesStatusFilter = false;
-      }
-      
-      const passesAllFilters = passesTypeFilter && passesCategoryFilter && passesStatusFilter;
-      
-      console.log(`Market ${marketId}:`, {
-        category: details.category,
-        isMultiOption: details.isMultiOption,
-        totalPool: details.totalPool,
-        passesType: passesTypeFilter,
-        passesCategory: passesCategoryFilter,
-        passesStatus: passesStatusFilter,
-        overall: passesAllFilters
-      });
-      
-      return passesAllFilters;
-    });
-    
-    console.log(`✅ After filtering: ${filtered.length} markets remain`);
-    
-    // Apply sorting
-    filtered.sort((a, b) => {
-      const detailsA = marketDetails.get(a);
-      const detailsB = marketDetails.get(b);
-      
-      if (!detailsA || !detailsB) return 0;
-      
-      switch (sortBy) {
-        case 'newest':
-          return detailsB.startTime - detailsA.startTime;
-        case 'oldest':
-          return detailsA.startTime - detailsB.startTime;
-        case 'volume':
-          return detailsB.totalPool - detailsA.totalPool;
-        case 'participants':
-          return detailsB.bettorCount - detailsA.bettorCount;
-        case 'ending':
-          return detailsA.endTime - detailsB.endTime;
-        default:
-          return 0;
-      }
-    });
-    
-    return filtered;
-  }, [activeMarketIds, marketDetails, filterType, filterCategory, filterStatus, sortBy]);
-
-  // Clear success message after 5 seconds
-  useEffect(() => {
-    if (success) {
+    if (success || error) {
       const timer = setTimeout(() => {
         setSuccess('');
+        setError('');
       }, 5000);
       return () => clearTimeout(timer);
     }
-  }, [success]);
+  }, [success, error]);
 
-  const onMenuClick = () => setSidebarOpen(!sidebarOpen);
   const onSidebarClose = () => setSidebarOpen(false);
   const onToggleCollapse = () => setSidebarCollapsed(!sidebarCollapsed);
 
@@ -1274,15 +791,22 @@ export default function HomePage() {
         <header className={`border-b ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
           <div className="px-6 py-4">
             <div className="flex items-center justify-between">
+              <div>
+                <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  Active Markets
+                </h1>
+                <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  Place bets on live prediction markets
+                </p>
+              </div>
+
               {/* Filter Controls */}
-              <div className="flex flex-wrap items-center gap-3">
-                {/* Market Type Filter */}
-                <div className="flex items-center gap-2">
-                  <Filter className={`w-4 h-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
+              <div className="flex items-center gap-4">
+                {/* Type Filter */}
                   <select
                     value={filterType}
                     onChange={(e) => setFilterType(e.target.value)}
-                    className={`px-3 py-2 border rounded-lg text-sm ${
+                  className={`px-3 py-1.5 border rounded text-sm ${
                       isDarkMode 
                         ? 'bg-gray-800 border-gray-700 text-white' 
                         : 'bg-white border-gray-300 text-gray-900'
@@ -1292,79 +816,42 @@ export default function HomePage() {
                     <option value="yesno">Yes/No</option>
                     <option value="multiple">Multiple Choice</option>
                   </select>
-                </div>
 
-                {/* Category Filter */}
-                <div className="flex items-center gap-2">
-                  <Target className={`w-4 h-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
-                  <select
-                    value={filterCategory}
-                    onChange={(e) => setFilterCategory(e.target.value)}
-                    className={`px-3 py-2 border rounded-lg text-sm ${
-                      isDarkMode 
-                        ? 'bg-gray-800 border-gray-700 text-white' 
-                        : 'bg-white border-gray-300 text-gray-900'
-                    }`}
-                  >
-                    <option value="all">All Categories</option>
-                    <option value="crypto">Crypto</option>
-                    <option value="sports">Sports</option>
-                    <option value="politics">Politics</option>
-                    <option value="entertainment">Entertainment</option>
-                    <option value="technology">Technology</option>
-                    <option value="business">Business</option>
-                  </select>
-                </div>
-
-                {/* Status Filter */}
-                <div className="flex items-center gap-2">
-                  <Activity className={`w-4 h-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
-                  <select
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value)}
-                    className={`px-3 py-2 border rounded-lg text-sm ${
-                      isDarkMode 
-                        ? 'bg-gray-800 border-gray-700 text-white' 
-                        : 'bg-white border-gray-300 text-gray-900'
-                    }`}
-                  >
-                    <option value="active">Active</option>
-                    <option value="ending-soon">Ending Soon</option>
-                    <option value="high-volume">High Volume</option>
-                    <option value="new">New Markets</option>
-                  </select>
-                </div>
-
-                {/* Sort Options */}
-                <div className="flex items-center gap-2">
-                  <TrendingUp className={`w-4 h-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
+                {/* Sort */}
                   <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value)}
-                    className={`px-3 py-2 border rounded-lg text-sm ${
+                  className={`px-3 py-1.5 border rounded text-sm ${
                       isDarkMode 
                         ? 'bg-gray-800 border-gray-700 text-white' 
                         : 'bg-white border-gray-300 text-gray-900'
                     }`}
                   >
-                    <option value="newest">Newest First</option>
-                    <option value="oldest">Oldest First</option>
+                  <option value="newest">Newest</option>
                     <option value="volume">Volume</option>
-                    <option value="participants">Most Participants</option>
                     <option value="ending">Ending Soon</option>
                   </select>
-                </div>
-              </div>
 
-              {/* Theme and Connect */}
-              <div className="flex items-center gap-4">
                 <button
                   onClick={toggleTheme}
-                  className={`p-2 rounded-lg ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
+                  className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
                 >
                   {isDarkMode ? <Sun className="w-5 h-5 text-yellow-400" /> : <Moon className="w-5 h-5 text-gray-600" />}
                 </button>
+                
+                {/* Wallet Connection */}
+                {isConnected ? (
+                  <div className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium ${
+                    isDarkMode 
+                      ? 'bg-emerald-600/10 text-emerald-400 border border-emerald-600/20' 
+                      : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  }`}>
+                    <Wallet size={14} />
+                    <span className="font-mono">{address?.slice(0, 6)}...{address?.slice(-4)}</span>
+                  </div>
+                ) : (
                 <ConnectButton />
+                )}
               </div>
             </div>
           </div>
@@ -1372,92 +859,90 @@ export default function HomePage() {
 
         {/* Main Content */}
         <main className="p-6">
-          {/* Simple Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+          {/* Alert Messages */}
+          {error && (
+            <div className={`mb-6 p-4 rounded-lg border flex items-center gap-3 ${
+              isDarkMode ? 'bg-red-900/20 border-red-800 text-red-300' : 'bg-red-50 border-red-200 text-red-800'
+            }`}>
+              <AlertTriangle size={20} className="flex-shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {success && (
+            <div className={`mb-6 p-4 rounded-lg border flex items-center gap-3 ${
+              isDarkMode ? 'bg-green-900/20 border-green-800 text-green-300' : 'bg-green-50 border-green-200 text-green-800'
+            }`}>
+              <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
+                <div className="w-2 h-2 bg-white rounded-full"></div>
+              </div>
+              <span>{success}</span>
+            </div>
+          )}
+
+           {/* Market Stats */}
+           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className={`rounded-lg border p-4 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className={`text-xs font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Active Markets</p>
-                  <p className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                    {Array.isArray(activeMarketIds) ? activeMarketIds.length : 0}
+                   <p className={`text-sm font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Active Markets</p>
+                   <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                     {filteredActiveMarkets.length}
                   </p>
                 </div>
-                <BarChart3 className={`w-5 h-5 ${isDarkMode ? 'text-blue-400' : 'text-blue-500'}`} />
+                 <BarChart3 className={`w-8 h-8 ${isDarkMode ? 'text-blue-400' : 'text-blue-500'}`} />
               </div>
             </div>
 
             <div className={`rounded-lg border p-4 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className={`text-xs font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Markets</p>
-                  <p className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                    {totalMarkets ? Number(totalMarkets) - 1 : 0}
-                  </p>
-                </div>
-                <TrendingUp className={`w-5 h-5 ${isDarkMode ? 'text-green-400' : 'text-green-500'}`} />
-              </div>
-            </div>
-
-            <div className={`rounded-lg border p-4 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className={`text-xs font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Network</p>
-                  <p className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  <p className={`text-sm font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Network</p>
+                  <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                     Pepe V2
                   </p>
                 </div>
-                <DollarSign className={`w-5 h-5 ${isDarkMode ? 'text-purple-400' : 'text-purple-500'}`} />
+                <DollarSign className={`w-8 h-8 ${isDarkMode ? 'text-green-400' : 'text-green-500'}`} />
+              </div>
+            </div>
+
+            <div className={`rounded-lg border p-4 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className={`text-sm font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Status</p>
+                  <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                    Live
+                  </p>
+                </div>
+                <Activity className={`w-8 h-8 ${isDarkMode ? 'text-purple-400' : 'text-purple-500'}`} />
               </div>
             </div>
           </div>
 
-          {/* Error Message */}
-          {error && (
-            <div className={`mb-6 p-4 rounded-lg ${isDarkMode ? 'bg-red-900 text-red-200' : 'bg-red-100 text-red-800'}`}>
-              {error}
-            </div>
-          )}
-
-          {/* Success Message */}
-          {success && (
-            <div className={`mb-6 p-4 rounded-lg ${isDarkMode ? 'bg-green-900 text-green-200' : 'bg-green-100 text-green-800'}`}>
-              {success}
-            </div>
-          )}
-
-          {/* Markets List */}
+          {/* Markets Grid */}
           {!Array.isArray(activeMarketIds) || activeMarketIds.length === 0 ? (
-            <div className={`text-center py-12 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-              <BarChart3 className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p className="text-lg font-medium">No active markets</p>
-              <p className="text-sm">Create a market to get started</p>
+            <div className="text-center py-16">
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
+                isDarkMode ? 'bg-gray-800' : 'bg-gray-100'
+              }`}>
+                <BarChart3 className={`w-8 h-8 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
             </div>
-          ) : filteredMarketIds.length === 0 ? (
-            <div className={`text-center py-12 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-              <Filter className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p className="text-lg font-medium">No markets found</p>
-              <p className="text-sm">
-                {filterCategory !== 'all' 
-                  ? `No markets found in the "${filterCategory}" category` 
-                  : 'Try adjusting your filters'
-                }
+              <h3 className={`text-lg font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                No Active Markets
+              </h3>
+              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                Be the first to create a prediction market!
               </p>
-              {filterCategory === 'entertainment' || filterCategory === 'sports' ? (
-                <p className="text-xs mt-2 opacity-75">
-                  Note: Currently all markets are categorized as "Crypto". 
-                  Create markets with different categories to test filtering.
-                </p>
-              ) : null}
             </div>
           ) : (
-            <div className="space-y-4">
-              {filteredMarketIds.map((marketId: number) => (
-                <MarketCard
+            <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+              {filteredActiveMarkets.map((marketId: number) => (
+                <CleanMarketCard
                   key={marketId}
                   marketId={marketId}
                   isDarkMode={isDarkMode}
                   onBet={handleBet}
-                  onSupport={handleSupport}
+                  onEndMarket={handleEndMarket}
                 />
               ))}
             </div>

@@ -34,6 +34,56 @@ npm run get-markets-simple
 - Uses public RPC endpoint
 - Requires only ethers.js dependency
 
+### 3. `manage-verifiers.js`
+A comprehensive script to manage verifiers in the P2P Verification contract.
+
+**Usage:**
+
+**Quick Commands (using npm scripts):**
+```bash
+# List all verifiers
+npm run verifiers:list
+
+# Get verifier count
+npm run verifiers:count
+
+# Get maximum verifiers allowed
+npm run verifiers:max
+
+# Show usage examples
+npm run verifiers:examples
+```
+
+**Full Commands (using hardhat directly):**
+```bash
+# List all verifiers
+npx hardhat run scripts/manage-verifiers.js --network <network> list
+
+# Add a verifier
+npx hardhat run scripts/manage-verifiers.js --network <network> add <address>
+
+# Remove a verifier
+npx hardhat run scripts/manage-verifiers.js --network <network> remove <address>
+
+# Check if address is a verifier
+npx hardhat run scripts/manage-verifiers.js --network <network> check <address>
+
+# Get verifier count
+npx hardhat run scripts/manage-verifiers.js --network <network> count
+
+# Get maximum verifiers allowed
+npx hardhat run scripts/manage-verifiers.js --network <network> max
+```
+
+**Features:**
+- List all current verifiers with statistics
+- Add new verifiers (up to maximum limit)
+- Remove existing verifiers
+- Check verifier status for any address
+- View verifier count and maximum limits
+- Comprehensive error handling and validation
+- Transaction confirmation and verification
+
 ## Prerequisites
 
 1. **Environment Variables**: Make sure you have a `.env` file with the required contract addresses:

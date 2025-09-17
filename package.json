@@ -9,7 +9,11 @@
     "lint": "next lint",
     "get-markets": "node scripts/get-markets.js",
     "get-markets-simple": "node scripts/get-markets-simple.js",
-    "get-markets-fixed": "node scripts/get-markets-fixed.js"
+    "get-markets-fixed": "node scripts/get-markets-fixed.js",
+    "verifiers:list": "npx hardhat run scripts/manage-verifiers.js --network pepu list",
+    "verifiers:count": "npx hardhat run scripts/manage-verifiers.js --network pepu count",
+    "verifiers:max": "npx hardhat run scripts/manage-verifiers.js --network pepu max",
+    "verifiers:examples": "node scripts/verifier-examples.js"
   },
   "dependencies": {
     "@lighthouse-web3/sdk": "^0.4.1",
