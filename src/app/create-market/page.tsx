@@ -23,6 +23,7 @@ import { useAccount, useBalance, useChainId, useDisconnect, useReadContract, use
 import { pepuMainnet } from '../chains';
 import { useTheme } from '../context/ThemeContext';
 import { parseEther, formatEther } from 'viem';
+import lighthouse from '@lighthouse-web3/sdk';
 
 export default function CreateMarketPage() {
   const { isDarkMode, toggleTheme } = useTheme();
@@ -454,41 +455,32 @@ export default function CreateMarketPage() {
     setSuccess('');
 
     try {
-      // Step 1: Upload market data to IPFS
+      // Step 1: Upload market data to IPFS directly from client
       setSuccess('Uploading market data to IPFS...');
-      const ipfsResponse = await fetch('/api/upload-ipfs', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          title,
-          description,
-          categories: selectedCategories,
-          outcomeType,
-          multipleOptions: outcomeType === 'multiple' ? multipleOptions : ['Yes', 'No']
-        }),
-      });
+      
+      const marketData = {
+        title,
+        description,
+        categories: selectedCategories || [],
+        outcomeType,
+        options: outcomeType === 'multiple' ? multipleOptions : ['Yes', 'No'],
+        createdAt: new Date().toISOString(),
+        version: '1.0'
+      };
 
-      if (!ipfsResponse.ok) {
-        let errorMessage = 'Failed to upload to IPFS';
-        try {
-          const errorData = await ipfsResponse.json();
-          errorMessage = errorData.error || errorMessage;
-        } catch (jsonError) {
-          errorMessage = `HTTP ${ipfsResponse.status}: ${ipfsResponse.statusText}`;
-        }
-        throw new Error(errorMessage);
+      const apiKey = '91729f56.8c58e79bdc194453b56d2b826d2daefb';
+      
+      const uploadResponse = await lighthouse.uploadText(
+        JSON.stringify(marketData),
+        apiKey
+      );
+
+      if (!uploadResponse.data || !uploadResponse.data.Hash) {
+        throw new Error('Failed to upload to IPFS - no hash returned');
       }
 
-      let responseData;
-      try {
-        responseData = await ipfsResponse.json();
-      } catch (jsonError) {
-        throw new Error('Invalid response from IPFS upload service');
-      }
-
-      const { ipfsHash, gatewayUrl } = responseData;
+      const ipfsHash = uploadResponse.data.Hash;
+      const gatewayUrl = `https://gateway.lighthouse.storage/ipfs/${ipfsHash}`;
       setSuccess(`Market data uploaded! IPFS Link: ${gatewayUrl} Creating market...`);
 
       // Step 2: Calculate duration in hours (minimum 5 minutes)
