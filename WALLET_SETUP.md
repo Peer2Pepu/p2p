@@ -12,7 +12,7 @@ This project now integrates with real wallets using RainbowKit and Wagmi for the
 
 ## Feature
 
-### 1 Wallet Connection
+## 1 Wallet Connection
 - Click the "Connect" button in the header to connect your wallet
 - Supports MetaMask, WalletConnect, and other popular wallets
 - Shows wallet address and connection status
