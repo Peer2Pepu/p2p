@@ -172,6 +172,20 @@ const MARKET_MANAGER_ABI = [
     "type": "function"
   },
   {
+    "inputs": [{"name": "marketId", "type": "uint256"}],
+    "name": "getBettorCount",
+    "outputs": [{"name": "", "type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "marketId", "type": "uint256"}],
+    "name": "getSupporterCount",
+    "outputs": [{"name": "", "type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "user", "type": "address"}],
     "name": "userHasBet",
     "outputs": [{"name": "", "type": "bool"}],
@@ -686,6 +700,9 @@ export default function HomePage() {
   useEffect(() => {
     if (!Array.isArray(activeMarketIds)) return;
     
+    console.log('Fetching analytics for markets:', activeMarketIds);
+    console.log('MARKET_MANAGER_ADDRESS:', MARKET_MANAGER_ADDRESS);
+    
     const fetchMarketDetailsAndAnalytics = async () => {
       const details = new Map();
       let totalParticipantsCount = 0;
@@ -693,6 +710,7 @@ export default function HomePage() {
       
       for (const marketId of activeMarketIds) {
         try {
+          console.log(`Fetching data for market ${marketId}`);
           const provider = new ethers.JsonRpcProvider('https://rpc-pepu-v2-mainnet-0.t.conduit.xyz');
           const contract = new ethers.Contract(MARKET_MANAGER_ADDRESS, MARKET_MANAGER_ABI, provider);
           
@@ -703,6 +721,7 @@ export default function HomePage() {
           const bettorCount = await contract.getBettorCount(marketId);
           const supporterCount = await contract.getSupporterCount(marketId);
           const participants = Number(bettorCount) + Number(supporterCount);
+          console.log(`Market ${marketId}: bettors=${bettorCount}, supporters=${supporterCount}, total=${participants}`);
           totalParticipantsCount += participants;
           
           // Get option pools for volume calculation
