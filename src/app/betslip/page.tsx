@@ -125,7 +125,7 @@ function BetslipCard({ marketId, userAddress, isDarkMode, onClaimableUpdate }: {
   isDarkMode: boolean;
   onClaimableUpdate: (marketId: number, canClaim: boolean) => void;
 }) {
-  const MARKET_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS as `0x${string}`;
+  const MARKET_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS as `0x${string}`;
   const TREASURY_ADDRESS = process.env.NEXT_PUBLIC_P2P_TREASURY_ADDRESS as `0x${string}`;
 
   // Claim functionality
@@ -420,7 +420,7 @@ export default function BetslipPage() {
 
   const { address, isConnected } = useAccount();
 
-  const MARKET_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS as `0x${string}`;
+  const MARKET_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS as `0x${string}`;
   const ANALYTICS_ADDRESS = process.env.NEXT_PUBLIC_P2P_ANALYTICS_ADDRESS as `0x${string}`;
 
   // Fetch user's resolved markets

@@ -50,7 +50,7 @@ export default function CreateMarketPage() {
   const [success, setSuccess] = useState('');
 
   // Contract addresses from environment
-  const P2P_MARKETMANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS as `0x${string}`;
+  const P2P_MARKETMANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS as `0x${string}`;
 
   // Get supported tokens from contract
   const { data: supportedTokensData } = useReadContract({
@@ -83,6 +83,9 @@ export default function CreateMarketPage() {
   
   // Debug log to check if P2P token address is loaded
   console.log('P2P_TOKEN_ADDRESS from env:', P2P_TOKEN_ADDRESS);
+  console.log('P2P_MARKETMANAGER_ADDRESS:', P2P_MARKETMANAGER_ADDRESS);
+  console.log('supportedTokensData:', supportedTokensData);
+  console.log('tokens array:', tokens);
 
   // Helper function to format numbers with commas
   const formatNumber = (value: string | number) => {

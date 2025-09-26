@@ -195,7 +195,7 @@ function CleanMarketCard({ marketId, isDarkMode, onBet, onEndMarket, userAddress
   onEndMarket: (marketId: number) => void;
   userAddress?: `0x${string}`;
 }) {
-  const MARKET_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS as `0x${string}`;
+  const MARKET_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS as `0x${string}`;
 
   const [betAmount, setBetAmount] = useState('');
   const [selectedOption, setSelectedOption] = useState(1);
@@ -663,7 +663,7 @@ export default function HomePage() {
   const { address, isConnected } = useAccount();
 
   // Contract addresses
-  const MARKET_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS as `0x${string}`;
+  const MARKET_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS as `0x${string}`;
   const ANALYTICS_ADDRESS = process.env.NEXT_PUBLIC_P2P_ANALYTICS_ADDRESS as `0x${string}`;
 
   const { writeContract } = useWriteContract();

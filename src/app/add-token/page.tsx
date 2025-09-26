@@ -35,7 +35,7 @@ export default function AddTokenPage() {
   const [success, setSuccess] = useState('');
 
   // Contract addresses from environment
-  const P2P_MARKETMANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS as `0x${string}`;
+  const P2P_MARKETMANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS as `0x${string}`;
 
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
