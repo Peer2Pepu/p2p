@@ -186,6 +186,13 @@ const MARKET_MANAGER_ABI = [
     "type": "function"
   },
   {
+    "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "option", "type": "uint256"}, {"name": "token", "type": "address"}],
+    "name": "getOptionPool",
+    "outputs": [{"name": "", "type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "user", "type": "address"}],
     "name": "userHasBet",
     "outputs": [{"name": "", "type": "bool"}],
