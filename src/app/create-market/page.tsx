@@ -227,8 +227,8 @@ export default function CreateMarketPage() {
     "Finance", "Entertainment", "Science", "Gaming"
   ];
 
-  // Check if user has minimum P2P token balance (100K tokens)
-  const hasMinimumP2PBalance = p2pBalance && p2pBalance.value >= parseEther("100000");
+  // Check if user has minimum P2P token balance (100 tokens)
+  const hasMinimumP2PBalance = p2pBalance && p2pBalance.value >= parseEther("100");
 
   // Refetch allowance when approval is confirmed
   useEffect(() => {
@@ -391,7 +391,7 @@ export default function CreateMarketPage() {
     }
 
     if (!hasMinimumP2PBalance) {
-      setError('You need at least 100,000 P2P tokens to create a market');
+      setError('You need at least 100 P2P tokens to create a market');
       return;
     }
 
@@ -772,7 +772,7 @@ export default function CreateMarketPage() {
                   <p className="text-sm mt-1">
                     {hasMinimumP2PBalance 
                       ? 'You can create markets!' 
-                      : 'You need at least 1,000,000 P2P tokens to create markets'
+                      : 'You need at least 100 P2P tokens to create markets'
                     }
                   </p>
                 </div>
@@ -1233,7 +1233,7 @@ export default function CreateMarketPage() {
                       <p className="text-sm text-gray-500 mt-2 text-center">Please connect your wallet to create a market</p>
                     )}
                     {isConnected && !hasMinimumP2PBalance && (
-                      <p className="text-sm text-red-500 mt-2 text-center">You need at least 100,000 P2P tokens to create markets</p>
+                      <p className="text-sm text-red-500 mt-2 text-center">You need at least 100 P2P tokens to create markets</p>
                     )}
                     <p className="text-xs text-gray-500 mt-2 text-center">
                       Market creation fee: 1 PEPU (always paid in PEPU)
