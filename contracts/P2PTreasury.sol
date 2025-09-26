@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+// ✅ COPY THIS FILE - Fixed PoolVault with platform pool tracking and proper partner allocation
+
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -23,6 +25,9 @@ contract PoolVault is Ownable {
     // MarketManager address (can be changed)
     address public marketManager;
     
+    // Platform pool tracking - separate for each token
+    mapping(address => uint256) public platformPools; // token => platform pool amount
+    
     // Market fund tracking
     mapping(uint256 => mapping(address => uint256)) public marketPools; // marketId => token => total amount
     mapping(uint256 => mapping(uint256 => mapping(address => uint256))) public optionPools; // marketId => option => token => amount
@@ -36,6 +41,8 @@ contract PoolVault is Ownable {
     // Events
     event PartnerUpdated(address indexed oldPartner, address indexed newPartner);
     event FeesDistributed(address indexed token, uint256 platformAmount, uint256 partnerAmount);
+    event PlatformPoolUpdated(address indexed token, uint256 amount, string reason);
+    event PlatformFundsWithdrawn(address indexed token, uint256 amount, address indexed to);
     event FundsWithdrawn(address indexed token, uint256 amount, address indexed to);
     event ContractAuthorized(address indexed contractAddr);
     event ContractDeauthorized(address indexed contractAddr);
@@ -96,7 +103,7 @@ contract PoolVault is Ownable {
     }
 
     /**
-     * @dev Distribute fees to platform and partner
+     * @dev Distribute fees to platform and partner (for normal fee distribution)
      * @param token ERC20 token address (address(0) for native ETH)
      * @param totalAmount Total amount to distribute fees from
      */
@@ -115,7 +122,10 @@ contract PoolVault is Ownable {
                 require(success, "Treasury: ETH transfer to partner failed");
             }
             
-            // Platform keeps the remaining platform fee
+            // Add platform fee to platform pool
+            platformPools[token] += (platformFee - partnerFee);
+            emit PlatformPoolUpdated(token, (platformFee - partnerFee), "Regular fee distribution");
+            
             emit FeesDistributed(token, platformFee, partnerFee);
         } else {
             // ERC20 token
@@ -126,13 +136,90 @@ contract PoolVault is Ownable {
                 tokenContract.safeTransfer(partner, partnerFee);
             }
             
-            // Platform keeps the remaining platform fee
+            // Add platform fee to platform pool
+            platformPools[token] += (platformFee - partnerFee);
+            emit PlatformPoolUpdated(token, (platformFee - partnerFee), "Regular fee distribution");
+            
             emit FeesDistributed(token, platformFee, partnerFee);
         }
     }
 
     /**
-     * @dev Withdraw funds (only owner)
+     * @dev Add funds directly to platform pool (for "everyone loses" scenarios)
+     * @param token ERC20 token address (address(0) for native ETH)
+     * @param amount Amount to add to platform pool
+     */
+    function addToPlatformPool(address token, uint256 amount) external {
+        require(authorizedContracts[msg.sender], "Treasury: Only authorized contracts can add to platform pool");
+        require(amount > 0, "Treasury: Invalid amount");
+        
+        // Partner gets 20% of the platform amount (same as normal fee distribution)
+        uint256 partnerFee = (amount * 2000) / 10000; // 20% of platform amount
+        uint256 platformAmount = amount - partnerFee;
+        
+        if (token == address(0)) {
+            // Native ETH
+            require(address(this).balance >= amount, "Treasury: Insufficient ETH balance");
+            
+            if (partnerFee > 0) {
+                (bool success, ) = partner.call{value: partnerFee}("");
+                require(success, "Treasury: ETH transfer to partner failed");
+            }
+        } else {
+            // ERC20 token
+            IERC20 tokenContract = IERC20(token);
+            require(tokenContract.balanceOf(address(this)) >= amount, "Treasury: Insufficient token balance");
+            
+            if (partnerFee > 0) {
+                tokenContract.safeTransfer(partner, partnerFee);
+            }
+        }
+        
+        // Add remaining amount to platform pool
+        platformPools[token] += platformAmount;
+        
+        emit PlatformPoolUpdated(token, platformAmount, "Direct platform pool addition");
+        emit FeesDistributed(token, platformAmount, partnerFee);
+    }
+
+    /**
+     * @dev Get platform pool balance for a specific token
+     * @param token ERC20 token address (address(0) for native ETH)
+     */
+    function getPlatformPool(address token) external view returns (uint256) {
+        return platformPools[token];
+    }
+
+    /**
+     * @dev Withdraw platform funds (only owner)
+     * @param token ERC20 token address (address(0) for native ETH)
+     * @param amount Amount to withdraw
+     * @param to Recipient address
+     */
+    function withdrawPlatformFunds(address token, uint256 amount, address to) external onlyOwner {
+        require(to != address(0), "Treasury: Invalid recipient");
+        require(amount > 0, "Treasury: Invalid amount");
+        require(platformPools[token] >= amount, "Treasury: Insufficient platform pool balance");
+        
+        // Reduce platform pool balance
+        platformPools[token] -= amount;
+        
+        if (token == address(0)) {
+            require(address(this).balance >= amount, "Treasury: Insufficient ETH balance");
+            (bool success, ) = to.call{value: amount}("");
+            require(success, "Treasury: ETH transfer failed");
+        } else {
+            IERC20 tokenContract = IERC20(token);
+            require(tokenContract.balanceOf(address(this)) >= amount, "Treasury: Insufficient token balance");
+            tokenContract.safeTransfer(to, amount);
+        }
+        
+        emit PlatformFundsWithdrawn(token, amount, to);
+        emit PlatformPoolUpdated(token, platformPools[token], "Platform funds withdrawal");
+    }
+
+    /**
+     * @dev Emergency withdraw funds (only owner) - for non-platform funds
      */
     function withdraw(address token, uint256 amount, address to) external onlyOwner {
         require(to != address(0), "Treasury: Invalid recipient");
@@ -213,7 +300,16 @@ contract PoolVault is Ownable {
         _transferPayment(user, amount, token);
     }
 
-    // Supporters get nothing - it's just a donation to support the market
+    /**
+     * @dev Claim refund (called by MarketManager)
+     */
+    function claimRefund(uint256 marketId, address user, address token, uint256 amount) external {
+        require(authorizedContracts[msg.sender], "Treasury: Only authorized contracts can claim refunds");
+        require(amount > 0, "Treasury: Invalid refund amount");
+        
+        // Transfer funds
+        _transferPayment(user, amount, token);
+    }
 
     /**
      * @dev Internal function to transfer payment
@@ -274,6 +370,29 @@ contract PoolVault is Ownable {
      */
     function hasUserSupportClaimed(uint256 marketId, address user) external view returns (bool) {
         return userSupportClaimed[marketId][user];
+    }
+
+    /**
+     * @dev Get all platform pools info (for UI/monitoring)
+     */
+    function getAllPlatformPools(address[] calldata tokens) external view returns (uint256[] memory balances) {
+        balances = new uint256[](tokens.length);
+        for (uint256 i = 0; i < tokens.length; i++) {
+            balances[i] = platformPools[tokens[i]];
+        }
+    }
+
+    /**
+     * @dev Get contract balance vs platform pool balance (for debugging)
+     */
+    function getBalanceInfo(address token) external view returns (uint256 contractBalance, uint256 platformPoolBalance) {
+        platformPoolBalance = platformPools[token];
+        
+        if (token == address(0)) {
+            contractBalance = address(this).balance;
+        } else {
+            contractBalance = IERC20(token).balanceOf(address(this));
+        }
     }
 
     /**

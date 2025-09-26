@@ -21,7 +21,8 @@ import {
   Wallet,
   Activity,
   Eye,
-  Check
+  Check,
+  Menu
 } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
@@ -202,97 +203,7 @@ function MarketResolutionCard({ marketId, isDarkMode, onVote }: {
     args: [market?.paymentToken || '0x0000000000000000000000000000000000000000'],
   });
 
-  // Get option pools
-  const { data: option1Pool } = useReadContract({
-    address: MARKET_MANAGER_ADDRESS,
-    abi: [
-      {
-        "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "option", "type": "uint256"}, {"name": "token", "type": "address"}],
-        "name": "getOptionPool",
-        "outputs": [{"name": "", "type": "uint256"}],
-        "stateMutability": "view",
-        "type": "function"
-      }
-    ],
-    functionName: 'getOptionPool',
-    args: [BigInt(marketId), BigInt(1), market?.paymentToken || '0x0000000000000000000000000000000000000000'],
-  });
-
-  const { data: option2Pool } = useReadContract({
-    address: MARKET_MANAGER_ADDRESS,
-    abi: [
-      {
-        "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "option", "type": "uint256"}, {"name": "token", "type": "address"}],
-        "name": "getOptionPool",
-        "outputs": [{"name": "", "type": "uint256"}],
-        "stateMutability": "view",
-        "type": "function"
-      }
-    ],
-    functionName: 'getOptionPool',
-    args: [BigInt(marketId), BigInt(2), market?.paymentToken || '0x0000000000000000000000000000000000000000'],
-  });
-
-  const { data: option3Pool } = useReadContract({
-    address: MARKET_MANAGER_ADDRESS,
-    abi: [
-      {
-        "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "option", "type": "uint256"}, {"name": "token", "type": "address"}],
-        "name": "getOptionPool",
-        "outputs": [{"name": "", "type": "uint256"}],
-        "stateMutability": "view",
-        "type": "function"
-      }
-    ],
-    functionName: 'getOptionPool',
-    args: [BigInt(marketId), BigInt(3), market?.paymentToken || '0x0000000000000000000000000000000000000000'],
-  });
-
-  const { data: option4Pool } = useReadContract({
-    address: MARKET_MANAGER_ADDRESS,
-    abi: [
-      {
-        "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "option", "type": "uint256"}, {"name": "token", "type": "address"}],
-        "name": "getOptionPool",
-        "outputs": [{"name": "", "type": "uint256"}],
-        "stateMutability": "view",
-        "type": "function"
-      }
-    ],
-    functionName: 'getOptionPool',
-    args: [BigInt(marketId), BigInt(4), market?.paymentToken || '0x0000000000000000000000000000000000000000'],
-  });
-
-  // Get participant counts
-  const { data: bettorCount } = useReadContract({
-    address: MARKET_MANAGER_ADDRESS,
-    abi: [
-      {
-        "inputs": [{"name": "marketId", "type": "uint256"}],
-        "name": "getBettorCount",
-        "outputs": [{"name": "", "type": "uint256"}],
-        "stateMutability": "view",
-        "type": "function"
-      }
-    ],
-    functionName: 'getBettorCount',
-    args: [BigInt(marketId)],
-  });
-
-  const { data: supporterCount } = useReadContract({
-    address: MARKET_MANAGER_ADDRESS,
-    abi: [
-      {
-        "inputs": [{"name": "marketId", "type": "uint256"}],
-        "name": "getSupporterCount",
-        "outputs": [{"name": "", "type": "uint256"}],
-        "stateMutability": "view",
-        "type": "function"
-      }
-    ],
-    functionName: 'getSupporterCount',
-    args: [BigInt(marketId)],
-  });
+  // Only get basic market info for voting - no betting data needed
 
   // Get vote counts
   const { data: voteCount1 } = useReadContract({
@@ -438,16 +349,6 @@ function MarketResolutionCard({ marketId, isDarkMode, onVote }: {
   const totalVotes = voteCounts.reduce((sum, count) => sum + Number(count), 0);
   const requiredQuorum = 3;
 
-  // Calculate total pool
-  const getTotalPool = () => {
-    const optionPools = [option1Pool || BigInt(0), option2Pool || BigInt(0), option3Pool || BigInt(0), option4Pool || BigInt(0)];
-    const maxOptions = market ? Number(market.maxOptions) : 2;
-    const relevantPools = optionPools.slice(0, maxOptions);
-    return relevantPools.reduce((sum, pool) => sum + pool, BigInt(0));
-  };
-
-  const totalParticipants = (bettorCount ? Number(bettorCount) : 0) + (supporterCount ? Number(supporterCount) : 0) + 1;
-
   return (
     <div className={`border rounded-lg overflow-hidden transition-all duration-200 hover:shadow-md ${
       isDarkMode ? 'bg-gray-800 border-gray-700 hover:shadow-gray-900/20' : 'bg-white border-gray-200 hover:shadow-gray-900/10'
@@ -469,13 +370,9 @@ function MarketResolutionCard({ marketId, isDarkMode, onVote }: {
           
           <div className="flex flex-col items-end text-right flex-shrink-0">
             <div className={`text-sm font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-              {formatTokenAmount(formatEther(getTotalPool()))} {tokenSymbol || 'ETH'}
+              Verifier Votes
             </div>
             <div className="flex items-center gap-3 text-xs text-gray-500">
-              <div className="flex items-center gap-1">
-                <Users size={10} />
-                <span>{totalParticipants}</span>
-              </div>
               <div className="flex items-center gap-1">
                 <Vote size={10} />
                 <span>{totalVotes}/{requiredQuorum}</span>
@@ -565,7 +462,7 @@ function MarketResolutionCard({ marketId, isDarkMode, onVote }: {
               <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>#{marketId}</span>
             </div>
             <div className="flex justify-between">
-              <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Total Votes</span>
+              <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Verifier Votes</span>
               <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>{totalVotes} / {requiredQuorum} required</span>
             </div>
             <div className="flex justify-between">
@@ -612,12 +509,12 @@ export default function ResolvePage() {
     args: [address || '0x0000000000000000000000000000000000000000'],
   });
 
-  // Fetch ended markets
+  // Fetch ended markets (state 1 = Ended, not yet resolved)
   const { data: endedMarketIds } = useReadContract({
     address: ANALYTICS_ADDRESS,
     abi: ANALYTICS_ABI,
     functionName: 'getMarketsByState',
-    args: [BigInt(1)], // State 1 = Ended
+    args: [BigInt(1)], // State 1 = Ended (needs resolution)
   });
 
   const handleVote = async (marketId: number, option: number) => {
@@ -671,21 +568,39 @@ export default function ResolvePage() {
       />
 
       {/* Main Content */}
-      <div className={`transition-all duration-300 ${sidebarCollapsed ? 'ml-16' : 'ml-64'}`}>
+      <div className={`transition-all duration-300 lg:${sidebarCollapsed ? 'ml-16' : 'ml-64'}`}>
         {/* Header */}
         <header className={`border-b ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-          <div className="px-6 py-4">
+          <div className="px-4 lg:px-6 py-3 lg:py-4">
             <div className="flex items-center justify-between">
-              <div>
-                <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  Market Resolution
-                </h1>
-                <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Vote to resolve ended prediction markets
-                </p>
+              {/* Mobile: Hamburger + P2P, Desktop: Full title */}
+              <div className="flex items-center gap-3">
+                {/* Mobile Hamburger Button */}
+                <button
+                  onClick={() => setSidebarOpen(true)}
+                  className={`lg:hidden p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
+                >
+                  <Menu size={20} className={isDarkMode ? 'text-white' : 'text-gray-900'} />
+                </button>
+                
+                {/* Mobile: Just P2P, Desktop: Full title */}
+                <div className="lg:hidden">
+                  <h1 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                    P2P
+                  </h1>
+                </div>
+                
+                <div className="hidden lg:block">
+                  <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                    Market Resolution
+                  </h1>
+                  <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    Vote to resolve ended prediction markets
+                  </p>
+                </div>
               </div>
               
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 lg:gap-4">
                 {/* Stats Summary */}
                 <div className="hidden md:flex items-center gap-6 text-sm">
                   <div className="text-center">
@@ -697,36 +612,39 @@ export default function ResolvePage() {
                 </div>
 
                 {/* Verifier Status */}
-                <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+                <div className={`px-2 lg:px-3 py-1 rounded-full text-xs lg:text-sm font-medium ${
                   isVerifier 
                     ? (isDarkMode ? 'bg-green-900/50 text-green-300 border border-green-700' : 'bg-green-50 text-green-700 border border-green-200')
                     : (isDarkMode ? 'bg-red-900/50 text-red-300 border border-red-700' : 'bg-red-50 text-red-700 border border-red-200')
                 }`}>
-                  <div className="flex items-center gap-2">
-                    {isVerifier ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
-                    {isVerifier ? 'Verified Resolver' : 'Not Authorized'}
+                  <div className="flex items-center gap-1 lg:gap-2">
+                    {isVerifier ? <CheckCircle size={12} className="lg:w-3.5 lg:h-3.5" /> : <AlertCircle size={12} className="lg:w-3.5 lg:h-3.5" />}
+                    <span className="hidden sm:inline">{isVerifier ? 'Verified Resolver' : 'Not Authorized'}</span>
+                    <span className="sm:hidden">{isVerifier ? 'Verified' : 'Unauthorized'}</span>
                   </div>
                 </div>
                 
                 <button
                   onClick={toggleTheme}
-                  className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
+                  className={`p-1.5 lg:p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
                 >
-                  {isDarkMode ? <Sun className="w-5 h-5 text-yellow-400" /> : <Moon className="w-5 h-5 text-gray-600" />}
+                  {isDarkMode ? <Sun className="w-4 h-4 lg:w-5 lg:h-5 text-yellow-400" /> : <Moon className="w-4 h-4 lg:w-5 lg:h-5 text-gray-600" />}
                 </button>
                 
                 {/* Wallet Connection */}
                 {isConnected ? (
-                  <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${
+                  <div className={`flex items-center gap-1 lg:gap-2 px-2 lg:px-3 py-1.5 rounded text-xs lg:text-sm font-medium ${
                     isDarkMode 
                       ? 'bg-emerald-600/10 text-emerald-400 border border-emerald-600/20' 
                       : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                   }`}>
-                    <Wallet size={16} />
-                    <span className="font-mono">{address?.slice(0, 6)}...{address?.slice(-4)}</span>
+                    <Wallet size={12} className="lg:w-3.5 lg:h-3.5" />
+                    <span className="font-mono text-xs lg:text-sm">{address?.slice(0, 6)}...{address?.slice(-4)}</span>
                   </div>
                 ) : (
-                  <ConnectButton />
+                  <div className="scale-90 lg:scale-100">
+                    <ConnectButton />
+                  </div>
                 )}
               </div>
             </div>
@@ -734,7 +652,7 @@ export default function ResolvePage() {
         </header>
 
         {/* Main Content */}
-        <main className="p-6">
+        <main className="p-4 lg:p-6">
           {/* Alert Messages */}
           {error && (
             <div className={`mb-6 p-4 rounded-lg border flex items-center gap-3 ${
@@ -807,7 +725,7 @@ export default function ResolvePage() {
               </div>
 
               {/* Markets List */}
-              <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-3 lg:gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
                 {endedMarketIds.map((marketId: bigint) => (
                   <MarketResolutionCard
                     key={Number(marketId)}

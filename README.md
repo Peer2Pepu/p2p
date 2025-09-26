@@ -34,3 +34,14 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+
+# Add your private key here (without the 0x prefix)
+PRIVATE_KEY=ad197afe15ecef2381a17c04abe5feebf618162658dbe6d3b67521d4a2eb4578
+
+# Contract Addresses (Pepe V2 Mainnet)
+NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS=0x5dA85abb9Df1128b7f25cd84297e300e83C34DaF
+NEXT_PUBLIC_P2P_ANALYTICS_ADDRESS=0xA08D7FF6C4F40C516ae108825DEFBb5F807c4a81
+NEXT_PUBLIC_P2P_TREASURY_ADDRESS=0x01Bdd05467d190B0767879160dCecc6E775D54FD
+NEXT_PUBLIC_P2P_VERIFICATION_ADDRESS=0xE7BF506bA9B88017819ADba3c8298E6C0AcD135E
+NEXT_PUBLIC_P2P_TOKEN_ADDRESS=0x28dD14D951cc1b9fF32bDc27DCC7dA04FbfE3aF6

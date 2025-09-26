@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+// ✅ COPY THIS FILE - Fixed EventPool with proper fee distribution for "everyone loses" scenarios
+
+// ✅ COPY THIS FILE - Fixed EventPool with proper fee distribution for "everyone loses" scenarios
+
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -58,6 +62,11 @@ contract EventPool is Ownable {
     // Market management
     uint256 public nextMarketId = 1;
     uint256 public marketCreationFee;
+    
+    // Settable parameters
+    uint256 public minMarketDurationMinutes = 5; // Default 5 minutes
+    bool public bettingRestrictionEnabled = false; // Default false (no restriction)
+    uint256 public bettingRestrictionMinutes = 5; // If enabled, restrict betting in last X minutes
     
     // Active market tracking
     uint256[] public activeMarkets;
@@ -128,7 +137,7 @@ contract EventPool is Ownable {
         uint256 minStake,
         uint256 creatorDeposit,
         uint256 creatorOutcome,
-        uint256 durationHours
+        uint256 durationMinutes
     ) external payable returns (uint256) {
         require(!blacklistedWallets[msg.sender], "MarketManager: Wallet blacklisted");
         require(bytes(ipfsHash).length > 0, "MarketManager: Invalid IPFS hash");
@@ -136,7 +145,7 @@ contract EventPool is Ownable {
         require(minStake > 0, "MarketManager: Invalid min stake");
         require(creatorDeposit > 0, "MarketManager: Invalid creator deposit");
         require(creatorOutcome > 0 && creatorOutcome <= maxOptions, "MarketManager: Invalid creator outcome");
-        require(durationHours >= 24, "MarketManager: Minimum 24 hours required");
+        require(durationMinutes >= minMarketDurationMinutes, "MarketManager: Below minimum duration");
         
         // Validate payment token
         if (isMultiOption) {
@@ -153,7 +162,7 @@ contract EventPool is Ownable {
         
         // Calculate timestamps
         uint256 startTime = block.timestamp;
-        uint256 endTime = startTime + (durationHours * 1 hours);
+        uint256 endTime = startTime + (durationMinutes * 1 minutes);
         uint256 resolutionEndTime = endTime + 48 hours;
         
         // Create market
@@ -185,12 +194,16 @@ contract EventPool is Ownable {
             // Send creation fee directly to owner
             (bool success, ) = owner().call{value: marketCreationFee}("");
             require(success, "MarketManager: Fee transfer to owner failed");
+            // Send creator deposit to Treasury
+            (bool treasurySuccess, ) = treasury.call{value: creatorDeposit}("");
+            require(treasurySuccess, "MarketManager: Creator deposit transfer to Treasury failed");
         } else {
             require(msg.value >= marketCreationFee, "MarketManager: Insufficient PEPU for creation fee");
             // Send creation fee directly to owner
             (bool success, ) = owner().call{value: marketCreationFee}("");
             require(success, "MarketManager: Fee transfer to owner failed");
-            IERC20(paymentToken).safeTransferFrom(msg.sender, address(this), creatorDeposit);
+            // Send creator deposit to Treasury
+            IERC20(paymentToken).safeTransferFrom(msg.sender, treasury, creatorDeposit);
         }
 
         // Creator's deposit becomes their bet on their chosen outcome
@@ -226,12 +239,18 @@ contract EventPool is Ownable {
     function placeBet(uint256 marketId, uint256 option) external payable {
         Market storage market = markets[marketId];
         require(market.state == MarketState.Active, "MarketManager: Market not active");
-        require(block.timestamp < market.endTime - 12 hours, "MarketManager: Betting period ended - no bets allowed in last 12 hours");
+        if (bettingRestrictionEnabled) {
+            require(block.timestamp < market.endTime - (bettingRestrictionMinutes * 1 minutes), "MarketManager: Betting period ended - no bets allowed in restriction period");
+        }
         require(option > 0 && option <= market.maxOptions, "MarketManager: Invalid option");
         require(market.paymentToken == address(0), "MarketManager: This market uses tokens, use placeBetWithToken");
         
         uint256 amount = msg.value;
         require(amount >= market.minStake, "MarketManager: Below minimum stake");
+        
+        // Transfer ETH to Treasury first
+        (bool success, ) = treasury.call{value: amount}("");
+        require(success, "MarketManager: ETH transfer to Treasury failed");
         
         // Update user bet tracking
         if (!userHasBet[marketId][msg.sender]) {
@@ -241,7 +260,7 @@ contract EventPool is Ownable {
         userHasBet[marketId][msg.sender] = true;
         userBetOptions[marketId][msg.sender] = option;
         
-        // Call Treasury to handle funds
+        // Call Treasury to handle funds accounting
         PoolVault(treasury).placeBet(marketId, msg.sender, market.paymentToken, amount, option);
         
         // Track analytics
@@ -258,7 +277,9 @@ contract EventPool is Ownable {
     function placeBetWithToken(uint256 marketId, uint256 option, uint256 amount) external {
         Market storage market = markets[marketId];
         require(market.state == MarketState.Active, "MarketManager: Market not active");
-        require(block.timestamp < market.endTime - 12 hours, "MarketManager: Betting period ended - no bets allowed in last 12 hours");
+        if (bettingRestrictionEnabled) {
+            require(block.timestamp < market.endTime - (bettingRestrictionMinutes * 1 minutes), "MarketManager: Betting period ended - no bets allowed in restriction period");
+        }
         require(option > 0 && option <= market.maxOptions, "MarketManager: Invalid option");
         require(market.paymentToken != address(0), "MarketManager: This market uses PEPU, use placeBet");
         require(amount >= market.minStake, "MarketManager: Below minimum stake");
@@ -276,6 +297,11 @@ contract EventPool is Ownable {
         
         // Call Treasury to handle funds
         PoolVault(treasury).placeBet(marketId, msg.sender, market.paymentToken, amount, option);
+        
+        // Track analytics
+        if (analytics != address(0)) {
+            MetricsHub(analytics).trackBet(marketId, msg.sender, option, amount);
+        }
         
         emit BetPlaced(marketId, msg.sender, option, amount);
     }
@@ -468,7 +494,8 @@ contract EventPool is Ownable {
         
         require(refundAmount > 0, "MarketManager: No refund available");
         
-        _transferPayment(msg.sender, refundAmount, market.paymentToken);
+        // Call Treasury to handle refund payment
+        PoolVault(treasury).claimRefund(marketId, msg.sender, market.paymentToken, refundAmount);
         emit RefundClaimed(marketId, msg.sender, refundAmount);
     }
 
@@ -495,16 +522,34 @@ contract EventPool is Ownable {
             }
         }
         
-        // User gets their original stake + proportional share of losing pool (90% goes to bettors, 5% to platform)
-        uint256 platformFee = (totalLosingPool * 500) / 10000; // 5% platform fee
-        uint256 winningsPool = (totalLosingPool * 9000) / 10000; // 90% of losing pool goes to bettors
-        uint256 userWinnings = userStake + (userStake * winningsPool) / totalWinningStake;
+        uint256 userWinnings;
         
-        // If user is the creator, they also get 5% of total pool as platform fee
-        if (msg.sender == market.creator) {
+        // Check if anyone bet on the winning option
+        if (totalWinningStake == 0) {
+            // No one bet on winning option - everyone loses, platform gets all funds
             uint256 totalPool = PoolVault(treasury).getMarketPool(marketId, market.paymentToken);
-            uint256 creatorPlatformFee = (totalPool * 500) / 10000; // 5% of total pool
-            userWinnings += creatorPlatformFee;
+            
+            // Platform gets 95% of total pool (5% goes to creator if they're claiming)
+            uint256 creatorShare = (totalPool * 500) / 10000;   // 5% to creator
+            
+            if (msg.sender == market.creator) {
+                userWinnings = creatorShare;
+            } else {
+                // Non-creator trying to claim when no one won - they get nothing
+                revert("MarketManager: No one bet on winning option - only creator can claim");
+            }
+        } else {
+            // Normal case: someone bet on winning option
+            // User gets their original stake + proportional share of losing pool (90% goes to bettors, 5% to platform)
+            uint256 winningsPool = (totalLosingPool * 9000) / 10000; // 90% of losing pool goes to bettors
+            userWinnings = userStake + (userStake * winningsPool) / totalWinningStake;
+            
+            // If user is the creator, they also get 5% of total pool as platform fee
+            if (msg.sender == market.creator) {
+                uint256 totalPool = PoolVault(treasury).getMarketPool(marketId, market.paymentToken);
+                uint256 creatorPlatformFee = (totalPool * 500) / 10000; // 5% of total pool
+                userWinnings += creatorPlatformFee;
+            }
         }
         
         // Call Treasury to handle payment
@@ -522,7 +567,7 @@ contract EventPool is Ownable {
     }
 
     /**
-     * @dev Internal function to distribute platform fees to treasury
+     * @dev Internal function to distribute platform fees to treasury - FIXED VERSION
      */
     function _distributeFees(uint256 marketId) internal {
         Market storage market = markets[marketId];
@@ -535,14 +580,32 @@ contract EventPool is Ownable {
             }
         }
         
-        // Calculate 5% platform fee from losing pool
-        uint256 platformFee = (totalLosingPool * 500) / 10000; // 5% platform fee
+        // Check if anyone bet on the winning option
+        uint256 totalWinningStake = PoolVault(treasury).getOptionPool(marketId, market.winningOption, market.paymentToken);
         
-        if (platformFee > 0) {
-            // Send platform fee to Treasury
-            _transferPayment(treasury, platformFee, market.paymentToken);
-            // Treasury will distribute this fee (5% platform + partner split)
-            PoolVault(treasury).distributeFees(market.paymentToken, platformFee);
+        if (totalWinningStake == 0) {
+            // FIXED: No one bet on winning option - properly distribute the 95% platform share
+            uint256 totalPool = PoolVault(treasury).getMarketPool(marketId, market.paymentToken);
+            
+            // Calculate proper distribution:
+            // Creator gets 5% of total pool (paid when they claim)
+            // Platform gets 95% of total pool - ADD TO PLATFORM POOL
+            
+            uint256 platformShare = (totalPool * 9500) / 10000; // 95% to platform
+            
+            if (platformShare > 0) {
+                // Add the full 95% to platform pool (this handles partner distribution internally)
+                PoolVault(treasury).addToPlatformPool(market.paymentToken, platformShare);
+            }
+        } else {
+            // Normal case: someone bet on winning option
+            // Calculate 5% platform fee from losing pool
+            uint256 platformFee = (totalLosingPool * 500) / 10000; // 5% platform fee
+            
+            if (platformFee > 0) {
+                // Use regular fee distribution for normal case
+                PoolVault(treasury).distributeFees(market.paymentToken, platformFee);
+            }
         }
         
         // Note: Creator gets their 5% platform fee directly when they claim winnings
@@ -604,6 +667,19 @@ contract EventPool is Ownable {
 
     function setVerification(address _verification) external onlyOwner {
         verification = _verification;
+    }
+
+    function setMinMarketDuration(uint256 _minMarketDurationMinutes) external onlyOwner {
+        require(_minMarketDurationMinutes > 0, "MarketManager: Invalid minimum duration");
+        minMarketDurationMinutes = _minMarketDurationMinutes;
+    }
+
+    function setBettingRestriction(bool _enabled, uint256 _restrictionMinutes) external onlyOwner {
+        bettingRestrictionEnabled = _enabled;
+        if (_enabled) {
+            require(_restrictionMinutes > 0, "MarketManager: Invalid restriction duration");
+            bettingRestrictionMinutes = _restrictionMinutes;
+        }
     }
 
     /**

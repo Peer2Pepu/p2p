@@ -78,9 +78,11 @@ export default function CreateMarketPage() {
     isNative: address === '0x0000000000000000000000000000000000000000'
   })) : [];
 
-  // Find P2P token from supported tokens (non-native token)
-  const p2pToken = tokens.find(token => !token.isNative);
-  const P2P_TOKEN_ADDRESS = p2pToken?.address;
+  // Get P2P token address from environment
+  const P2P_TOKEN_ADDRESS = process.env.NEXT_PUBLIC_P2P_TOKEN_ADDRESS as `0x${string}`;
+  
+  // Debug log to check if P2P token address is loaded
+  console.log('P2P_TOKEN_ADDRESS from env:', P2P_TOKEN_ADDRESS);
 
   // Helper function to format numbers with commas
   const formatNumber = (value: string | number) => {
@@ -113,6 +115,9 @@ export default function CreateMarketPage() {
     address,
     token: P2P_TOKEN_ADDRESS,
     chainId: pepuMainnet.id,
+    query: {
+      enabled: !!P2P_TOKEN_ADDRESS && !!address, // Only run if both addresses are available
+    }
   });
 
   // State to store other token balances
@@ -253,7 +258,7 @@ export default function CreateMarketPage() {
   // Set min and max datetime constraints
   useEffect(() => {
     const now = new Date();
-    const minDate = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours from now
+    const minDate = new Date(now.getTime() + 5 * 60 * 1000); // 5 minutes from now
     const maxDate = new Date(now.getTime() + 2 * 365 * 24 * 60 * 60 * 1000); // 2 years from now
     
     const formatDateTime = (date: Date) => {
@@ -279,7 +284,7 @@ export default function CreateMarketPage() {
   const getUserTokenBalance = (tokenAddress: string) => {
     if (tokenAddress === '0x0000000000000000000000000000000000000000') {
       return balance;
-    } else if (tokenAddress === P2P_TOKEN_ADDRESS) {
+    } else if (P2P_TOKEN_ADDRESS && tokenAddress === P2P_TOKEN_ADDRESS) {
       return p2pBalance;
     } else {
       // Find balance for other supported tokens
@@ -418,7 +423,7 @@ export default function CreateMarketPage() {
     // Validate end date/time
     const endDateTime = new Date(`${endDate}T${endTime}`);
     const now = new Date();
-    const minDateTime = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours from now
+    const minDateTime = new Date(now.getTime() + 5 * 60 * 1000); // 5 minutes from now
     const maxDateTime = new Date(now.getTime() + 2 * 365 * 24 * 60 * 60 * 1000); // 2 years from now
 
     if (endDateTime <= now) {
@@ -427,7 +432,7 @@ export default function CreateMarketPage() {
     }
 
     if (endDateTime < minDateTime) {
-      setError('End date/time must be at least 24 hours from now');
+      setError('End date/time must be at least 5 minutes from now');
       return;
     }
 
@@ -470,11 +475,11 @@ export default function CreateMarketPage() {
       const { ipfsHash, gatewayUrl } = await ipfsResponse.json();
       setSuccess(`Market data uploaded! IPFS Link: ${gatewayUrl} Creating market...`);
 
-      // Step 2: Calculate duration in hours (minimum 24 hours)
+      // Step 2: Calculate duration in hours (minimum 5 minutes)
       const endDateTime = new Date(`${endDate}T${endTime}`);
       const now = new Date();
       const durationMs = endDateTime.getTime() - now.getTime();
-      const durationHours = Math.max(24, Math.ceil(durationMs / (1000 * 60 * 60)));
+      const durationMinutes = Math.max(5, Math.round(durationMs / (1000 * 60))); // Convert to minutes and round
 
       // Step 3: Determine payment token and max options
       const maxOptions = isMultiOption ? multipleOptions.length : 2;
@@ -492,7 +497,7 @@ export default function CreateMarketPage() {
         parseEther(minimumStake),
         parseEther(creatorDeposit),
         BigInt(parseInt(creatorOutcome)),
-        BigInt(durationHours)
+        BigInt(durationMinutes)
       ];
 
       // Step 4: Create market on blockchain
@@ -514,7 +519,7 @@ export default function CreateMarketPage() {
               {"name": "minStake", "type": "uint256"},
               {"name": "creatorDeposit", "type": "uint256"},
               {"name": "creatorOutcome", "type": "uint256"},
-              {"name": "durationHours", "type": "uint256"}
+              {"name": "durationMinutes", "type": "uint256"}
             ],
             "name": "createMarket",
             "outputs": [{"name": "", "type": "uint256"}],
@@ -837,7 +842,7 @@ export default function CreateMarketPage() {
                         >
                           {tokens.map((token) => (
                             <option key={token.address} value={token.address}>
-                              {token.name} {outcomeType === 'multiple' && token.address !== P2P_TOKEN_ADDRESS ? '(Not available for multi-option)' : ''}
+                              {token.name} {outcomeType === 'multiple' && P2P_TOKEN_ADDRESS && token.address !== P2P_TOKEN_ADDRESS ? '(Not available for multi-option)' : ''}
                             </option>
                           ))}
                         </select>
@@ -895,7 +900,7 @@ export default function CreateMarketPage() {
                     <div className="grid grid-cols-1 gap-4">
                       <div>
                         <label className="block text-sm font-medium mb-2">End Date</label>
-                        <p className="text-xs text-gray-500 mb-2">Minimum 24 hours from now, maximum 2 years</p>
+                        <p className="text-xs text-gray-500 mb-2">Minimum 5 minutes from now, maximum 2 years</p>
                         <div className="relative">
                           <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
                           <input
