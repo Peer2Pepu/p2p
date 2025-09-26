@@ -471,11 +471,24 @@ export default function CreateMarketPage() {
       });
 
       if (!ipfsResponse.ok) {
-        const errorData = await ipfsResponse.json();
-        throw new Error(errorData.error || 'Failed to upload to IPFS');
+        let errorMessage = 'Failed to upload to IPFS';
+        try {
+          const errorData = await ipfsResponse.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (jsonError) {
+          errorMessage = `HTTP ${ipfsResponse.status}: ${ipfsResponse.statusText}`;
+        }
+        throw new Error(errorMessage);
       }
 
-      const { ipfsHash, gatewayUrl } = await ipfsResponse.json();
+      let responseData;
+      try {
+        responseData = await ipfsResponse.json();
+      } catch (jsonError) {
+        throw new Error('Invalid response from IPFS upload service');
+      }
+
+      const { ipfsHash, gatewayUrl } = responseData;
       setSuccess(`Market data uploaded! IPFS Link: ${gatewayUrl} Creating market...`);
 
       // Step 2: Calculate duration in hours (minimum 5 minutes)
