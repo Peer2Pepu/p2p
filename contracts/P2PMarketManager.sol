@@ -90,7 +90,11 @@ contract EventPool is Ownable {
         bool isMultiOption,
         uint256 maxOptions,
         address paymentToken,
-        uint256 minStake
+        uint256 minStake,
+        uint256 startTime,
+        uint256 stakeEndTime,
+        uint256 endTime,
+        uint256 resolutionEndTime
     );
     
     event StakePlaced(
@@ -100,15 +104,11 @@ contract EventPool is Ownable {
         uint256 amount
     );
     
-    event MarketEnded(uint256 indexed marketId, uint256 endTime);
     event MarketResolved(uint256 indexed marketId, uint256 winningOption);
     event MarketCancelled(uint256 indexed marketId, string reason);
     
     event RefundClaimed(uint256 indexed marketId, address indexed user, uint256 amount);
     event WinningsClaimed(uint256 indexed marketId, address indexed user, uint256 amount);
-    event MarketSupported(uint256 indexed marketId, address indexed supporter, uint256 amount);
-    event SupportWithdrawn(uint256 indexed marketId, address indexed supporter, uint256 amount);
-    event SupportRewardClaimed(uint256 indexed marketId, address indexed supporter, uint256 amount);
 
     constructor(
         address initialOwner,
@@ -233,7 +233,11 @@ contract EventPool is Ownable {
             isMultiOption,
             maxOptions,
             paymentToken,
-            minStake
+            minStake,
+            startTime,
+            stakeEndTime,
+            endTime,
+            resolutionEndTime
         );
         
         return marketId;
@@ -350,8 +354,6 @@ contract EventPool is Ownable {
         if (analytics != address(0)) {
             MetricsHub(analytics).trackSupport(marketId, msg.sender, amount);
         }
-        
-        emit MarketSupported(marketId, msg.sender, amount);
     }
 
     /**
@@ -382,8 +384,6 @@ contract EventPool is Ownable {
         
         // Update tracking
         userHasSupported[marketId][msg.sender] = false;
-        
-        emit SupportWithdrawn(marketId, msg.sender, supportAmount);
     }
 
     /**
@@ -395,7 +395,6 @@ contract EventPool is Ownable {
         require(block.timestamp >= market.endTime, "MarketManager: Resolution time not reached");
         
         market.state = MarketState.Ended;
-        emit MarketEnded(marketId, market.endTime);
     }
 
     /**
@@ -743,20 +742,7 @@ contract EventPool is Ownable {
         return blacklistedAddresses;
     }
 
-    /**
-     * @dev Get blacklisted addresses count
-     */
-    function getBlacklistedCount() external view returns (uint256) {
-        return blacklistedAddresses.length;
-    }
 
-    /**
-     * @dev Get blacklisted wallet by index
-     */
-    function getBlacklistedWallet(uint256 index) external view returns (address) {
-        require(index < blacklistedAddresses.length, "MarketManager: Index out of bounds");
-        return blacklistedAddresses[index];
-    }
 
     /**
      * @dev Check if wallet is blacklisted
@@ -800,12 +786,6 @@ contract EventPool is Ownable {
         }
     }
 
-    /**
-     * @dev Get supported token count
-     */
-    function getSupportedTokenCount() external view returns (uint256) {
-        return supportedTokenList.length;
-    }
 
     function deleteMarket(uint256 marketId, string memory reason) external onlyOwner {
         require(marketId < nextMarketId, "MarketManager: Invalid market ID");
@@ -889,9 +869,6 @@ contract EventPool is Ownable {
         return PoolVault(treasury).getUserSupport(marketId, user, token);
     }
 
-    function getMarketSupporters(uint256 marketId) external view returns (address[] memory) {
-        return marketSupporters[marketId];
-    }
 
     function getSupporterCount(uint256 marketId) external view returns (uint256) {
         return marketSupporters[marketId].length;

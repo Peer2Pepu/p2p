@@ -514,7 +514,7 @@ function MarketCard({ marketId, isDarkMode, onBet, onEndMarket, userAddress }: {
   const stakeTimeLeft = Number(marketData.stakeEndTime) - Math.floor(Date.now() / 1000);
   const stakeHoursLeft = Math.max(0, Math.floor(stakeTimeLeft / 3600));
   const stakeMinutesLeft = Math.max(0, Math.floor((stakeTimeLeft % 3600) / 60));
-  const canStake = marketData.state === 0 && stakeTimeLeft > 0;
+  const canStake = marketData.state === 0 && stakeTimeLeft > 0 && !userHasStaked;
 
   // Skip markets that are not active
   if (marketData.state !== 0) {
@@ -727,15 +727,15 @@ function MarketCard({ marketId, isDarkMode, onBet, onEndMarket, userAddress }: {
           {userHasStaked === true && userAddress && canEndMarket ? (
             <div>
               {canEndMarket && (
-                <button
-                  onClick={() => onEndMarket(marketId)}
+          <button
+            onClick={() => onEndMarket(marketId)}
                   className="w-full py-2.5 px-4 rounded-lg text-sm font-semibold bg-orange-600 hover:bg-orange-700 text-white transition-colors flex items-center justify-center gap-2"
-                >
-                  <Timer size={16} />
+          >
+            <Timer size={16} />
                   End Market
-                </button>
+          </button>
               )}
-            </div>
+          </div>
           ) : canEndMarket ? (
             <button
               onClick={() => onEndMarket(marketId)}
@@ -756,7 +756,7 @@ function MarketCard({ marketId, isDarkMode, onBet, onEndMarket, userAddress }: {
                     isDarkMode 
                   ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-500' 
                       : 'bg-white border-gray-300 text-gray-900'
-              }`}
+                  }`}
                 />
                 {needsTokenApproval ? (
                   <button
@@ -782,18 +782,18 @@ function MarketCard({ marketId, isDarkMode, onBet, onEndMarket, userAddress }: {
                       : 'bg-blue-500 hover:bg-blue-600 text-white'
                     }`}
                   >
-                {!canStake ? 'Staking Closed' : 'Stake'}
+{!canStake ? (userHasStaked ? 'Already Staked' : 'Staking Closed') : 'Stake'}
                   </button>
                 )}
               </div>
-            )}
-            {needsTokenApproval && (
+        )}
+              {needsTokenApproval && (
               <p className="text-xs text-yellow-600 mt-2 text-center">
                 Approve {tokenSymbol || 'tokens'} before staking
-              </p>
-            )}
+                </p>
+              )}
           </div>
-        </div>
+            </div>
     </div>
   );
 }

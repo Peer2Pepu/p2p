@@ -6,12 +6,13 @@ import {
   DollarSign, 
   Timer, 
   AlertCircle, 
+  CheckCircle,
   Trash2, 
   X,
   Menu
 } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { useAccount, useReadContract, useWriteContract } from 'wagmi';
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { formatEther } from 'viem';
 import { ethers } from 'ethers';
 import { Sidebar } from '../components/Sidebar';
@@ -30,15 +31,27 @@ const MARKET_MANAGER_ABI = [
     "inputs": [{"name": "marketId", "type": "uint256"}],
     "name": "getMarket",
     "outputs": [
-      {"name": "creator", "type": "address"},
-      {"name": "ipfsHash", "type": "string"},
-      {"name": "endTime", "type": "uint256"},
-      {"name": "state", "type": "uint8"},
-      {"name": "isMultiOption", "type": "bool"},
-      {"name": "maxOptions", "type": "uint8"},
-      {"name": "minStake", "type": "uint256"},
-      {"name": "paymentToken", "type": "address"},
-      {"name": "stakeEndTime", "type": "uint256"}
+      {
+        "components": [
+          {"name": "creator", "type": "address"},
+          {"name": "ipfsHash", "type": "string"},
+          {"name": "isMultiOption", "type": "bool"},
+          {"name": "maxOptions", "type": "uint256"},
+          {"name": "paymentToken", "type": "address"},
+          {"name": "minStake", "type": "uint256"},
+          {"name": "creatorDeposit", "type": "uint256"},
+          {"name": "creatorOutcome", "type": "uint256"},
+          {"name": "startTime", "type": "uint256"},
+          {"name": "stakeEndTime", "type": "uint256"},
+          {"name": "endTime", "type": "uint256"},
+          {"name": "resolutionEndTime", "type": "uint256"},
+          {"name": "state", "type": "uint8"},
+          {"name": "winningOption", "type": "uint256"},
+          {"name": "isResolved", "type": "bool"}
+        ],
+        "name": "",
+        "type": "tuple"
+      }
     ],
     "stateMutability": "view",
     "type": "function"
@@ -139,19 +152,88 @@ function useAdminAccess() {
 }
 
 // Market Search Component
-function MarketSearch({ isDarkMode }: { isDarkMode: boolean }) {
+function MarketSearch({ 
+  isDarkMode, 
+  blacklistAddress, 
+  setBlacklistAddress, 
+  isBlacklisting, 
+  removeAddress, 
+  setRemoveAddress, 
+  isRemoving, 
+  userManagementSuccess, 
+  handleBlacklistUser, 
+  handleRemoveUser 
+}: { 
+  isDarkMode: boolean;
+  blacklistAddress: string;
+  setBlacklistAddress: (value: string) => void;
+  isBlacklisting: boolean;
+  removeAddress: string;
+  setRemoveAddress: (value: string) => void;
+  isRemoving: boolean;
+  userManagementSuccess: string;
+  handleBlacklistUser: () => void;
+  handleRemoveUser: () => void;
+}) {
   const [searchId, setSearchId] = useState('');
   const [searchedMarketId, setSearchedMarketId] = useState<number | null>(null);
+  const [marketData, setMarketData] = useState<any>(null);
+  const [marketMetadata, setMarketMetadata] = useState<any>(null);
   const [searchError, setSearchError] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [supportAmount, setSupportAmount] = useState('');
+  const [isSupporting, setIsSupporting] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deleteSuccess, setDeleteSuccess] = useState('');
 
   const marketManagerAddress = process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS as `0x${string}`;
   const { writeContract } = useWriteContract();
   const { address: userAddress } = useAccount();
 
+  // Get token symbol from contract
+  const { data: tokenSymbol } = useReadContract({
+    address: marketManagerAddress,
+    abi: [
+      {
+        "inputs": [{"name": "token", "type": "address"}],
+        "name": "tokenSymbols",
+        "outputs": [{"name": "", "type": "string"}],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ],
+    functionName: 'tokenSymbols',
+    args: marketData?.paymentToken ? [marketData.paymentToken] : undefined,
+  });
+
+  // Get support pool for this market
+  const { data: supportPool } = useReadContract({
+    address: marketManagerAddress,
+    abi: [
+      {
+        "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "token", "type": "address"}],
+        "name": "getSupportPool",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ],
+    functionName: 'getSupportPool',
+    args: searchedMarketId && marketData?.paymentToken ? [BigInt(searchedMarketId), marketData.paymentToken] : undefined,
+    query: {
+      enabled: !!(searchedMarketId && marketData?.paymentToken)
+    }
+  }) as { data: bigint | undefined };
+
   const handleSearch = async () => {
     if (!searchId || isNaN(Number(searchId))) {
       setSearchError('Enter a valid market ID number');
+      return;
+    }
+    
+    if (!marketManagerAddress) {
+      setSearchError('Contract address not configured');
       return;
     }
     
@@ -160,10 +242,14 @@ function MarketSearch({ isDarkMode }: { isDarkMode: boolean }) {
     setSearchedMarketId(null);
     
     try {
+      console.log('Searching market:', searchId);
+      console.log('Contract address:', marketManagerAddress);
+      
       const provider = new ethers.JsonRpcProvider('https://rpc-pepu-v2-mainnet-0.t.conduit.xyz');
       const contract = new ethers.Contract(marketManagerAddress, MARKET_MANAGER_ABI, provider);
       
       const market = await contract.getMarket(BigInt(searchId));
+      console.log('Market data:', market);
       
       if (!market || !market.creator || market.creator === '0x0000000000000000000000000000000000000000') {
         setSearchError(`Market #${searchId} does not exist on the blockchain`);
@@ -171,13 +257,151 @@ function MarketSearch({ isDarkMode }: { isDarkMode: boolean }) {
         return;
       }
       
+      setMarketData(market);
       setSearchedMarketId(Number(searchId));
+      
+      // Fetch IPFS metadata
+      if (market.ipfsHash) {
+        try {
+          const response = await fetch(`https://gateway.lighthouse.storage/ipfs/${market.ipfsHash}`);
+          if (response.ok) {
+            const metadata = await response.json();
+            setMarketMetadata(metadata);
+          }
+        } catch (err) {
+          console.error('Failed to load IPFS metadata:', err);
+        }
+      }
       
     } catch (err: any) {
       console.error('Search error:', err);
-      setSearchError(`Market #${searchId} does not exist or failed to load`);
+      setSearchError(`Market #${searchId} error: ${err.message}`);
     } finally {
       setIsSearching(false);
+    }
+  };
+
+  const handleSupport = async () => {
+    if (!supportAmount || !marketData) return;
+    
+    // Check if market has ended
+    const currentTime = Math.floor(Date.now() / 1000);
+    const endTime = Number(marketData.endTime);
+    
+    if (currentTime > endTime) {
+      alert('Cannot support market after it has ended');
+      return;
+    }
+    
+    setIsSupporting(true);
+    try {
+      const amount = ethers.parseEther(supportAmount);
+      
+      const paymentToken = marketData.paymentToken;
+      const isERC20Market = paymentToken !== '0x0000000000000000000000000000000000000000';
+      
+      if (isERC20Market) {
+        // For ERC20 tokens, need to approve first
+        console.log('Approving ERC20 token...');
+        
+        // First approve the token spending
+        const approveHash = await writeContract({
+          address: paymentToken as `0x${string}`,
+          abi: [
+            {
+              "inputs": [
+                {"name": "spender", "type": "address"},
+                {"name": "amount", "type": "uint256"}
+              ],
+              "name": "approve",
+              "outputs": [{"name": "", "type": "bool"}],
+              "stateMutability": "nonpayable",
+              "type": "function"
+            }
+          ],
+          functionName: 'approve',
+          args: [marketManagerAddress, amount]
+        });
+        
+        console.log('Approve transaction hash:', approveHash);
+        alert('Approve transaction submitted! Please wait for confirmation...');
+        
+        // Wait for approve transaction to be confirmed
+        await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+        
+        // Then support the market
+        console.log('Supporting market...');
+        const supportHash = await writeContract({
+          address: marketManagerAddress,
+          abi: MARKET_MANAGER_ABI,
+          functionName: 'supportMarket',
+          args: [BigInt(searchId), amount]
+        });
+        
+        console.log('Support transaction hash:', supportHash);
+      } else {
+        // For ETH, use supportMarket with value
+        await writeContract({
+          address: marketManagerAddress,
+          abi: MARKET_MANAGER_ABI,
+          functionName: 'supportMarket',
+          args: [BigInt(searchId), amount],
+          value: amount
+        });
+      }
+      
+      alert('Support transaction submitted!');
+      setSupportAmount('');
+      
+    } catch (err) {
+      console.error('Support failed:', err);
+      alert('Support failed: ' + (err as any).message);
+    } finally {
+      setIsSupporting(false);
+    }
+  };
+
+  const handleSoftDelete = async () => {
+    if (!deleteReason.trim() || !searchedMarketId) return;
+    
+    try {
+      await writeContract({
+        address: marketManagerAddress,
+        abi: MARKET_MANAGER_ABI,
+        functionName: 'deleteMarket',
+        args: [BigInt(searchedMarketId), deleteReason]
+      });
+      
+      setDeleteSuccess(`Market #${searchedMarketId} soft deleted successfully`);
+      setSearchedMarketId(null);
+      setShowDeleteModal(false);
+      setDeleteReason('');
+      setTimeout(() => setDeleteSuccess(''), 5000);
+    } catch (err: any) {
+      setSearchError(err.message || 'Failed to delete market');
+    }
+  };
+
+  const handlePermanentDelete = async () => {
+    if (!searchedMarketId) return;
+    
+    if (!confirm(`Permanently remove market #${searchedMarketId}? This CANNOT be undone!`)) {
+      return;
+    }
+    
+    try {
+      await writeContract({
+        address: marketManagerAddress,
+        abi: MARKET_MANAGER_ABI,
+        functionName: 'permanentlyRemoveMarket',
+        args: [BigInt(searchedMarketId)]
+      });
+      
+      setDeleteSuccess(`Market #${searchedMarketId} permanently removed`);
+      setSearchedMarketId(null);
+      setTimeout(() => setDeleteSuccess(''), 5000);
+    } catch (err: any) {
+      setSearchError(err.message || 'Failed to remove market');
     }
   };
 
@@ -227,14 +451,194 @@ function MarketSearch({ isDarkMode }: { isDarkMode: boolean }) {
           </div>
         )}
 
-        {searchedMarketId && (
-          <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-            <h3 className={`text-xl font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-              Market #{searchedMarketId}
-            </h3>
-            <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-              Market found! MarketCard component would load here.
-            </p>
+        {deleteSuccess && (
+          <div className={`p-4 rounded-lg border flex items-start gap-3 ${
+            isDarkMode ? 'bg-green-900/20 border-green-800 text-green-300' : 'bg-green-50 border-green-200 text-green-800'
+          }`}>
+            <CheckCircle size={20} className="flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold">Success</p>
+              <p className="text-sm">{deleteSuccess}</p>
+            </div>
+          </div>
+        )}
+
+        {searchedMarketId && marketData && (
+          <div className={`p-3 rounded-lg border max-w-sm ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+            {/* Header */}
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-6 h-6 rounded bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                <span className="text-white font-bold text-xs">#{searchedMarketId}</span>
+              </div>
+              <div className="flex-1">
+                <h3 className={`text-xs font-semibold truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  {marketMetadata?.title || 'Loading...'}
+                </h3>
+                <div className="flex items-center gap-1">
+                  <span className={`text-xs px-1.5 py-0.5 rounded ${
+                    marketData.isMultiOption ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                  }`}>
+                    {marketData.isMultiOption ? 'Multi' : 'Binary'}
+                  </span>
+                  <span className={`text-xs px-1.5 py-0.5 rounded ${
+                    marketData.state === 0 
+                      ? 'bg-green-100 text-green-800' 
+                      : marketData.state === 1 
+                      ? 'bg-yellow-100 text-yellow-800' 
+                      : 'bg-red-100 text-red-800'
+                  }`}>
+                    {marketData.state === 0 ? 'Active' : marketData.state === 1 ? 'Ended' : 'Resolved'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Small Market Image */}
+            {marketMetadata?.imageUrl && (
+              <div className="mb-3">
+                <img 
+                  src={marketMetadata.imageUrl} 
+                  alt="Market" 
+                  className="w-full h-16 object-cover rounded"
+                />
+              </div>
+            )}
+
+            {/* Compact Details */}
+            <div className="space-y-1 mb-3">
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">Creator:</span>
+                <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  {marketData.creator?.slice(0, 6)}...{marketData.creator?.slice(-4)}
+                </span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">Min Stake:</span>
+                <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  {formatEther(marketData.minStake)} {tokenSymbol || 'Token'}
+                </span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">Ends:</span>
+                <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  {new Date(Number(marketData.endTime) * 1000).toLocaleDateString()}
+                </span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">Total Support:</span>
+                <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  {supportPool !== undefined ? formatEther(supportPool) : 'Loading...'} {tokenSymbol || 'Token'}
+                </span>
+              </div>
+            </div>
+
+            {/* Support Section */}
+            <div className={`p-2 rounded border ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'} mb-3`}>
+              <div className="flex gap-1">
+                <input
+                  type="number"
+                  value={supportAmount}
+                  onChange={(e) => setSupportAmount(e.target.value)}
+                  placeholder={`Amount (${tokenSymbol || 'Token'})`}
+                  className={`flex-1 px-2 py-1 border rounded text-xs ${
+                    isDarkMode 
+                      ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                      : 'bg-white border-gray-300 text-gray-900'
+                  }`}
+                />
+                <button
+                  onClick={handleSupport}
+                  disabled={!supportAmount || isSupporting || (Math.floor(Date.now() / 1000) > Number(marketData.endTime))}
+                  className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                    !supportAmount || isSupporting || (Math.floor(Date.now() / 1000) > Number(marketData.endTime))
+                      ? 'bg-gray-600 cursor-not-allowed text-gray-400'
+                      : 'bg-green-600 hover:bg-green-700 text-white'
+                  }`}
+                >
+                  {isSupporting ? '...' : (Math.floor(Date.now() / 1000) > Number(marketData.endTime)) ? 'Ended' : 'Support'}
+                </button>
+              </div>
+              <div className="text-xs text-gray-500 mt-1">
+                {marketData.paymentToken !== '0x0000000000000000000000000000000000000000' 
+                  ? `${tokenSymbol || 'Token'} (approve + transfer)` 
+                  : 'Direct ETH transfer'}
+              </div>
+            </div>
+            
+            {/* Admin Actions */}
+            <div className="flex gap-1">
+              <button
+                onClick={() => setShowDeleteModal(true)}
+                className="flex items-center gap-1 px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-medium transition-colors"
+              >
+                <Trash2 size={12} />
+                Delete
+              </button>
+              <button
+                onClick={handlePermanentDelete}
+                className="flex items-center gap-1 px-2 py-1 bg-orange-600 hover:bg-orange-700 text-white rounded text-xs font-medium transition-colors"
+              >
+                <X size={12} />
+                Remove
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Modal */}
+        {showDeleteModal && searchedMarketId && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className={`rounded-lg max-w-sm w-full shadow-xl ${
+              isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'
+            }`}>
+              <div className="p-4">
+                <h3 className={`text-lg font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  Delete Market #{searchedMarketId}
+                </h3>
+                <p className={`text-xs mb-3 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  Soft delete - users can still claim refunds
+                </p>
+                <div className="mb-4">
+                  <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Reason
+                  </label>
+                  <textarea
+                    value={deleteReason}
+                    onChange={(e) => setDeleteReason(e.target.value)}
+                    placeholder="Enter reason..."
+                    rows={2}
+                    className={`w-full px-2 py-1.5 border rounded text-xs ${
+                      isDarkMode 
+                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                        : 'bg-white border-gray-300 text-gray-900'
+                    }`}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowDeleteModal(false)}
+                    className={`flex-1 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                      isDarkMode 
+                        ? 'bg-gray-600 hover:bg-gray-500 text-white' 
+                        : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
+                    }`}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSoftDelete}
+                    disabled={!deleteReason.trim()}
+                    className={`flex-1 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                      !deleteReason.trim()
+                        ? 'bg-gray-400 cursor-not-allowed text-gray-200'
+                        : 'bg-red-600 hover:bg-red-700 text-white'
+                    }`}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -247,10 +651,19 @@ export default function AdminPage() {
   const { isDarkMode, toggleTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [activeTab, setActiveTab] = useState<'market' | 'user' | 'token' | 'blacklist'>('market');
+  const [activeTab, setActiveTab] = useState<'market' | 'blacklist'>('market');
+
+  // User Management State
+  const [blacklistAddress, setBlacklistAddress] = useState('');
+  const [isBlacklisting, setIsBlacklisting] = useState(false);
+  const [removeAddress, setRemoveAddress] = useState('');
+  const [isRemoving, setIsRemoving] = useState(false);
+  const [userManagementSuccess, setUserManagementSuccess] = useState('');
 
   const { hasAccess, isLoading, isConnected } = useAdminAccess();
   const { address } = useAccount();
+  const { writeContract } = useWriteContract();
+  const marketManagerAddress = process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS as `0x${string}`;
 
   if (isLoading) {
     return (
@@ -262,6 +675,68 @@ export default function AdminPage() {
 
   const onSidebarClose = () => setSidebarOpen(false);
   const onToggleCollapse = () => setSidebarCollapsed(!sidebarCollapsed);
+
+  const handleBlacklistUser = async () => {
+    if (!blacklistAddress.trim()) return;
+    
+    setIsBlacklisting(true);
+    try {
+      await writeContract({
+        address: marketManagerAddress,
+        abi: [
+          {
+            "inputs": [{"name": "user", "type": "address"}],
+            "name": "blacklistUser",
+            "outputs": [],
+            "stateMutability": "nonpayable",
+            "type": "function"
+          }
+        ],
+        functionName: 'blacklistUser',
+        args: [blacklistAddress as `0x${string}`]
+      });
+      
+      setUserManagementSuccess(`User ${blacklistAddress.slice(0, 6)}...${blacklistAddress.slice(-4)} blacklisted successfully`);
+      setBlacklistAddress('');
+      setTimeout(() => setUserManagementSuccess(''), 5000);
+      
+    } catch (err: any) {
+      console.error('Blacklist failed:', err);
+    } finally {
+      setIsBlacklisting(false);
+    }
+  };
+
+  const handleRemoveUser = async () => {
+    if (!removeAddress.trim()) return;
+    
+    setIsRemoving(true);
+    try {
+      await writeContract({
+        address: marketManagerAddress,
+        abi: [
+          {
+            "inputs": [{"name": "user", "type": "address"}],
+            "name": "removeUser",
+            "outputs": [],
+            "stateMutability": "nonpayable",
+            "type": "function"
+          }
+        ],
+        functionName: 'removeUser',
+        args: [removeAddress as `0x${string}`]
+      });
+      
+      setUserManagementSuccess(`User ${removeAddress.slice(0, 6)}...${removeAddress.slice(-4)} removed successfully`);
+      setRemoveAddress('');
+      setTimeout(() => setUserManagementSuccess(''), 5000);
+      
+    } catch (err: any) {
+      console.error('Remove failed:', err);
+    } finally {
+      setIsRemoving(false);
+    }
+  };
 
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
@@ -335,8 +810,6 @@ export default function AdminPage() {
               <div className={`flex gap-1 p-1 rounded-lg mb-6 ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'}`}>
                 {[
                   { id: 'market', label: 'Market Management' },
-                  { id: 'user', label: 'User Management' },
-                  { id: 'token', label: 'Token Management' },
                   { id: 'blacklist', label: 'Blacklist Management' }
                 ].map((tab) => (
                   <button
@@ -359,35 +832,102 @@ export default function AdminPage() {
 
               {/* Tab Content */}
               <div className="space-y-6">
-                {activeTab === 'market' && <MarketSearch isDarkMode={isDarkMode} />}
-                {activeTab === 'user' && (
-                  <div className={`p-6 rounded-xl border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-                    <h2 className={`text-2xl font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                      User Management
-                    </h2>
-                    <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                      User management features coming soon...
-                    </p>
-                  </div>
-                )}
-                {activeTab === 'token' && (
-                  <div className={`p-6 rounded-xl border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-                    <h2 className={`text-2xl font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                      Token Management
-                    </h2>
-                    <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                      Token management features coming soon...
-                    </p>
-                  </div>
+                {activeTab === 'market' && (
+                  <MarketSearch 
+                    isDarkMode={isDarkMode}
+                    blacklistAddress={blacklistAddress}
+                    setBlacklistAddress={setBlacklistAddress}
+                    isBlacklisting={isBlacklisting}
+                    removeAddress={removeAddress}
+                    setRemoveAddress={setRemoveAddress}
+                    isRemoving={isRemoving}
+                    userManagementSuccess={userManagementSuccess}
+                    handleBlacklistUser={handleBlacklistUser}
+                    handleRemoveUser={handleRemoveUser}
+                  />
                 )}
                 {activeTab === 'blacklist' && (
                   <div className={`p-6 rounded-xl border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
                     <h2 className={`text-2xl font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                      Blacklist Management
+                      User Management
                     </h2>
-                    <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                      Blacklist management features coming soon...
-                    </p>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Blacklist User */}
+                      <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+                        <h3 className={`text-lg font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                          Blacklist User
+                        </h3>
+                        <div className="space-y-3">
+                          <input
+                            type="text"
+                            value={blacklistAddress}
+                            onChange={(e) => setBlacklistAddress(e.target.value)}
+                            placeholder="Enter wallet address to blacklist"
+                            className={`w-full px-3 py-2 border rounded-lg text-sm ${
+                              isDarkMode 
+                                ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-400' 
+                                : 'bg-white border-gray-300 text-gray-900'
+                            }`}
+                          />
+                          <button
+                            onClick={handleBlacklistUser}
+                            disabled={!blacklistAddress.trim() || isBlacklisting}
+                            className={`w-full px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                              !blacklistAddress.trim() || isBlacklisting
+                                ? 'bg-gray-600 cursor-not-allowed text-gray-400'
+                                : 'bg-red-600 hover:bg-red-700 text-white'
+                            }`}
+                          >
+                            {isBlacklisting ? 'Blacklisting...' : 'Blacklist User'}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Remove User */}
+                      <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+                        <h3 className={`text-lg font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                          Remove User
+                        </h3>
+                        <div className="space-y-3">
+                          <input
+                            type="text"
+                            value={removeAddress}
+                            onChange={(e) => setRemoveAddress(e.target.value)}
+                            placeholder="Enter wallet address to remove"
+                            className={`w-full px-3 py-2 border rounded-lg text-sm ${
+                              isDarkMode 
+                                ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-400' 
+                                : 'bg-white border-gray-300 text-gray-900'
+                            }`}
+                          />
+                          <button
+                            onClick={handleRemoveUser}
+                            disabled={!removeAddress.trim() || isRemoving}
+                            className={`w-full px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                              !removeAddress.trim() || isRemoving
+                                ? 'bg-gray-600 cursor-not-allowed text-gray-400'
+                                : 'bg-orange-600 hover:bg-orange-700 text-white'
+                            }`}
+                          >
+                            {isRemoving ? 'Removing...' : 'Remove User'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Success Message */}
+                    {userManagementSuccess && (
+                      <div className={`p-4 rounded-lg border flex items-start gap-3 mt-6 ${
+                        isDarkMode ? 'bg-green-900/20 border-green-800 text-green-300' : 'bg-green-50 border-green-200 text-green-800'
+                      }`}>
+                        <CheckCircle size={20} className="flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-semibold">Success</p>
+                          <p className="text-sm">{userManagementSuccess}</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

@@ -1,8 +1,0 @@
-exit
-node scripts/verifiers.js
-exit
-node scripts/verifiers.js
-npm install @lighthouse-web3/sdk
-npx hardhat verify --network pepe_unchained_v2_testnet 0x638597d20efd34C5f9276812C71C3D0077c161bd 0x62942BbBb86482bFA0C064d0262E23Ca04ea99C5 1000000
-npx hardhat run scripts/deploy.js --network pepe_unchained_v2_testnet
-npx hardhat run scripts/set-partner.js --network pepe_unchained_v2_testnet
