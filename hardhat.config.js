@@ -7,7 +7,7 @@ module.exports = {
     settings: {
       optimizer: {
         enabled: true,
-        runs: 200  // Low runs value for smaller bytecode
+        runs: 1  // Very low runs value for smallest bytecode
       },
       viaIR: true  // Enable viaIR to fix stack too deep errors
     }

@@ -270,8 +270,8 @@ function MultiSegmentCircle({ segments, size = 60, isDarkMode }: {
   );
 }
 
-// Market Card Component with Fixed Height and Scrollable Options
-function MarketCard({ marketId, isDarkMode, onBet, onEndMarket, userAddress }: {
+// Clean Market Card Component
+function CleanMarketCard({ marketId, isDarkMode, onBet, onEndMarket, userAddress }: {
   marketId: number;
   isDarkMode: boolean;
   onBet: (marketId: number, option: number, amount: string, isApproval?: boolean) => void;
@@ -582,7 +582,7 @@ function MarketCard({ marketId, isDarkMode, onBet, onEndMarket, userAddress }: {
           ? 'bg-[#1a1d2e] border-gray-700 hover:shadow-gray-900/50' 
           : 'bg-white border-gray-200 hover:shadow-gray-900/20'
       }`}
-      style={{ height: '380px' }}
+      style={{ maxHeight: '520px' }}
     >
       <div className="p-4 flex flex-col flex-1 min-h-0">
         {/* Header with small image and multi-segment circle */}
@@ -623,15 +623,7 @@ function MarketCard({ marketId, isDarkMode, onBet, onEndMarket, userAddress }: {
       </div>
 
         {/* Scrollable Options */}
-        <div 
-          className="flex-1 min-h-0 overflow-y-auto mb-3 pr-1" 
-          style={{ 
-            minHeight: '90px', 
-            maxHeight: '130px',
-            scrollbarWidth: 'thin',
-            scrollbarColor: '#9CA3AF transparent'
-          }}
-        >
+        <div className="flex-1 min-h-0 overflow-y-auto mb-4 pr-1" style={{ maxHeight: '200px' }}>
           <div className="space-y-2">
             {options.map((option: string, index: number) => {
                 const percentage = getOptionPercentage(index);
@@ -723,46 +715,45 @@ function MarketCard({ marketId, isDarkMode, onBet, onEndMarket, userAddress }: {
           </div>
 
         {/* Bet Input Section */}
-        <div className="flex-shrink-0 mt-3">
-          {userHasStaked === true && userAddress && canEndMarket ? (
-            <div>
-              {canEndMarket && (
-                <button
-                  onClick={() => onEndMarket(marketId)}
-                  className="w-full py-2.5 px-4 rounded-lg text-sm font-semibold bg-orange-600 hover:bg-orange-700 text-white transition-colors flex items-center justify-center gap-2"
-                >
-                  <Timer size={16} />
-                  End Market
-                </button>
-              )}
-            </div>
-          ) : canEndMarket ? (
-            <button
-              onClick={() => onEndMarket(marketId)}
-              className="w-full py-2.5 px-4 rounded-lg text-sm font-semibold bg-orange-600 hover:bg-orange-700 text-white transition-colors flex items-center justify-center gap-2"
-            >
-              <Timer size={16} />
-              End Market
-            </button>
-          ) : (
-            <div className="flex gap-1">
+        {userHasStaked === true && userAddress ? (
+          <div>
+            {canEndMarket && (
+          <button
+            onClick={() => onEndMarket(marketId)}
+                className="mt-4 w-full py-2.5 px-4 rounded-lg text-sm font-semibold bg-orange-600 hover:bg-orange-700 text-white transition-colors flex items-center justify-center gap-2"
+          >
+            <Timer size={16} />
+                End Market
+          </button>
+            )}
+          </div>
+        ) : canEndMarket ? (
+          <button
+            onClick={() => onEndMarket(marketId)}
+            className="mt-4 w-full py-2.5 px-4 rounded-lg text-sm font-semibold bg-orange-600 hover:bg-orange-700 text-white transition-colors flex items-center justify-center gap-2"
+          >
+            <Timer size={16} />
+            End Market
+          </button>
+        ) : (
+          <div className="mt-4 flex gap-2">
                 <input
                   type="number"
                   value={betAmount}
                   onChange={(e) => setBetAmount(e.target.value)}
                   placeholder={`Min: ${market?.minStake ? formatEther(market.minStake) : '0'} ${tokenSymbol || 'PEPU'}`}
               disabled={!canStake}
-              className={`flex-1 px-2 py-1.5 border rounded text-xs ${
+              className={`flex-1 px-3 py-2.5 border rounded-lg text-sm ${
                     isDarkMode 
                   ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-500' 
                       : 'bg-white border-gray-300 text-gray-900'
-              }`}
+              } ${!canStake ? 'opacity-50 cursor-not-allowed' : ''}`}
                 />
                 {needsTokenApproval ? (
                   <button
                 onClick={() => onBet(marketId, selectedOption, betAmount, true)}
                 disabled={!betAmount || !canStake}
-                className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                className={`px-6 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
                   !betAmount || !canStake
                     ? 'bg-gray-600 cursor-not-allowed text-gray-400'
                     : 'bg-blue-600 hover:bg-blue-700 text-white'
@@ -774,7 +765,7 @@ function MarketCard({ marketId, isDarkMode, onBet, onEndMarket, userAddress }: {
                   <button
                     onClick={() => onBet(marketId, selectedOption, betAmount)}
                 disabled={!betAmount || !canStake}
-                className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                className={`px-6 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
                   !betAmount || !canStake
                     ? 'bg-gray-600 cursor-not-allowed text-gray-400'
                         : isDarkMode 
@@ -786,14 +777,15 @@ function MarketCard({ marketId, isDarkMode, onBet, onEndMarket, userAddress }: {
                   </button>
                 )}
               </div>
-            )}
-            {needsTokenApproval && (
-              <p className="text-xs text-yellow-600 mt-2 text-center">
-                Approve {tokenSymbol || 'tokens'} before staking
-              </p>
-            )}
-          </div>
-        </div>
+        )}
+
+              {needsTokenApproval && (
+          <p className="text-xs text-yellow-600 mt-2 text-center">
+            Approve {tokenSymbol || 'tokens'} before staking
+                </p>
+              )}
+
+            </div>
     </div>
   );
 }
@@ -1246,13 +1238,9 @@ export default function HomePage() {
               </p>
             </div>
           ) : (
-            <div className={`grid gap-4 transition-all duration-300 ${
-              sidebarCollapsed 
-                ? 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5' 
-                : 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3'
-            }`}>
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               {filteredActiveMarkets.map((marketId: number) => (
-                <MarketCard
+                <CleanMarketCard
                   key={marketId}
                   marketId={marketId}
                   isDarkMode={isDarkMode}

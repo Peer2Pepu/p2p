@@ -10,7 +10,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -50,7 +50,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -89,7 +89,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -131,7 +131,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -168,7 +168,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -207,7 +207,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -244,7 +244,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -283,7 +283,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -323,7 +323,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -360,7 +360,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -400,7 +400,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -437,7 +437,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -474,7 +474,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -506,15 +506,15 @@
       ]
     },
     "C:\\Users\\User\\p2p\\contracts\\P2PMarketManager.sol": {
-      "lastModificationDate": 1758828724011,
-      "contentHash": "e5ed6d12d189f8aac5569f3b7f8492eb",
+      "lastModificationDate": 1759189157350,
+      "contentHash": "1699d676d4b6f02cde46c78bbb3f9f11",
       "sourceName": "contracts/P2PMarketManager.sol",
       "solcConfig": {
         "version": "0.8.20",
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -550,15 +550,15 @@
       ]
     },
     "C:\\Users\\User\\p2p\\contracts\\P2PTreasury.sol": {
-      "lastModificationDate": 1758821753031,
-      "contentHash": "a8f7a6a7d100940e8c76c61206d55566",
+      "lastModificationDate": 1759185552382,
+      "contentHash": "37975f76bc6f227858adba193e94fd83",
       "sourceName": "contracts/P2PTreasury.sol",
       "solcConfig": {
         "version": "0.8.20",
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -599,7 +599,7 @@
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",
@@ -631,15 +631,15 @@
       ]
     },
     "C:\\Users\\User\\p2p\\contracts\\P2PAnalytics.sol": {
-      "lastModificationDate": 1757679533705,
-      "contentHash": "78105f5d2b0256d8faa0892b4231fed1",
+      "lastModificationDate": 1759262082094,
+      "contentHash": "fb7ac56a8b668a016881e463d5cb2f63",
       "sourceName": "contracts/P2PAnalytics.sol",
       "solcConfig": {
         "version": "0.8.20",
         "settings": {
           "optimizer": {
             "enabled": true,
-            "runs": 200
+            "runs": 1
           },
           "viaIR": true,
           "evmVersion": "paris",

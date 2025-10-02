@@ -100,14 +100,14 @@ async function main() {
     // 11. Verify contract parameters
     console.log("\n11. Verifying contract parameters...");
     const minDuration = await eventPool.minMarketDurationMinutes();
-    const bettingRestrictionEnabled = await eventPool.bettingRestrictionEnabled();
-    const bettingRestrictionMinutes = await eventPool.bettingRestrictionMinutes();
+    const stakingRestrictionEnabled = await eventPool.bettingRestrictionEnabled();
+    const stakingRestrictionMinutes = await eventPool.bettingRestrictionMinutes();
     const isP2PTokenSupported = await eventPool.supportedTokens(poolTokenAddress);
     const p2pTokenSymbol = await eventPool.tokenSymbols(poolTokenAddress);
 
     console.log("Min Market Duration:", minDuration.toString(), "minutes");
-    console.log("Betting Restriction Enabled:", bettingRestrictionEnabled);
-    console.log("Betting Restriction Minutes:", bettingRestrictionMinutes.toString());
+    console.log("Staking Restriction Enabled:", stakingRestrictionEnabled);
+    console.log("Staking Restriction Minutes:", stakingRestrictionMinutes.toString());
     console.log("P2P Token Supported:", isP2PTokenSupported);
     console.log("P2P Token Symbol:", p2pTokenSymbol);
 
@@ -130,7 +130,7 @@ async function main() {
     console.log("\n✨ System Features:");
     console.log("• Fixed fee distribution bug");
     console.log("• Settable minimum market duration (default: 5 minutes)");
-    console.log("• Settable betting restrictions (default: disabled)");
+    console.log("• Settable staking restrictions (default: disabled)");
     console.log("• P2P Token support");
     console.log("• Multiple verifiers");
     console.log("• All contracts properly linked");

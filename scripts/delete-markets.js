@@ -9,7 +9,7 @@ async function main() {
     console.log('📝 Signer address:', signer.address);
 
     // Contract addresses from environment
-    const MARKET_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS;
+    const MARKET_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS;
     
     if (!MARKET_MANAGER_ADDRESS) {
         throw new Error('❌ Missing required environment variable: NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS');

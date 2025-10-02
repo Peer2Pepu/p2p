@@ -2,7 +2,7 @@ const { ethers } = require('hardhat');
 require('dotenv').config();
 
 async function main() {
-    console.log('🎯 Starting automated betting on markets...\n');
+    console.log('🎯 Starting automated staking on markets...\n');
 
     // Get private keys from environment
     const KEY_ONE = process.env.KEY_ONE;
@@ -35,8 +35,8 @@ async function main() {
     const marketManagerABI = [
         "function getNextMarketId() external view returns (uint256)",
         "function getMarket(uint256 marketId) external view returns (tuple(address creator, string ipfsHash, bool isMultiOption, uint256 maxOptions, address paymentToken, uint256 minStake, uint256 creatorDeposit, uint256 creatorOutcome, uint256 startTime, uint256 endTime, uint256 resolutionEndTime, uint8 state, uint256 winningOption, bool isResolved))",
-        "function placeBet(uint256 marketId, uint256 option) external payable",
-        "function placeBetWithToken(uint256 marketId, uint256 option, uint256 amount) external"
+        "function placeStake(uint256 marketId, uint256 option) external payable",
+        "function placeStakeWithToken(uint256 marketId, uint256 option, uint256 amount) external"
     ];
 
     const tokenABI = [
@@ -54,8 +54,8 @@ async function main() {
     const nextMarketId = await marketManager1.getNextMarketId();
     console.log('📊 Total markets:', nextMarketId.toString());
 
-    // Define betting strategy for each market
-    const bettingStrategy = [
+    // Define staking strategy for each market
+    const stakingStrategy = [
         // Market 5: Bitcoin $100k (Creator bets "No" - WINS)
         // Strategy: Everyone bets "Yes" (wrong) - Creator wins, everyone loses
         {
@@ -92,8 +92,8 @@ async function main() {
         }
     ];
 
-    // Execute betting strategy
-    for (const strategy of bettingStrategy) {
+    // Execute staking strategy
+    for (const strategy of stakingStrategy) {
         console.log(`\n📊 Market ${strategy.marketId}: ${strategy.description}`);
         
         try {
@@ -107,68 +107,68 @@ async function main() {
                 continue;
             }
 
-            // Wallet 1 betting
-            console.log(`   🎯 Wallet 1 betting ${ethers.formatEther(strategy.wallet1Bet.amount)} on option ${strategy.wallet1Bet.option}...`);
+            // Wallet 1 staking
+            console.log(`   🎯 Wallet 1 staking ${ethers.formatEther(strategy.wallet1Bet.amount)} on option ${strategy.wallet1Bet.option}...`);
             
             if (market.paymentToken === ethers.ZeroAddress) {
                 // PEPU market
-                const tx1 = await marketManager1.placeBet(
+                const tx1 = await marketManager1.placeStake(
                     strategy.marketId,
                     strategy.wallet1Bet.option,
                     { value: strategy.wallet1Bet.amount }
                 );
                 console.log(`   📋 Wallet 1 transaction: ${tx1.hash}`);
                 await tx1.wait();
-                console.log(`   ✅ Wallet 1 bet successful!`);
+                console.log(`   ✅ Wallet 1 stake successful!`);
             } else {
                 // P2P token market
                 const approveTx1 = await p2pToken1.approve(MARKET_MANAGER_ADDRESS, strategy.wallet1Bet.amount);
                 await approveTx1.wait();
                 
-                const tx1 = await marketManager1.placeBetWithToken(
+                const tx1 = await marketManager1.placeStakeWithToken(
                     strategy.marketId,
                     strategy.wallet1Bet.option,
                     strategy.wallet1Bet.amount
                 );
                 console.log(`   📋 Wallet 1 transaction: ${tx1.hash}`);
                 await tx1.wait();
-                console.log(`   ✅ Wallet 1 bet successful!`);
+                console.log(`   ✅ Wallet 1 stake successful!`);
             }
 
-            // Wallet 2 betting
-            console.log(`   🎯 Wallet 2 betting ${ethers.formatEther(strategy.wallet2Bet.amount)} on option ${strategy.wallet2Bet.option}...`);
+            // Wallet 2 staking
+            console.log(`   🎯 Wallet 2 staking ${ethers.formatEther(strategy.wallet2Bet.amount)} on option ${strategy.wallet2Bet.option}...`);
             
             if (market.paymentToken === ethers.ZeroAddress) {
                 // PEPU market
-                const tx2 = await marketManager2.placeBet(
+                const tx2 = await marketManager2.placeStake(
                     strategy.marketId,
                     strategy.wallet2Bet.option,
                     { value: strategy.wallet2Bet.amount }
                 );
                 console.log(`   📋 Wallet 2 transaction: ${tx2.hash}`);
                 await tx2.wait();
-                console.log(`   ✅ Wallet 2 bet successful!`);
+                console.log(`   ✅ Wallet 2 stake successful!`);
             } else {
                 // P2P token market
                 const approveTx2 = await p2pToken2.approve(MARKET_MANAGER_ADDRESS, strategy.wallet2Bet.amount);
                 await approveTx2.wait();
                 
-                const tx2 = await marketManager2.placeBetWithToken(
+                const tx2 = await marketManager2.placeStakeWithToken(
                     strategy.marketId,
                     strategy.wallet2Bet.option,
                     strategy.wallet2Bet.amount
                 );
                 console.log(`   📋 Wallet 2 transaction: ${tx2.hash}`);
                 await tx2.wait();
-                console.log(`   ✅ Wallet 2 bet successful!`);
+                console.log(`   ✅ Wallet 2 stake successful!`);
             }
 
         } catch (error) {
-            console.error(`   ❌ Failed to bet on market ${strategy.marketId}:`, error.message);
+            console.error(`   ❌ Failed to stake on market ${strategy.marketId}:`, error.message);
         }
     }
 
-    console.log('\n🎉 Automated betting completed!');
+    console.log('\n🎉 Automated staking completed!');
 }
 
 main()

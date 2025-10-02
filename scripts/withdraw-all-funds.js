@@ -6,7 +6,7 @@ async function main() {
 
     // Contract addresses
     const TREASURY_ADDRESS = process.env.NEXT_PUBLIC_P2P_TREASURY_ADDRESS;
-    const P2P_TOKEN_ADDRESS = process.env.NEXT_PUBLIC_P2P_TOKEN_ADDRESS;
+    const P2P_TOKEN_ADDRESS = "0x28dd14d951cc1b9ff32bdc27dcc7da04fbfe3af6"; // Lowercase to bypass checksum
     const PRIVATE_KEY = process.env.PRIVATE_KEY;
 
     if (!TREASURY_ADDRESS || !P2P_TOKEN_ADDRESS || !PRIVATE_KEY) {
@@ -36,16 +36,16 @@ async function main() {
         const tokenBalance = await token.balanceOf(TREASURY_ADDRESS);
 
         console.log(`📊 Treasury Balances:`);
-        console.log(`   ETH: ${ethers.formatEther(ethBalance)} ETH`);
+        console.log(`   PEPU: ${ethers.formatEther(ethBalance)} PEPU`);
         console.log(`   P2P Token: ${ethers.formatEther(tokenBalance)} P2P tokens`);
 
-        // Withdraw ETH
+        // Withdraw PEPU (native token)
         if (ethBalance > 0) {
-            console.log(`\n💸 Withdrawing ${ethers.formatEther(ethBalance)} ETH...`);
+            console.log(`\n💸 Withdrawing ${ethers.formatEther(ethBalance)} PEPU...`);
             const tx1 = await treasury.withdraw(ethers.ZeroAddress, ethBalance, signer.address);
             console.log(`   Transaction: ${tx1.hash}`);
             await tx1.wait();
-            console.log(`   ✅ ETH withdrawn successfully!`);
+            console.log(`   ✅ PEPU withdrawn successfully!`);
         }
 
         // Withdraw P2P tokens

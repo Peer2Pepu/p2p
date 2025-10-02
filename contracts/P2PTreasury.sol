@@ -32,7 +32,7 @@ contract PoolVault is Ownable {
     mapping(uint256 => mapping(address => uint256)) public marketPools; // marketId => token => total amount
     mapping(uint256 => mapping(uint256 => mapping(address => uint256))) public optionPools; // marketId => option => token => amount
     mapping(uint256 => mapping(address => uint256)) public supportPools; // marketId => token => support amount
-    mapping(uint256 => mapping(address => mapping(address => uint256))) public userBets; // marketId => user => token => bet amount
+    mapping(uint256 => mapping(address => mapping(address => uint256))) public userStakes; // marketId => user => token => stake amount
     mapping(uint256 => mapping(address => mapping(address => uint256))) public userSupports; // marketId => user => token => support amount
     mapping(uint256 => mapping(address => mapping(uint256 => uint256))) public userBetOptions; // marketId => user => option => bet amount
     mapping(uint256 => mapping(address => bool)) public userClaimed; // marketId => user => has claimed
@@ -239,14 +239,14 @@ contract PoolVault is Ownable {
     }
 
     /**
-     * @dev Place a bet (called by MarketManager)
+     * @dev Place a stake (called by MarketManager)
      */
-    function placeBet(uint256 marketId, address user, address token, uint256 amount, uint256 option) external {
-        require(authorizedContracts[msg.sender], "Treasury: Only authorized contracts can place bets");
-        require(amount > 0, "Treasury: Invalid bet amount");
+    function placeStake(uint256 marketId, address user, address token, uint256 amount, uint256 option) external {
+        require(authorizedContracts[msg.sender], "Treasury: Only authorized contracts can place stakes");
+        require(amount > 0, "Treasury: Invalid stake amount");
         
-        // Update user bet
-        userBets[marketId][user][token] += amount;
+        // Update user stake
+        userStakes[marketId][user][token] += amount;
         userBetOptions[marketId][user][option] += amount;
         
         // Update pools
@@ -326,8 +326,8 @@ contract PoolVault is Ownable {
     /**
      * @dev Get user bet amount
      */
-    function getUserBet(uint256 marketId, address user, address token) external view returns (uint256) {
-        return userBets[marketId][user][token];
+    function getUserStake(uint256 marketId, address user, address token) external view returns (uint256) {
+        return userStakes[marketId][user][token];
     }
 
     /**
@@ -352,10 +352,12 @@ contract PoolVault is Ownable {
     }
 
     /**
-     * @dev Get total market pool
+     * @dev Get total market pool (betting pools + support pools)
      */
     function getMarketPool(uint256 marketId, address token) external view returns (uint256) {
-        return marketPools[marketId][token];
+        uint256 bettingPool = marketPools[marketId][token];
+        uint256 supportPool = supportPools[marketId][token];
+        return bettingPool + supportPool;
     }
 
     /**
@@ -380,6 +382,28 @@ contract PoolVault is Ownable {
         for (uint256 i = 0; i < tokens.length; i++) {
             balances[i] = platformPools[tokens[i]];
         }
+    }
+
+    /**
+     * @dev Transfer creator's platform fee directly to creator
+     */
+    function transferToCreator(address creator, address token, uint256 amount) external {
+        require(authorizedContracts[msg.sender], "Treasury: Only authorized contracts can transfer to creator");
+        require(amount > 0, "Treasury: Invalid amount");
+        require(creator != address(0), "Treasury: Invalid creator address");
+        
+        if (token == address(0)) {
+            // Native ETH
+            require(address(this).balance >= amount, "Treasury: Insufficient ETH balance");
+            (bool success, ) = creator.call{value: amount}("");
+            require(success, "Treasury: ETH transfer to creator failed");
+        } else {
+            // ERC20 token
+            require(IERC20(token).balanceOf(address(this)) >= amount, "Treasury: Insufficient token balance");
+            IERC20(token).safeTransfer(creator, amount);
+        }
+        
+        emit FundsWithdrawn(token, amount, creator);
     }
 
     /**

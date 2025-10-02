@@ -41,6 +41,7 @@ const MARKET_MANAGER_ABI = [
           {"name": "creatorDeposit", "type": "uint256"},
           {"name": "creatorOutcome", "type": "uint256"},
           {"name": "startTime", "type": "uint256"},
+          {"name": "stakeEndTime", "type": "uint256"},
           {"name": "endTime", "type": "uint256"},
           {"name": "resolutionEndTime", "type": "uint256"},
           {"name": "state", "type": "uint8"},
@@ -56,7 +57,7 @@ const MARKET_MANAGER_ABI = [
   },
   {
     "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "user", "type": "address"}, {"name": "token", "type": "address"}],
-    "name": "getUserBet",
+    "name": "getUserStake",
     "outputs": [{"name": "", "type": "uint256"}],
     "stateMutability": "view",
     "type": "function"
@@ -70,7 +71,7 @@ const MARKET_MANAGER_ABI = [
   },
   {
     "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "user", "type": "address"}],
-    "name": "userBetOptions",
+    "name": "userStakeOptions",
     "outputs": [{"name": "", "type": "uint256"}],
     "stateMutability": "view",
     "type": "function"
@@ -104,7 +105,7 @@ const ANALYTICS_ABI = [
 const TREASURY_ABI = [
   {
     "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "user", "type": "address"}, {"name": "token", "type": "address"}],
-    "name": "getUserBet",
+    "name": "getUserStake",
     "outputs": [{"name": "", "type": "uint256"}],
     "stateMutability": "view",
     "type": "function"
@@ -118,8 +119,8 @@ const TREASURY_ABI = [
   }
 ];
 
-// Betslip Card Component
-function BetslipCard({ marketId, userAddress, isDarkMode, onClaimableUpdate }: {
+// Stakes Card Component
+function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate }: {
   marketId: number;
   userAddress: `0x${string}`;
   isDarkMode: boolean;
@@ -140,11 +141,11 @@ function BetslipCard({ marketId, userAddress, isDarkMode, onClaimableUpdate }: {
     args: [BigInt(marketId)],
   }) as { data: any | undefined };
 
-  // Get user's bet amount
-  const { data: userBetAmount } = useReadContract({
+  // Get user's stake amount
+  const { data: userStakeAmount } = useReadContract({
     address: TREASURY_ADDRESS,
     abi: TREASURY_ABI,
-    functionName: 'getUserBet',
+    functionName: 'getUserStake',
     args: [BigInt(marketId), userAddress, (market as any)?.paymentToken || '0x0000000000000000000000000000000000000000'],
   }) as { data: bigint | undefined };
 
@@ -156,11 +157,11 @@ function BetslipCard({ marketId, userAddress, isDarkMode, onClaimableUpdate }: {
     args: [BigInt(marketId), userAddress],
   });
 
-  // Get user's bet option
-  const { data: userBetOption } = useReadContract({
+  // Get user's stake option
+  const { data: userStakeOption } = useReadContract({
     address: MARKET_MANAGER_ADDRESS,
     abi: MARKET_MANAGER_ABI,
-    functionName: 'userBetOptions',
+    functionName: 'userStakeOptions',
     args: [BigInt(marketId), userAddress],
   });
 
@@ -220,19 +221,19 @@ function BetslipCard({ marketId, userAddress, isDarkMode, onClaimableUpdate }: {
 
   // Calculate derived values
   const marketData = market as any;
-  const isWinningBet = userBetOption && marketData?.winningOption ? Number(userBetOption) === Number(marketData.winningOption) : false;
-  const canClaim = isWinningBet && !hasClaimed;
+  const isWinningStake = userStakeOption && marketData?.winningOption ? Number(userStakeOption) === Number(marketData.winningOption) : false;
+  const canClaim = isWinningStake && !hasClaimed;
 
   // Update claimable count when canClaim changes
   useEffect(() => {
-    if (market && userBetAmount && userBetAmount !== BigInt(0) && onClaimableUpdate) {
+    if (market && userStakeAmount && userStakeAmount !== BigInt(0) && onClaimableUpdate) {
       onClaimableUpdate(marketId, canClaim);
     }
-  }, [market, userBetAmount, userBetOption, hasClaimed, canClaim, onClaimableUpdate, marketId]);
+  }, [market, userStakeAmount, userStakeOption, hasClaimed, canClaim, onClaimableUpdate, marketId]);
 
   // Early return after all hooks have been called
-  if (!market || !userBetAmount || userBetAmount === BigInt(0)) {
-    return null; // Don't show markets where user didn't bet
+  if (!market || !userStakeAmount || userStakeAmount === BigInt(0)) {
+    return null; // Don't show markets where user didn't stake
   }
 
   // Safety check for market data
@@ -260,7 +261,7 @@ function BetslipCard({ marketId, userAddress, isDarkMode, onClaimableUpdate }: {
 
   const getUserOptionText = () => {
     const options = getMarketOptions();
-    const optionIndex = userBetOption ? Number(userBetOption) - 1 : 0;
+    const optionIndex = userStakeOption ? Number(userStakeOption) - 1 : 0;
     return options[optionIndex] || 'Unknown';
   };
 
@@ -336,10 +337,10 @@ function BetslipCard({ marketId, userAddress, isDarkMode, onClaimableUpdate }: {
         
         <div className="text-right">
           <div className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-            {userBetAmount ? formatEther(userBetAmount as bigint) : '0'} {tokenSymbol ? String(tokenSymbol) : 'P2P'}
+            {userStakeAmount ? formatEther(userStakeAmount as bigint) : '0'} {tokenSymbol ? String(tokenSymbol) : 'P2P'}
           </div>
           <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-            Your Bet
+            Your Stake
           </div>
         </div>
       </div>
@@ -410,8 +411,8 @@ function BetslipCard({ marketId, userAddress, isDarkMode, onClaimableUpdate }: {
   );
 }
 
-// Main Betslip Page Component
-export default function BetslipPage() {
+// Main Stakes Page Component
+export default function StakesPage() {
   const { isDarkMode, toggleTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -503,7 +504,7 @@ export default function BetslipPage() {
                 
                 <div className="hidden lg:block">
                   <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                    Betslip
+                    Stakes
                   </h1>
                   <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                     Claim winnings from your resolved markets
@@ -627,7 +628,7 @@ export default function BetslipPage() {
             <div className="space-y-4">
               <div className="grid gap-3 lg:gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
                 {displayedMarkets.map((marketId: number) => (
-                  <BetslipCard
+                  <StakesCard
                     key={marketId}
                     marketId={marketId}
                     userAddress={address!}

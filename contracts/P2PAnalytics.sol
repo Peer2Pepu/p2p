@@ -11,26 +11,26 @@ contract MetricsHub is Ownable {
     
     // User statistics
     struct UserStats {
-        uint256 totalBetsPlaced;
-        uint256 totalBetsWon;
-        uint256 totalBetsLost;
+        uint256 totalStakesPlaced;
+        uint256 totalStakesWon;
+        uint256 totalStakesLost;
         uint256 totalWinnings;
         uint256 totalLosses;
         uint256 totalSupportDonated;
         uint256 marketsCreated;
         uint256 marketsWon;
         uint256 marketsLost;
-        uint256 favoriteOption; // Most bet on option
+        uint256 favoriteOption; // Most staked on option
         uint256 lastActivity;
     }
     
     // Market statistics
     struct MarketStats {
         uint256 totalVolume;
-        uint256 totalBettors;
+        uint256 totalStakers;
         uint256 totalSupporters;
-        uint256 averageBetSize;
-        uint256 largestBet;
+        uint256 averageStakeSize;
+        uint256 largestStake;
         uint256 mostPopularOption;
         uint256 resolutionTime;
         bool wasResolved;
@@ -41,7 +41,7 @@ contract MetricsHub is Ownable {
     struct GlobalStats {
         uint256 totalMarkets;
         uint256 totalVolume;
-        uint256 totalBettors;
+        uint256 totalStakers;
         uint256 totalSupporters;
         uint256 totalWinnings;
         uint256 averageMarketSize;
@@ -53,13 +53,13 @@ contract MetricsHub is Ownable {
     mapping(address => UserStats) public userStats;
     mapping(uint256 => MarketStats) public marketStats;
     mapping(address => uint256[]) public userMarkets;
-    mapping(address => uint256[]) public userBets;
+    mapping(address => uint256[]) public userStakes;
     mapping(address => uint256[]) public userSupports;
     mapping(address => mapping(uint256 => uint256)) public userOptionStats; // user => option => count
     
     // Events
-    event UserStatsUpdated(address indexed user, uint256 totalBets, uint256 winnings);
-    event MarketStatsUpdated(uint256 indexed marketId, uint256 volume, uint256 bettors);
+    event UserStatsUpdated(address indexed user, uint256 totalStakes, uint256 winnings);
+    event MarketStatsUpdated(uint256 indexed marketId, uint256 volume, uint256 stakers);
     event GlobalStatsUpdated(uint256 totalMarkets, uint256 totalVolume);
     
     constructor(address initialOwner, address _marketManager) Ownable(initialOwner) {
@@ -74,13 +74,13 @@ contract MetricsHub is Ownable {
     }
     
     /**
-     * @dev Track bet placement
+     * @dev Track stake placement
      */
-    function trackBet(uint256 marketId, address user, uint256 option, uint256 amount) external {
+    function trackStake(uint256 marketId, address user, uint256 option, uint256 amount) external {
         require(msg.sender == marketManager, "Analytics: Only MarketManager can track");
         
         UserStats storage stats = userStats[user];
-        stats.totalBetsPlaced++;
+        stats.totalStakesPlaced++;
         stats.totalLosses += amount; // Will be updated when resolved
         stats.lastActivity = block.timestamp;
         
@@ -93,21 +93,21 @@ contract MetricsHub is Ownable {
         // Update market stats
         MarketStats storage marketStat = marketStats[marketId];
         marketStat.totalVolume += amount;
-        marketStat.totalBettors = EventPool(marketManager).getBettorCount(marketId);
-        marketStat.averageBetSize = marketStat.totalBettors > 0 ? marketStat.totalVolume / marketStat.totalBettors : 0;
+        marketStat.totalStakers = EventPool(marketManager).getStakerCount(marketId);
+        marketStat.averageStakeSize = marketStat.totalStakers > 0 ? marketStat.totalVolume / marketStat.totalStakers : 0;
         
-        if (amount > marketStat.largestBet) {
-            marketStat.largestBet = amount;
+        if (amount > marketStat.largestStake) {
+            marketStat.largestStake = amount;
         }
         
         // Track user's markets
         if (userMarkets[user].length == 0 || userMarkets[user][userMarkets[user].length - 1] != marketId) {
             userMarkets[user].push(marketId);
         }
-        userBets[user].push(marketId);
+        userStakes[user].push(marketId);
         
-        emit UserStatsUpdated(user, stats.totalBetsPlaced, stats.totalWinnings);
-        emit MarketStatsUpdated(marketId, marketStat.totalVolume, marketStat.totalBettors);
+        emit UserStatsUpdated(user, stats.totalStakesPlaced, stats.totalWinnings);
+        emit MarketStatsUpdated(marketId, marketStat.totalVolume, marketStat.totalStakers);
     }
     
     /**
@@ -126,7 +126,7 @@ contract MetricsHub is Ownable {
         
         userSupports[user].push(marketId);
         
-        emit UserStatsUpdated(user, stats.totalBetsPlaced, stats.totalWinnings);
+        emit UserStatsUpdated(user, stats.totalStakesPlaced, stats.totalWinnings);
     }
     
     /**
@@ -141,7 +141,7 @@ contract MetricsHub is Ownable {
         
         userMarkets[creator].push(marketId);
         
-        emit UserStatsUpdated(creator, stats.totalBetsPlaced, stats.totalWinnings);
+        emit UserStatsUpdated(creator, stats.totalStakesPlaced, stats.totalWinnings);
     }
     
     /**
@@ -170,7 +170,7 @@ contract MetricsHub is Ownable {
         require(msg.sender == marketManager, "Analytics: Only MarketManager can track");
         
         UserStats storage stats = userStats[user];
-        stats.totalBetsWon++;
+        stats.totalStakesWon++;
         stats.totalWinnings += winnings;
         stats.lastActivity = block.timestamp;
         
@@ -181,7 +181,7 @@ contract MetricsHub is Ownable {
             marketStats[marketId].creatorWinnings = winnings;
         }
         
-        emit UserStatsUpdated(user, stats.totalBetsPlaced, stats.totalWinnings);
+        emit UserStatsUpdated(user, stats.totalStakesPlaced, stats.totalWinnings);
     }
     
     /**
@@ -191,7 +191,7 @@ contract MetricsHub is Ownable {
         require(msg.sender == marketManager, "Analytics: Only MarketManager can track");
         
         UserStats storage stats = userStats[user];
-        stats.totalBetsLost++;
+        stats.totalStakesLost++;
         stats.lastActivity = block.timestamp;
         
         // Check if user lost the market they created
@@ -200,7 +200,7 @@ contract MetricsHub is Ownable {
             stats.marketsLost++;
         }
         
-        emit UserStatsUpdated(user, stats.totalBetsPlaced, stats.totalWinnings);
+        emit UserStatsUpdated(user, stats.totalStakesPlaced, stats.totalWinnings);
     }
     
     /**
@@ -223,21 +223,21 @@ contract MetricsHub is Ownable {
     function getGlobalStats() public view returns (GlobalStats memory) {
         uint256 totalMarkets = EventPool(marketManager).getNextMarketId() - 1;
         uint256 totalVolume = 0;
-        uint256 totalBettors = 0;
+        uint256 totalStakers = 0;
         uint256 totalSupporters = 0;
         
         // Calculate totals (this is expensive, consider caching)
         for (uint256 i = 1; i <= totalMarkets; i++) {
             MarketStats memory market = marketStats[i];
             totalVolume += market.totalVolume;
-            totalBettors += market.totalBettors;
+            totalStakers += market.totalStakers;
             totalSupporters += market.totalSupporters;
         }
         
         return GlobalStats({
             totalMarkets: totalMarkets,
             totalVolume: totalVolume,
-            totalBettors: totalBettors,
+            totalStakers: totalStakers,
             totalSupporters: totalSupporters,
             totalWinnings: 0, // Would need to track this
             averageMarketSize: totalMarkets > 0 ? totalVolume / totalMarkets : 0,
@@ -254,10 +254,10 @@ contract MetricsHub is Ownable {
     }
     
     /**
-     * @dev Get user's bet history
+     * @dev Get user's stake history
      */
-    function getUserBets(address user) external view returns (uint256[] memory) {
-        return userBets[user];
+    function getUserStakes(address user) external view returns (uint256[] memory) {
+        return userStakes[user];
     }
     
     /**
@@ -272,8 +272,8 @@ contract MetricsHub is Ownable {
      */
     function getUserWinRate(address user) external view returns (uint256) {
         UserStats memory stats = userStats[user];
-        if (stats.totalBetsPlaced == 0) return 0;
-        return (stats.totalBetsWon * 100) / stats.totalBetsPlaced;
+        if (stats.totalStakesPlaced == 0) return 0;
+        return (stats.totalStakesWon * 100) / stats.totalStakesPlaced;
     }
     
     /**
@@ -519,43 +519,43 @@ contract MetricsHub is Ownable {
     }
     
     /**
-     * @dev Get active markets by bettor count (most bettors)
+     * @dev Get active markets by staker count (most stakers)
      */
-    function getActiveMarketsByBettorCount(uint256 limit) external view returns (uint256[] memory, uint256[] memory) {
+    function getActiveMarketsByStakerCount(uint256 limit) external view returns (uint256[] memory, uint256[] memory) {
         uint256 nextMarketId = EventPool(marketManager).getNextMarketId();
         uint256[] memory marketIds = new uint256[](0);
-        uint256[] memory bettorCounts = new uint256[](0);
+        uint256[] memory stakerCounts = new uint256[](0);
         
         // Collect only ACTIVE markets
         for (uint256 i = 1; i < nextMarketId; i++) {
             EventPool.Market memory market = EventPool(marketManager).getMarket(i);
             if (market.state == EventPool.MarketState.Active) {
-                uint256 bettorCount = EventPool(marketManager).getBettorCount(i);
+                uint256 stakerCount = EventPool(marketManager).getStakerCount(i);
                 
                 // Add to arrays
                 uint256[] memory tempIds = new uint256[](marketIds.length + 1);
-                uint256[] memory tempCounts = new uint256[](bettorCounts.length + 1);
+                uint256[] memory tempCounts = new uint256[](stakerCounts.length + 1);
                 
                 for (uint256 j = 0; j < marketIds.length; j++) {
                     tempIds[j] = marketIds[j];
-                    tempCounts[j] = bettorCounts[j];
+                    tempCounts[j] = stakerCounts[j];
                 }
                 tempIds[marketIds.length] = i;
-                tempCounts[bettorCounts.length] = bettorCount;
+                tempCounts[stakerCounts.length] = stakerCount;
                 
                 marketIds = tempIds;
-                bettorCounts = tempCounts;
+                stakerCounts = tempCounts;
             }
         }
         
-        // Sort by bettor count (bubble sort)
+        // Sort by staker count (bubble sort)
         for (uint256 i = 0; i < marketIds.length - 1; i++) {
             for (uint256 j = 0; j < marketIds.length - i - 1; j++) {
-                if (bettorCounts[j] < bettorCounts[j + 1]) {
+                if (stakerCounts[j] < stakerCounts[j + 1]) {
                     // Swap counts
-                    uint256 tempCount = bettorCounts[j];
-                    bettorCounts[j] = bettorCounts[j + 1];
-                    bettorCounts[j + 1] = tempCount;
+                    uint256 tempCount = stakerCounts[j];
+                    stakerCounts[j] = stakerCounts[j + 1];
+                    stakerCounts[j + 1] = tempCount;
                     
                     // Swap market IDs
                     uint256 tempId = marketIds[j];
@@ -572,14 +572,14 @@ contract MetricsHub is Ownable {
         
         for (uint256 i = 0; i < resultLength; i++) {
             resultIds[i] = marketIds[i];
-            resultCounts[i] = bettorCounts[i];
+            resultCounts[i] = stakerCounts[i];
         }
         
         return (resultIds, resultCounts);
     }
     
     /**
-     * @dev Get active markets by total participants (bettors + supporters)
+     * @dev Get active markets by total participants (stakers + supporters)
      */
     function getActiveMarketsByParticipants(uint256 limit) external view returns (uint256[] memory, uint256[] memory) {
         uint256 nextMarketId = EventPool(marketManager).getNextMarketId();
@@ -590,9 +590,9 @@ contract MetricsHub is Ownable {
         for (uint256 i = 1; i < nextMarketId; i++) {
             EventPool.Market memory market = EventPool(marketManager).getMarket(i);
             if (market.state == EventPool.MarketState.Active) {
-                uint256 bettorCount = EventPool(marketManager).getBettorCount(i);
+                uint256 stakerCount = EventPool(marketManager).getStakerCount(i);
                 uint256 supporterCount = EventPool(marketManager).getSupporterCount(i);
-                uint256 totalParticipants = bettorCount + supporterCount;
+                uint256 totalParticipants = stakerCount + supporterCount;
                 
                 // Add to arrays
                 uint256[] memory tempIds = new uint256[](marketIds.length + 1);
@@ -715,9 +715,9 @@ contract MetricsHub is Ownable {
     }
     
     /**
-     * @dev Get top bettors by volume
+     * @dev Get top stakers by volume
      */
-    function getTopBettors(uint256 limit) external view returns (address[] memory, uint256[] memory) {
+    function getTopStakers(uint256 limit) external view returns (address[] memory, uint256[] memory) {
         // This would require sorting, which is expensive on-chain
         // Consider implementing off-chain or with events
         address[] memory empty;

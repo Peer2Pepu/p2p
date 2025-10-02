@@ -10,7 +10,7 @@ async function main() {
     console.log('📝 Signer address:', signer.address);
 
     // Contract addresses from environment
-    const MARKET_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS;
+    const MARKET_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS;
     const P2P_TOKEN_ADDRESS = process.env.NEXT_PUBLIC_P2P_TOKEN_ADDRESS;
     
     if (!MARKET_MANAGER_ADDRESS || !P2P_TOKEN_ADDRESS) {
@@ -22,7 +22,7 @@ async function main() {
 
     // Market Manager ABI
     const marketManagerABI = [
-        "function createMarket(string memory ipfsHash, bool isMultiOption, uint256 maxOptions, address paymentToken, uint256 minStake, uint256 creatorDeposit, uint256 creatorOutcome, uint256 durationMinutes) external payable returns (uint256)",
+        "function createMarket(string memory ipfsHash, bool isMultiOption, uint256 maxOptions, address paymentToken, uint256 minStake, uint256 creatorDeposit, uint256 creatorOutcome, uint256 stakeDurationMinutes, uint256 resolutionDurationMinutes) external payable returns (uint256)",
         "function marketCreationFee() external view returns (uint256)",
         "function owner() external view returns (address)"
     ];
@@ -55,7 +55,8 @@ async function main() {
             minStake: ethers.parseEther("300"), // 300 PEPU
             creatorDeposit: ethers.parseEther("500"), // 500 PEPU
             creatorOutcome: 2, // Bets on "No" (correct answer)
-            duration: 10
+            stakeDuration: 10, // 10 minutes staking period
+            resolutionDuration: 20 // 20 minutes total duration
         },
         // 2. PEPU Binary Market (creator bets "Yes" - LOSES)
         {
@@ -69,7 +70,8 @@ async function main() {
             minStake: ethers.parseEther("400"), // 400 PEPU
             creatorDeposit: ethers.parseEther("700"), // 700 PEPU
             creatorOutcome: 1, // Bets on "Yes" (wrong answer, "No" is correct)
-            duration: 10
+            stakeDuration: 10, // 10 minutes staking period
+            resolutionDuration: 20 // 20 minutes total duration
         },
         // 3. P2P Token Binary Market (creator bets "No" - WINS)
         {
@@ -83,7 +85,8 @@ async function main() {
             minStake: ethers.parseUnits("700", 18), // 700 P2P tokens
             creatorDeposit: ethers.parseUnits("3000", 18), // 3000 P2P tokens
             creatorOutcome: 2, // Bets on "No" (correct answer)
-            duration: 10
+            stakeDuration: 10, // 10 minutes staking period
+            resolutionDuration: 20 // 20 minutes total duration
         },
         // 4. P2P Token Multi-Option Market (creator bets on option 3 - WINS)
         {
@@ -98,7 +101,8 @@ async function main() {
             minStake: ethers.parseUnits("1000", 18), // 1000 P2P tokens
             creatorDeposit: ethers.parseUnits("5000", 18), // 5000 P2P tokens
             creatorOutcome: 1, // Bets on "DeFi Protocols" (wrong answer)
-            duration: 10
+            stakeDuration: 10, // 10 minutes staking period
+            resolutionDuration: 20 // 20 minutes total duration
         }
     ];
 
@@ -111,7 +115,7 @@ async function main() {
         try {
             // Upload to IPFS via API
             console.log('   📤 Uploading to IPFS...');
-            const ipfsResponse = await axios.post('http://localhost:3001/api/upload-ipfs', {
+            const ipfsResponse = await axios.post('http://localhost:3000/api/upload-ipfs', {
                 title: market.title,
                 description: market.description,
                 categories: market.categories,
@@ -153,7 +157,8 @@ async function main() {
                 market.minStake,
                 market.creatorDeposit,
                 market.creatorOutcome,
-                market.duration,
+                market.stakeDuration,
+                market.resolutionDuration,
                 { value: totalValue }
             );
 
