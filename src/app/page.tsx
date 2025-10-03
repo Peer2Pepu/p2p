@@ -224,6 +224,10 @@ export default function HomePage() {
   const [showFilters, setShowFilters] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  
+  // Transaction state for approval and staking
+  const [isApprovalPending, setIsApprovalPending] = useState(false);
+  const [isStakePending, setIsStakePending] = useState(false);
 
   const { address, isConnected } = useAccount();
 
@@ -332,7 +336,10 @@ export default function HomePage() {
       const isERC20Market = paymentToken !== '0x0000000000000000000000000000000000000000';
       
       if (isApproval && isERC20Market) {
-        await writeContract({
+        setIsApprovalPending(true);
+        setError('');
+        
+        writeContract({
           address: paymentToken as `0x${string}`,
           abi: [
             {
@@ -348,17 +355,21 @@ export default function HomePage() {
           ],
           functionName: 'approve',
           args: [MARKET_MANAGER_ADDRESS, stakeAmount],
-          gas: BigInt(500000), // Gas limit for approval
+          gas: BigInt(200000), // Reasonable gas limit for approval
         });
-        setSuccess('Tokens approved! You can now place your stake.');
         
-        // Refetch allowance to auto-detect approval
+        setSuccess('Approval transaction submitted...');
+        
+        // Reset pending state after 10 seconds
         setTimeout(() => {
-          window.location.reload(); // Simple refresh to update allowance
-        }, 2000);
+          setIsApprovalPending(false);
+        }, 10000);
         
       } else if (isERC20Market) {
-        await writeContract({
+        setIsStakePending(true);
+        setError('');
+        
+        writeContract({
           address: MARKET_MANAGER_ADDRESS,
           abi: [
             {
@@ -375,22 +386,41 @@ export default function HomePage() {
           ],
           functionName: 'placeStakeWithToken',
           args: [BigInt(marketId), BigInt(option), stakeAmount],
-          gas: BigInt(600000), // Gas limit for staking with token
+          gas: BigInt(300000), // Reasonable gas limit for staking with token
         });
-        setSuccess('Successfully added a stake!');
+        
+        setSuccess('Stake transaction submitted...');
+        
+        // Reset pending state after 10 seconds
+        setTimeout(() => {
+          setIsStakePending(false);
+        }, 10000);
+        
       } else {
-        await writeContract({
+        setIsStakePending(true);
+        setError('');
+        
+        writeContract({
           address: MARKET_MANAGER_ADDRESS,
           abi: MARKET_MANAGER_ABI,
           functionName: 'placeStake',
           args: [BigInt(marketId), BigInt(option)],
           value: stakeAmount,
-          gas: BigInt(500000), // Gas limit for native staking
+          gas: BigInt(250000), // Reasonable gas limit for native staking
         });
-        setSuccess('Successfully added a stake!');
+        
+        setSuccess('Stake transaction submitted...');
+        
+        // Reset pending state after 10 seconds
+        setTimeout(() => {
+          setIsStakePending(false);
+        }, 10000);
+        
       }
     } catch (err: any) {
       setError(err.message || 'Failed to place stake');
+      setIsApprovalPending(false);
+      setIsStakePending(false);
     }
   };
 
@@ -674,6 +704,8 @@ export default function HomePage() {
                   onBet={handleBet}
                   onEndMarket={handleEndMarket}
                   userAddress={address}
+                  isApprovalPending={isApprovalPending}
+                  isStakePending={isStakePending}
                 />
               ))}
             </div>

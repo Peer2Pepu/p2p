@@ -15,7 +15,8 @@ import {
   Clock,
   Users,
   Target,
-  Wallet
+  Wallet,
+  Lock
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -69,6 +70,30 @@ const MARKET_MANAGER_ABI = [
   }
 ];
 
+const VALIDATION_CORE_ABI = [
+  {
+    "inputs": [{"name": "verifier", "type": "address"}],
+    "name": "isVerifier",
+    "outputs": [{"name": "", "type": "bool"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getVerifiers",
+    "outputs": [{"name": "", "type": "address[]"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getVerifierCount",
+    "outputs": [{"name": "", "type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
+  }
+];
+
 export default function MarketVerification({ params }: { params: Promise<{ id: string }> }) {
   const [marketId, setMarketId] = useState<number | null>(null);
   
@@ -89,6 +114,7 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
   const [isVerifying, setIsVerifying] = useState(false);
 
   const MARKET_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS as `0x${string}`;
+  const VALIDATION_CORE_ADDRESS = process.env.NEXT_PUBLIC_P2P_VERIFICATION_ADDRESS as `0x${string}`;
 
   // Fetch market data
   const { data: market, isLoading: marketLoading, error: marketError } = useReadContract({
@@ -105,6 +131,14 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
     functionName: 'getVerificationCount',
     args: marketId !== null ? [BigInt(marketId)] : [BigInt(0)],
   }) as { data: bigint | undefined };
+
+  // Check if current user is a verifier
+  const { data: isUserVerifier } = useReadContract({
+    address: VALIDATION_CORE_ADDRESS,
+    abi: VALIDATION_CORE_ABI,
+    functionName: 'isVerifier',
+    args: address ? [address] : [address!],
+  }) as { data: boolean | undefined };
 
   // Fetch IPFS metadata
   useEffect(() => {
@@ -134,7 +168,7 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
   }, [market]);
 
   const handleVerify = async () => {
-    if (!selectedOption || !isConnected || !marketId) return;
+    if (!selectedOption || !isConnected || !marketId || !isUserVerifier) return;
 
     try {
       setIsVerifying(true);
@@ -144,6 +178,7 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
         abi: MARKET_MANAGER_ABI,
         functionName: 'verifyMarket',
         args: [BigInt(marketId!), BigInt(selectedOption)],
+        gas: BigInt(200000), // Set reasonable gas limit
       });
 
       // Refresh page after verification
@@ -347,6 +382,17 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
                   <span className="hidden sm:inline">{verificationCount} Verifications</span>
                   <span className="sm:hidden">{verificationCount}</span>
                 </div>
+                {isConnected && (
+                  <div className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm ${
+                    isUserVerifier 
+                      ? isDarkMode ? 'bg-green-900 text-green-300' : 'bg-green-100 text-green-800'
+                      : isDarkMode ? 'bg-red-900 text-red-300' : 'bg-red-100 text-red-800'
+                  }`}>
+                    <Shield size={16} />
+                    <span className="hidden sm:inline">{isUserVerifier ? 'Verifier' : 'Not Verifier'}</span>
+                    <span className="sm:hidden">{isUserVerifier ? '✓' : '✗'}</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -375,6 +421,23 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
                 <div className="scale-90 sm:scale-100">
                   <ConnectButton />
                 </div>
+              </div>
+            ) : !isUserVerifier ? (
+              <div className="text-center py-6 sm:py-8">
+                <div className={`w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 rounded-full flex items-center justify-center ${
+                  isDarkMode ? 'bg-red-900' : 'bg-red-100'
+                }`}>
+                  <Lock className={`${isDarkMode ? 'text-red-400' : 'text-red-600'}`} size={32} />
+                </div>
+                <h3 className={`text-lg font-semibold mb-2 ${isDarkMode ? 'text-red-300' : 'text-red-800'}`}>
+                  Access Denied
+                </h3>
+                <p className={`mb-4 text-sm sm:text-base ${isDarkMode ? 'text-red-400' : 'text-red-600'}`}>
+                  Only verified verifiers can vote on market outcomes
+                </p>
+                <p className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-600'}`}>
+                  Your address: {address?.slice(0, 6)}...{address?.slice(-4)}
+                </p>
               </div>
             ) : !isMarketEnded ? (
               <div className="text-center py-6 sm:py-8">

@@ -109,6 +109,33 @@ export default function CreateMarketPage() {
   const getStakingDurationMinutes = () => convertToMinutes(stakingDays, stakingHours, stakingMinutes);
   const getResolutionDurationMinutes = () => convertToMinutes(resolutionDays, resolutionHours, resolutionMinutes);
 
+  // Calculate end dates
+  const getStakingEndDate = () => {
+    const now = new Date();
+    const stakingMinutes = getStakingDurationMinutes();
+    const stakingEnd = new Date(now.getTime() + stakingMinutes * 60 * 1000);
+    return stakingEnd.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric', 
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const getResolutionEndDate = () => {
+    const now = new Date();
+    const resolutionMinutes = getResolutionDurationMinutes();
+    const resolutionEnd = new Date(now.getTime() + resolutionMinutes * 60 * 1000);
+    return resolutionEnd.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric', 
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   // Image upload handler
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -1169,7 +1196,13 @@ export default function CreateMarketPage() {
                             <span className={`absolute right-4 top-1/2 transform -translate-y-1/2 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>minutes</span>
                           </div>
                         </div>
-                        <p className="text-xs text-gray-500 mt-1">Total: {getStakingDurationMinutes()} minutes</p>
+                        <p className={`text-xs mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                          Total: {getStakingDurationMinutes()} minutes
+                          <br />
+                          <span className={`font-medium ${isDarkMode ? 'text-blue-300' : 'text-blue-600'}`}>
+                            Ends: {getStakingEndDate()}
+                          </span>
+                        </p>
                       </div>
                       
                       <div>
@@ -1230,7 +1263,13 @@ export default function CreateMarketPage() {
                             <span className={`absolute right-4 top-1/2 transform -translate-y-1/2 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>minutes</span>
                           </div>
                         </div>
-                        <p className="text-xs text-gray-500 mt-1">Total: {getResolutionDurationMinutes()} minutes</p>
+                        <p className={`text-xs mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                          Total: {getResolutionDurationMinutes()} minutes
+                          <br />
+                          <span className={`font-medium ${isDarkMode ? 'text-green-300' : 'text-green-600'}`}>
+                            Resolves: {getResolutionEndDate()}
+                          </span>
+                        </p>
                       </div>
                     </div>
                     

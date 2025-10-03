@@ -152,12 +152,22 @@ function MultiSegmentCircle({ segments, size = 60, isDarkMode }: {
 }
 
 // Market Card Component
-export function MarketCard({ marketId, isDarkMode, onBet, onEndMarket, userAddress }: {
+export function MarketCard({ 
+  marketId, 
+  isDarkMode, 
+  onBet, 
+  onEndMarket, 
+  userAddress,
+  isApprovalPending,
+  isStakePending
+}: {
   marketId: number;
   isDarkMode: boolean;
   onBet: (marketId: number, option: number, amount: string, isApproval?: boolean) => void;
   onEndMarket: (marketId: number) => void;
   userAddress?: `0x${string}`;
+  isApprovalPending?: boolean;
+  isStakePending?: boolean;
 }) {
   const MARKET_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS as `0x${string}`;
 
@@ -684,28 +694,30 @@ export function MarketCard({ marketId, isDarkMode, onBet, onEndMarket, userAddre
                 {needsTokenApproval ? (
                   <button
                 onClick={() => onBet(marketId, selectedOption, betAmount, true)}
-                disabled={!betAmount || !canStake}
+                disabled={!betAmount || !canStake || isApprovalPending}
                 className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-                  !betAmount || !canStake
+                  !betAmount || !canStake || isApprovalPending
                     ? 'bg-gray-600 cursor-not-allowed text-gray-400'
                     : 'bg-blue-600 hover:bg-blue-700 text-white'
                     }`}
                   >
-                Approve
+                {isApprovalPending ? 'Approving...' : 'Approve'}
                   </button>
                 ) : (
                   <button
                     onClick={() => onBet(marketId, selectedOption, betAmount)}
-                disabled={!betAmount || !canStake}
+                disabled={!betAmount || !canStake || isStakePending}
                 className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-                  !betAmount || !canStake
+                  !betAmount || !canStake || isStakePending
                     ? 'bg-gray-600 cursor-not-allowed text-gray-400'
                         : isDarkMode 
                       ? 'bg-blue-600 hover:bg-blue-700 text-white' 
                       : 'bg-blue-500 hover:bg-blue-600 text-white'
                     }`}
                   >
-{!canStake ? (userHasStaked ? 'Already Staked' : 'Staking Closed') : 'Stake'}
+{!canStake ? (userHasStaked ? 'Already Staked' : 'Staking Closed') : 
+  isStakePending ? 'Staking...' : 
+  'Stake'}
                   </button>
                 )}
               </div>
