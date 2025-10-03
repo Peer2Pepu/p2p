@@ -807,44 +807,44 @@ function VerifierManagement({ isDarkMode }: { isDarkMode: boolean }) {
   return (
     <div className="space-y-6">
       {/* Verifier Stats */}
-      <div className={`p-6 rounded-xl border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-        <h2 className={`text-2xl font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+      <div className={`p-4 sm:p-6 rounded-xl border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+        <h2 className={`text-lg sm:text-2xl font-bold mb-3 sm:mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
           Verifier Management
         </h2>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
+          <div className={`p-3 sm:p-4 rounded-lg border ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
             <div className="flex items-center gap-2 mb-2">
               <Users size={20} className="text-blue-500" />
-              <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+              <span className={`text-xs sm:text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 Active Verifiers
               </span>
             </div>
-            <div className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            <div className={`text-xl sm:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
               {verifierCount ? Number(verifierCount) : 0}
             </div>
           </div>
           
-          <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+          <div className={`p-3 sm:p-4 rounded-lg border ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
             <div className="flex items-center gap-2 mb-2">
               <AlertCircle size={20} className="text-orange-500" />
-              <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+              <span className={`text-xs sm:text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 Max Verifiers
               </span>
             </div>
-            <div className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            <div className={`text-xl sm:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
               {maxVerifiers ? Number(maxVerifiers) : 0}
             </div>
           </div>
           
-          <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+          <div className={`p-3 sm:p-4 rounded-lg border ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
             <div className="flex items-center gap-2 mb-2">
               <CheckCircle size={20} className="text-green-500" />
-              <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+              <span className={`text-xs sm:text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 Required Quorum
               </span>
             </div>
-            <div className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            <div className={`text-xl sm:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
               {requiredQuorum ? Number(requiredQuorum) : 0}
             </div>
           </div>
@@ -1101,39 +1101,44 @@ export default function AdminPage() {
         isDarkMode={isDarkMode}
       />
       
-      <div className={`transition-all duration-300 ${sidebarCollapsed ? 'ml-16' : 'ml-64'}`}>
+      <div className={`transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'}`}>
         {/* Header */}
         <div className={`sticky top-0 z-40 border-b ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
-          <div className="px-6 py-4">
+          <div className="px-4 sm:px-6 py-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 sm:gap-4">
                 <button
                   onClick={() => setSidebarOpen(true)}
-                  className={`p-2 rounded-lg ${isDarkMode ? 'bg-gray-800 text-white hover:bg-gray-700' : 'bg-white text-gray-900 hover:bg-gray-50'} shadow-sm transition-colors`}
+                  className={`lg:hidden p-2 rounded-lg ${isDarkMode ? 'bg-gray-800 text-white hover:bg-gray-700' : 'bg-white text-gray-900 hover:bg-gray-50'} shadow-sm transition-colors`}
                 >
                   <Menu size={20} />
                 </button>
-                <div>
-                  <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                <div className="min-w-0 flex-1">
+                  <h1 className={`text-lg sm:text-2xl font-bold truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                     Admin Panel
                   </h1>
-                  <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  <p className={`text-xs sm:text-sm hidden sm:block ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                     Manage markets, users, and platform settings
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 sm:gap-4">
                 {isConnected ? (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 sm:gap-2">
                     <Wallet size={16} className="text-emerald-500" />
-                    <span className={`font-mono text-sm ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
+                    <span className={`font-mono text-xs sm:text-sm hidden sm:inline ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
                       {address?.slice(0, 6)}...{address?.slice(-4)}
+                    </span>
+                    <span className={`font-mono text-xs sm:hidden ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
+                      {address?.slice(0, 4)}...{address?.slice(-2)}
                     </span>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 sm:gap-2">
                     <Wallet size={16} className="text-gray-400" />
-                    <ConnectButton />
+                    <div className="scale-90 sm:scale-100">
+                      <ConnectButton />
+                    </div>
                   </div>
                 )}
                 <button
@@ -1152,28 +1157,30 @@ export default function AdminPage() {
         </div>
 
         {/* Main Content */}
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           {!isConnected ? (
-            <div className={`p-8 rounded-xl border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-              <h2 className={`text-2xl font-bold mb-4 text-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            <div className={`p-4 sm:p-8 rounded-xl border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+              <h2 className={`text-lg sm:text-2xl font-bold mb-3 sm:mb-4 text-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 Connect Wallet Required
               </h2>
-              <p className={`text-center mb-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              <p className={`text-center mb-4 sm:mb-6 text-sm sm:text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                 Please connect your wallet to access the admin panel.
               </p>
               <div className="flex justify-center">
-                <ConnectButton />
+                <div className="scale-90 sm:scale-100">
+                  <ConnectButton />
+                </div>
               </div>
             </div>
           ) : !hasAccess ? (
-            <div className={`p-8 rounded-xl border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-              <h2 className={`text-2xl font-bold mb-4 text-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            <div className={`p-4 sm:p-8 rounded-xl border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+              <h2 className={`text-lg sm:text-2xl font-bold mb-3 sm:mb-4 text-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 Access Denied
               </h2>
-              <p className={`text-center mb-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              <p className={`text-center mb-3 sm:mb-4 text-sm sm:text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                 You don't have permission to access the admin panel.
               </p>
-              <div className={`text-center text-sm ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+              <div className={`text-center text-xs sm:text-sm ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>
                 <p>Owner: {process.env.NEXT_PUBLIC_OWNER_ADDRESS?.slice(0, 6)}...{process.env.NEXT_PUBLIC_OWNER_ADDRESS?.slice(-4)}</p>
                 <p>Partner: {process.env.NEXT_PUBLIC_PARTNER_ADDRESS?.slice(0, 6)}...{process.env.NEXT_PUBLIC_PARTNER_ADDRESS?.slice(-4)}</p>
                 <p>Your Address: {address?.slice(0, 6)}...{address?.slice(-4)}</p>
@@ -1182,7 +1189,7 @@ export default function AdminPage() {
           ) : (
             <>
               {/* Tab Navigation */}
-              <div className={`flex gap-1 p-1 rounded-lg mb-6 ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'}`}>
+              <div className={`flex gap-1 p-1 rounded-lg mb-4 sm:mb-6 ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'}`}>
                 {[
                   { id: 'market', label: 'Market Management' },
                   { id: 'blacklist', label: 'Blacklist Management' },
@@ -1191,7 +1198,7 @@ export default function AdminPage() {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id as any)}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    className={`px-2 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors flex-1 sm:flex-none ${
                       activeTab === tab.id
                         ? isDarkMode
                           ? 'bg-blue-600 text-white'
@@ -1201,7 +1208,11 @@ export default function AdminPage() {
                           : 'text-gray-600 hover:text-gray-900'
                     }`}
                   >
-                    {tab.label}
+                    <span className="hidden sm:inline">{tab.label}</span>
+                    <span className="sm:hidden">
+                      {tab.id === 'market' ? 'Market' : 
+                       tab.id === 'blacklist' ? 'Users' : 'Verifiers'}
+                    </span>
                   </button>
                 ))}
               </div>

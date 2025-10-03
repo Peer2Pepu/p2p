@@ -231,10 +231,10 @@ export default function MarketVerification({ params }: { params: { id: string } 
             ? 'bg-gray-900 border-gray-800' 
             : 'bg-white border-gray-200'
         }`}>
-          <div className="px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
+          <div className="px-3 sm:px-4 lg:px-8">
+            <div className="flex items-center justify-between h-14 sm:h-16">
               {/* Left side */}
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 sm:gap-4">
                 <button
                   onClick={() => setSidebarOpen(true)}
                   className={`lg:hidden p-2 rounded-lg transition-colors ${
@@ -248,30 +248,36 @@ export default function MarketVerification({ params }: { params: { id: string } 
                 
                 <Link 
                   href="/"
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                  className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 rounded-lg transition-colors ${
                     isDarkMode 
                       ? 'hover:bg-gray-800 text-gray-300' 
                       : 'hover:bg-gray-100 text-gray-700'
                   }`}
                 >
                   <ArrowLeft size={18} />
-                  <span className="font-medium">Back to Markets</span>
+                  <span className="font-medium text-sm sm:text-base hidden sm:inline">Back to Markets</span>
+                  <span className="font-medium text-sm sm:hidden">Back</span>
                 </Link>
               </div>
 
               {/* Right side */}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3">
                 {isConnected ? (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 sm:gap-2">
                     <Wallet size={16} className="text-emerald-500" />
-                    <span className={`font-mono text-sm ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
+                    <span className={`font-mono text-xs sm:text-sm hidden sm:inline ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
                       {address?.slice(0, 6)}...{address?.slice(-4)}
+                    </span>
+                    <span className={`font-mono text-xs sm:hidden ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
+                      {address?.slice(0, 4)}...{address?.slice(-2)}
                     </span>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 sm:gap-2">
                     <Wallet size={16} className="text-gray-400" />
-                    <ConnectButton />
+                    <div className="scale-90 sm:scale-100">
+                      <ConnectButton />
+                    </div>
                   </div>
                 )}
                 <button
@@ -290,94 +296,102 @@ export default function MarketVerification({ params }: { params: { id: string } 
         </div>
 
         {/* Content */}
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-4xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8">
           {/* Market Header */}
-          <div className={`rounded-xl shadow-sm p-6 mb-6 ${
+          <div className={`rounded-xl shadow-sm p-4 sm:p-6 mb-4 sm:mb-6 ${
             isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
           } border`}>
-            <div className="flex items-center gap-4 mb-4">
+            <div className="flex items-center gap-3 sm:gap-4 mb-3 sm:mb-4">
               {getMarketImage() && (
                 <img
                   src={getMarketImage()!}
                   alt=""
-                  className="w-16 h-16 rounded-lg object-cover"
+                  className="w-12 h-12 sm:w-16 sm:h-16 rounded-lg object-cover"
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
                   }}
                 />
               )}
-              <div className="flex-1">
-                <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>
+              <div className="flex-1 min-w-0">
+                <h1 className={`text-lg sm:text-2xl font-bold truncate ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>
                   {getMarketTitle()}
                 </h1>
-                <p className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>
+                <p className={`text-xs sm:text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                   Market ID: #{marketId}
                 </p>
               </div>
-              <div className="flex items-center gap-3">
-                <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm ${
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm ${
                   isMarketEnded 
                     ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200' 
                     : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
                 }`}>
                   {isMarketEnded ? <CheckCircle size={16} /> : <Clock size={16} />}
-                  {isMarketEnded ? 'Ended' : 'Active'}
+                  <span className="hidden sm:inline">
+                    {isMarketEnded ? 'Ended' : 'Active'}
+                  </span>
+                  <span className="sm:hidden">
+                    {isMarketEnded ? 'End' : 'Live'}
+                  </span>
                 </div>
-                <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm ${
+                <div className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm ${
                   isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
                 }`}>
                   <Users size={16} />
-                  {verificationCount} Verifications
+                  <span className="hidden sm:inline">{verificationCount} Verifications</span>
+                  <span className="sm:hidden">{verificationCount}</span>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Verification Section */}
-          <div className={`rounded-xl shadow-sm p-6 ${
+          <div className={`rounded-xl shadow-sm p-4 sm:p-6 ${
             isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
           } border`}>
-            <div className="flex items-center gap-3 mb-6">
+            <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
               <Shield className={`${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`} size={24} />
-              <h2 className={`text-xl font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>
+              <h2 className={`text-lg sm:text-xl font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>
                 Verify Market Outcome
               </h2>
             </div>
             
             {!isConnected ? (
-              <div className="text-center py-8">
-                <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${
+              <div className="text-center py-6 sm:py-8">
+                <div className={`w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 rounded-full flex items-center justify-center ${
                   isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
                 }`}>
                   <Target className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} size={32} />
                 </div>
-                <p className={`mb-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                <p className={`mb-4 text-sm sm:text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                   Please connect your wallet to verify this market
                 </p>
-                <ConnectButton />
+                <div className="scale-90 sm:scale-100">
+                  <ConnectButton />
+                </div>
               </div>
             ) : !isMarketEnded ? (
-              <div className="text-center py-8">
-                <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${
+              <div className="text-center py-6 sm:py-8">
+                <div className={`w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 rounded-full flex items-center justify-center ${
                   isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
                 }`}>
                   <Clock className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} size={32} />
                 </div>
-                <p className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>
+                <p className={`mb-4 text-sm sm:text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                   This market is still active and cannot be verified yet.
                 </p>
               </div>
             ) : (
               <div>
-                <p className={`mb-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                <p className={`mb-4 sm:mb-6 text-sm sm:text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                   Select the winning option for this market:
                 </p>
                 
-                <div className="space-y-3 mb-6">
+                <div className="space-y-2 sm:space-y-3 mb-4 sm:mb-6">
                   {options.map((option: string, index: number) => (
                     <label
                       key={index}
-                      className={`flex items-center p-4 border rounded-lg cursor-pointer transition-colors ${
+                      className={`flex items-center p-3 sm:p-4 border rounded-lg cursor-pointer transition-colors ${
                         selectedOption === index + 1
                           ? isDarkMode 
                             ? 'border-emerald-500 bg-emerald-900/20' 
@@ -393,9 +407,9 @@ export default function MarketVerification({ params }: { params: { id: string } 
                         value={index + 1}
                         checked={selectedOption === index + 1}
                         onChange={() => setSelectedOption(index + 1)}
-                        className="mr-3 text-emerald-600"
+                        className="mr-2 sm:mr-3 text-emerald-600"
                       />
-                      <span className={`font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>
+                      <span className={`font-medium text-sm sm:text-base ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>
                         {option}
                       </span>
                     </label>
@@ -405,7 +419,7 @@ export default function MarketVerification({ params }: { params: { id: string } 
                 <button
                   onClick={handleVerify}
                   disabled={!selectedOption || isVerifying}
-                  className={`w-full py-3 px-6 rounded-lg font-medium transition-colors ${
+                  className={`w-full py-2 sm:py-3 px-4 sm:px-6 rounded-lg font-medium text-sm sm:text-base transition-colors ${
                     !selectedOption || isVerifying
                       ? isDarkMode 
                         ? 'bg-gray-700 text-gray-500 cursor-not-allowed' 
@@ -420,13 +434,13 @@ export default function MarketVerification({ params }: { params: { id: string } 
           </div>
 
           {/* Market Details */}
-          <div className={`rounded-xl shadow-sm p-6 mt-6 ${
+          <div className={`rounded-xl shadow-sm p-4 sm:p-6 mt-4 sm:mt-6 ${
             isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
           } border`}>
-            <h3 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>
+            <h3 className={`text-base sm:text-lg font-semibold mb-3 sm:mb-4 ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>
               Market Details
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
               <div>
                 <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>End Time:</span>
                 <p className={`font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>
