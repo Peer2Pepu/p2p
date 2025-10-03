@@ -217,7 +217,7 @@ Market has been successfully resolved!
       console.error('Error fetching metadata:', error);
     }
 
-    const verificationLink = `https://p2p-woad-omega.vercel.app/market${marketId}`;
+    const verificationLink = `https://p2p-woad-omega.vercel.app/market/${marketId}`;
     
     const message = `
 ⏰ *Market Ended - Verification Required*
