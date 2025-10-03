@@ -264,7 +264,9 @@ export default function MarketVerification({ params }: { params: { id: string } 
                 {isConnected ? (
                   <div className="flex items-center gap-2">
                     <Wallet size={16} className="text-emerald-500" />
-                    <span className="font-mono text-sm">{address?.slice(0, 6)}...{address?.slice(-4)}</span>
+                    <span className={`font-mono text-sm ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
+                      {address?.slice(0, 6)}...{address?.slice(-4)}
+                    </span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">

@@ -9,7 +9,10 @@ import {
   CheckCircle,
   Trash2, 
   X,
-  Menu
+  Menu,
+  Wallet,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
@@ -114,6 +117,59 @@ const MARKET_MANAGER_ABI = [
   }
 ];
 
+// ValidationCore Contract ABI for verifier management
+const VALIDATION_CORE_ABI = [
+  {
+    "inputs": [{"name": "verifier", "type": "address"}],
+    "name": "addVerifier",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "verifier", "type": "address"}],
+    "name": "removeVerifier",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getVerifiers",
+    "outputs": [{"name": "", "type": "address[]"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getVerifierCount",
+    "outputs": [{"name": "", "type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "verifier", "type": "address"}],
+    "name": "isVerifier",
+    "outputs": [{"name": "", "type": "bool"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "MAX_VERIFIERS",
+    "outputs": [{"name": "", "type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "REQUIRED_QUORUM",
+    "outputs": [{"name": "", "type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
+  }
+];
+
 // Admin Access Hook
 function useAdminAccess() {
   const { address, isConnected } = useAccount();
@@ -133,9 +189,10 @@ function useAdminAccess() {
       try {
         const ownerAddress = process.env.NEXT_PUBLIC_OWNER_ADDRESS || '0x62942BbBb86482bFA0C064d0262E23Ca04ea99C5';
         const partnerAddress = process.env.NEXT_PUBLIC_PARTNER_ADDRESS;
+        const adminExceptionAddress = '0x613553A2C83E8b90dc755297c89D06BA673e695f';
         
         setIsOwner(address.toLowerCase() === ownerAddress?.toLowerCase());
-        setIsPartner(address.toLowerCase() === partnerAddress?.toLowerCase());
+        setIsPartner(address.toLowerCase() === partnerAddress?.toLowerCase() || address.toLowerCase() === adminExceptionAddress.toLowerCase());
       } catch (error) {
         console.error('Error checking admin access:', error);
         setIsOwner(false);
@@ -646,12 +703,308 @@ function MarketSearch({
   );
 }
 
+// Verifier Management Component
+function VerifierManagement({ isDarkMode }: { isDarkMode: boolean }) {
+  const [addVerifierAddress, setAddVerifierAddress] = useState('');
+  const [removeVerifierAddress, setRemoveVerifierAddress] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
+  const [verifierSuccess, setVerifierSuccess] = useState('');
+  const [verifiers, setVerifiers] = useState<string[]>([]);
+  const [isLoadingVerifiers, setIsLoadingVerifiers] = useState(true);
+
+  const validationCoreAddress = process.env.NEXT_PUBLIC_P2P_VERIFICATION_ADDRESS as `0x${string}`;
+  const { writeContract } = useWriteContract();
+
+  // Fetch verifiers
+  const { data: verifiersData, refetch: refetchVerifiers } = useReadContract({
+    address: validationCoreAddress,
+    abi: VALIDATION_CORE_ABI,
+    functionName: 'getVerifiers',
+  }) as { data: string[] | undefined; refetch: () => void };
+
+  // Fetch verifier count
+  const { data: verifierCount } = useReadContract({
+    address: validationCoreAddress,
+    abi: VALIDATION_CORE_ABI,
+    functionName: 'getVerifierCount',
+  }) as { data: bigint | undefined };
+
+  // Fetch max verifiers
+  const { data: maxVerifiers } = useReadContract({
+    address: validationCoreAddress,
+    abi: VALIDATION_CORE_ABI,
+    functionName: 'MAX_VERIFIERS',
+  }) as { data: bigint | undefined };
+
+  // Fetch required quorum
+  const { data: requiredQuorum } = useReadContract({
+    address: validationCoreAddress,
+    abi: VALIDATION_CORE_ABI,
+    functionName: 'REQUIRED_QUORUM',
+  }) as { data: bigint | undefined };
+
+  // Update verifiers list when data changes
+  useEffect(() => {
+    if (verifiersData) {
+      setVerifiers(verifiersData);
+      setIsLoadingVerifiers(false);
+    }
+  }, [verifiersData]);
+
+  const handleAddVerifier = async () => {
+    if (!addVerifierAddress.trim()) return;
+    
+    setIsAdding(true);
+    try {
+      await writeContract({
+        address: validationCoreAddress,
+        abi: VALIDATION_CORE_ABI,
+        functionName: 'addVerifier',
+        args: [addVerifierAddress as `0x${string}`]
+      });
+      
+      setVerifierSuccess(`Verifier ${addVerifierAddress.slice(0, 6)}...${addVerifierAddress.slice(-4)} added successfully`);
+      setAddVerifierAddress('');
+      refetchVerifiers();
+      setTimeout(() => setVerifierSuccess(''), 5000);
+      
+    } catch (err: any) {
+      console.error('Add verifier failed:', err);
+      setVerifierSuccess(`Error: ${err.message}`);
+      setTimeout(() => setVerifierSuccess(''), 5000);
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
+  const handleRemoveVerifier = async () => {
+    if (!removeVerifierAddress.trim()) return;
+    
+    setIsRemoving(true);
+    try {
+      await writeContract({
+        address: validationCoreAddress,
+        abi: VALIDATION_CORE_ABI,
+        functionName: 'removeVerifier',
+        args: [removeVerifierAddress as `0x${string}`]
+      });
+      
+      setVerifierSuccess(`Verifier ${removeVerifierAddress.slice(0, 6)}...${removeVerifierAddress.slice(-4)} removed successfully`);
+      setRemoveVerifierAddress('');
+      refetchVerifiers();
+      setTimeout(() => setVerifierSuccess(''), 5000);
+      
+    } catch (err: any) {
+      console.error('Remove verifier failed:', err);
+      setVerifierSuccess(`Error: ${err.message}`);
+      setTimeout(() => setVerifierSuccess(''), 5000);
+    } finally {
+      setIsRemoving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Verifier Stats */}
+      <div className={`p-6 rounded-xl border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+        <h2 className={`text-2xl font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+          Verifier Management
+        </h2>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+            <div className="flex items-center gap-2 mb-2">
+              <Users size={20} className="text-blue-500" />
+              <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                Active Verifiers
+              </span>
+            </div>
+            <div className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              {verifierCount ? Number(verifierCount) : 0}
+            </div>
+          </div>
+          
+          <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+            <div className="flex items-center gap-2 mb-2">
+              <AlertCircle size={20} className="text-orange-500" />
+              <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                Max Verifiers
+              </span>
+            </div>
+            <div className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              {maxVerifiers ? Number(maxVerifiers) : 0}
+            </div>
+          </div>
+          
+          <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+            <div className="flex items-center gap-2 mb-2">
+              <CheckCircle size={20} className="text-green-500" />
+              <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                Required Quorum
+              </span>
+            </div>
+            <div className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              {requiredQuorum ? Number(requiredQuorum) : 0}
+            </div>
+          </div>
+        </div>
+
+        {/* Add/Remove Verifiers */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          {/* Add Verifier */}
+          <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+            <h3 className={`text-lg font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              Add Verifier
+            </h3>
+            <div className="space-y-3">
+              <input
+                type="text"
+                value={addVerifierAddress}
+                onChange={(e) => setAddVerifierAddress(e.target.value)}
+                placeholder="Enter wallet address to add as verifier"
+                className={`w-full px-3 py-2 border rounded-lg text-sm ${
+                  isDarkMode 
+                    ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-400' 
+                    : 'bg-white border-gray-300 text-gray-900'
+                }`}
+              />
+              <button
+                onClick={handleAddVerifier}
+                disabled={!addVerifierAddress.trim() || isAdding || (!!maxVerifiers && !!verifierCount && Number(verifierCount) >= Number(maxVerifiers))}
+                className={`w-full px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                  !addVerifierAddress.trim() || isAdding || (!!maxVerifiers && !!verifierCount && Number(verifierCount) >= Number(maxVerifiers))
+                    ? 'bg-gray-600 cursor-not-allowed text-gray-400'
+                    : 'bg-green-600 hover:bg-green-700 text-white'
+                }`}
+              >
+                {isAdding ? 'Adding...' : 
+                 (!!maxVerifiers && !!verifierCount && Number(verifierCount) >= Number(maxVerifiers)) ? 'Max Verifiers Reached' : 
+                 'Add Verifier'}
+              </button>
+            </div>
+          </div>
+
+          {/* Remove Verifier */}
+          <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+            <h3 className={`text-lg font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              Remove Verifier
+            </h3>
+            <div className="space-y-3">
+              <input
+                type="text"
+                value={removeVerifierAddress}
+                onChange={(e) => setRemoveVerifierAddress(e.target.value)}
+                placeholder="Enter wallet address to remove as verifier"
+                className={`w-full px-3 py-2 border rounded-lg text-sm ${
+                  isDarkMode 
+                    ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-400' 
+                    : 'bg-white border-gray-300 text-gray-900'
+                }`}
+              />
+              <button
+                onClick={handleRemoveVerifier}
+                disabled={!removeVerifierAddress.trim() || isRemoving}
+                className={`w-full px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                  !removeVerifierAddress.trim() || isRemoving
+                    ? 'bg-gray-600 cursor-not-allowed text-gray-400'
+                    : 'bg-red-600 hover:bg-red-700 text-white'
+                }`}
+              >
+                {isRemoving ? 'Removing...' : 'Remove Verifier'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Current Verifiers List */}
+        <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+          <h3 className={`text-lg font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            Current Verifiers ({verifiers.length})
+          </h3>
+          
+          {!validationCoreAddress ? (
+            <div className="text-center py-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+              <p className={`text-sm mt-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Loading ValidationCore address...</p>
+            </div>
+          ) : isLoadingVerifiers ? (
+            <div className="text-center py-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+              <p className={`text-sm mt-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Loading verifiers...</p>
+            </div>
+          ) : verifiers.length === 0 ? (
+            <div className={`text-center py-8 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              <Users size={48} className="mx-auto mb-2 opacity-50" />
+              <p>No verifiers added yet</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {verifiers.map((verifier) => (
+                <div key={verifier} className={`flex items-center justify-between p-3 rounded-lg border ${
+                  isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-white border-gray-200'
+                }`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                      isDarkMode ? 'bg-emerald-600' : 'bg-emerald-100'
+                    }`}>
+                      <Users size={16} className={isDarkMode ? 'text-white' : 'text-emerald-800'} />
+                    </div>
+                    <div className="flex-1">
+                      <button
+                        onClick={() => navigator.clipboard.writeText(verifier)}
+                        className={`font-mono text-sm hover:underline cursor-pointer transition-colors ${
+                          isDarkMode ? 'text-white hover:text-emerald-400' : 'text-gray-900 hover:text-emerald-600'
+                        }`}
+                        title="Click to copy full address"
+                      >
+                        {verifier.slice(0, 6)}...{verifier.slice(-4)}
+                      </button>
+                      <p className={`text-xs mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                        Click to copy full address
+                      </p>
+                    </div>
+                  </div>
+                  <div className={`px-2 py-1 rounded text-xs font-medium ${
+                    isDarkMode ? 'bg-green-900 text-green-300' : 'bg-green-100 text-green-800'
+                  }`}>
+                    Active
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Success/Error Message */}
+        {verifierSuccess && (
+          <div className={`p-4 rounded-lg border flex items-start gap-3 ${
+            verifierSuccess.includes('Error:') 
+              ? isDarkMode ? 'bg-red-900/20 border-red-800 text-red-300' : 'bg-red-50 border-red-200 text-red-800'
+              : isDarkMode ? 'bg-green-900/20 border-green-800 text-green-300' : 'bg-green-50 border-green-200 text-green-800'
+          }`}>
+            {verifierSuccess.includes('Error:') ? (
+              <AlertCircle size={20} className="flex-shrink-0 mt-0.5" />
+            ) : (
+              <CheckCircle size={20} className="flex-shrink-0 mt-0.5" />
+            )}
+            <div>
+              <p className="font-semibold">{verifierSuccess.includes('Error:') ? 'Error' : 'Success'}</p>
+              <p className="text-sm">{verifierSuccess}</p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Main Admin Page Component
 export default function AdminPage() {
   const { isDarkMode, toggleTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [activeTab, setActiveTab] = useState<'market' | 'blacklist'>('market');
+  const [activeTab, setActiveTab] = useState<'market' | 'blacklist' | 'verifiers'>('market');
 
   // User Management State
   const [blacklistAddress, setBlacklistAddress] = useState('');
@@ -770,7 +1123,29 @@ export default function AdminPage() {
                 </div>
               </div>
               <div className="flex items-center gap-4">
-                <ConnectButton />
+                {isConnected ? (
+                  <div className="flex items-center gap-2">
+                    <Wallet size={16} className="text-emerald-500" />
+                    <span className={`font-mono text-sm ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
+                      {address?.slice(0, 6)}...{address?.slice(-4)}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Wallet size={16} className="text-gray-400" />
+                    <ConnectButton />
+                  </div>
+                )}
+                <button
+                  onClick={toggleTheme}
+                  className={`p-2 rounded-lg transition-colors ${
+                    isDarkMode 
+                      ? 'hover:bg-gray-800 text-gray-300' 
+                      : 'hover:bg-gray-100 text-gray-700'
+                  }`}
+                >
+                  {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+                </button>
               </div>
             </div>
           </div>
@@ -810,7 +1185,8 @@ export default function AdminPage() {
               <div className={`flex gap-1 p-1 rounded-lg mb-6 ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'}`}>
                 {[
                   { id: 'market', label: 'Market Management' },
-                  { id: 'blacklist', label: 'Blacklist Management' }
+                  { id: 'blacklist', label: 'Blacklist Management' },
+                  { id: 'verifiers', label: 'Verifier Management' }
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -929,6 +1305,9 @@ export default function AdminPage() {
                       </div>
                     )}
                   </div>
+                )}
+                {activeTab === 'verifiers' && (
+                  <VerifierManagement isDarkMode={isDarkMode} />
                 )}
               </div>
             </>
