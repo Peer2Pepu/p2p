@@ -69,8 +69,14 @@ const MARKET_MANAGER_ABI = [
   }
 ];
 
-export default function MarketVerification({ params }: { params: { id: string } }) {
-  const marketId = parseInt(params.id);
+export default function MarketVerification({ params }: { params: Promise<{ id: string }> }) {
+  const [marketId, setMarketId] = useState<number | null>(null);
+  
+  useEffect(() => {
+    params.then(({ id }) => {
+      setMarketId(parseInt(id));
+    });
+  }, [params]);
   const { address, isConnected } = useAccount();
   const { writeContract } = useWriteContract();
   const { isDarkMode, toggleTheme } = useTheme();
@@ -89,7 +95,7 @@ export default function MarketVerification({ params }: { params: { id: string } 
     address: MARKET_MANAGER_ADDRESS,
     abi: MARKET_MANAGER_ABI,
     functionName: 'getMarket',
-    args: [BigInt(marketId)],
+    args: marketId !== null ? [BigInt(marketId)] : [BigInt(0)],
   }) as { data: any; isLoading: boolean; error: any };
 
   // Fetch verification count
@@ -97,7 +103,7 @@ export default function MarketVerification({ params }: { params: { id: string } 
     address: MARKET_MANAGER_ADDRESS,
     abi: MARKET_MANAGER_ABI,
     functionName: 'getVerificationCount',
-    args: [BigInt(marketId)],
+    args: marketId !== null ? [BigInt(marketId)] : [BigInt(0)],
   }) as { data: bigint | undefined };
 
   // Fetch IPFS metadata
@@ -128,7 +134,7 @@ export default function MarketVerification({ params }: { params: { id: string } 
   }, [market]);
 
   const handleVerify = async () => {
-    if (!selectedOption || !isConnected) return;
+    if (!selectedOption || !isConnected || !marketId) return;
 
     try {
       setIsVerifying(true);
@@ -137,7 +143,7 @@ export default function MarketVerification({ params }: { params: { id: string } 
         address: MARKET_MANAGER_ADDRESS,
         abi: MARKET_MANAGER_ABI,
         functionName: 'verifyMarket',
-        args: [BigInt(marketId), BigInt(selectedOption)],
+        args: [BigInt(marketId!), BigInt(selectedOption)],
       });
 
       // Refresh page after verification
@@ -173,7 +179,7 @@ export default function MarketVerification({ params }: { params: { id: string } 
   };
 
   // Show loading state
-  if (marketLoading || loading) {
+  if (marketLoading || loading || marketId === null) {
     return (
       <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'} flex items-center justify-center`}>
         <div className="text-center">
