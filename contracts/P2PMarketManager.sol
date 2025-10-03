@@ -395,6 +395,11 @@ contract EventPool is Ownable {
         require(block.timestamp >= market.endTime, "MarketManager: Resolution time not reached");
         
         market.state = MarketState.Ended;
+        
+        // Remove from active markets list
+        if (isActiveMarket[marketId]) {
+            _removeFromActiveMarkets(marketId);
+        }
     }
 
     /**
