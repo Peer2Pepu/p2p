@@ -94,6 +94,17 @@ const VALIDATION_CORE_ABI = [
     "outputs": [{"name": "", "type": "uint256"}],
     "stateMutability": "view",
     "type": "function"
+  },
+  {
+    "inputs": [
+      {"name": "marketId", "type": "uint256"},
+      {"name": "option", "type": "uint256"},
+      {"name": "verifier", "type": "address"}
+    ],
+    "name": "hasVerifierVoted",
+    "outputs": [{"name": "", "type": "bool"}],
+    "stateMutability": "view",
+    "type": "function"
   }
 ];
 
@@ -168,6 +179,39 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
   // Calculate total verification count
   const totalVerifications = (Number(voteCount1 || 0) + Number(voteCount2 || 0) + Number(voteCount3 || 0) + Number(voteCount4 || 0));
 
+  // Check if user has voted for each option
+  const { data: userVote1 } = useReadContract({
+    address: VALIDATION_CORE_ADDRESS,
+    abi: VALIDATION_CORE_ABI,
+    functionName: 'hasVerifierVoted',
+    args: marketId !== null && address ? [BigInt(marketId), BigInt(1), address] : [BigInt(0), BigInt(1), '0x0000000000000000000000000000000000000000'],
+  }) as { data: boolean | undefined };
+
+  const { data: userVote2 } = useReadContract({
+    address: VALIDATION_CORE_ADDRESS,
+    abi: VALIDATION_CORE_ABI,
+    functionName: 'hasVerifierVoted',
+    args: marketId !== null && address ? [BigInt(marketId), BigInt(2), address] : [BigInt(0), BigInt(2), '0x0000000000000000000000000000000000000000'],
+  }) as { data: boolean | undefined };
+
+  const { data: userVote3 } = useReadContract({
+    address: VALIDATION_CORE_ADDRESS,
+    abi: VALIDATION_CORE_ABI,
+    functionName: 'hasVerifierVoted',
+    args: marketId !== null && address ? [BigInt(marketId), BigInt(3), address] : [BigInt(0), BigInt(3), '0x0000000000000000000000000000000000000000'],
+  }) as { data: boolean | undefined };
+
+  const { data: userVote4 } = useReadContract({
+    address: VALIDATION_CORE_ADDRESS,
+    abi: VALIDATION_CORE_ABI,
+    functionName: 'hasVerifierVoted',
+    args: marketId !== null && address ? [BigInt(marketId), BigInt(4), address] : [BigInt(0), BigInt(4), '0x0000000000000000000000000000000000000000'],
+  }) as { data: boolean | undefined };
+
+  // Check if user has voted in this market at all
+  const userVotes = [userVote1, userVote2, userVote3, userVote4];
+  const hasUserVoted = userVotes.some(voted => voted);
+
   // Fetch IPFS metadata
   useEffect(() => {
     const fetchMetadata = async () => {
@@ -196,7 +240,7 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
   }, [market]);
 
   const handleVerify = async () => {
-    if (!selectedOption || !isConnected || !marketId || !isUserVerifier) return;
+    if (!selectedOption || !isConnected || !marketId || !isUserVerifier || hasUserVoted) return;
 
     try {
       setIsVerifying(true);
@@ -491,49 +535,72 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
                 </p>
                 
                 <div className="space-y-2 sm:space-y-3 mb-4 sm:mb-6">
-                  {options.map((option: string, index: number) => (
-                    <label
-                      key={index}
-                      className={`flex items-center p-3 sm:p-4 border rounded-lg cursor-pointer transition-colors ${
-                        selectedOption === index + 1
-                          ? isDarkMode 
-                            ? 'border-emerald-500 bg-emerald-900/20' 
-                            : 'border-emerald-500 bg-emerald-50'
-                          : isDarkMode
-                            ? 'border-gray-700 hover:bg-gray-700'
-                            : 'border-gray-200 hover:bg-gray-50'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="option"
-                        value={index + 1}
-                        checked={selectedOption === index + 1}
-                        onChange={() => setSelectedOption(index + 1)}
-                        className="mr-2 sm:mr-3 text-emerald-600"
-                      />
-                      <span className={`font-medium text-sm sm:text-base ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>
-                        {option}
-                      </span>
-                    </label>
-                  ))}
+                  {options.map((option: string, index: number) => {
+                    const voteCounts = [Number(voteCount1 || 0), Number(voteCount2 || 0), Number(voteCount3 || 0), Number(voteCount4 || 0)];
+                    const currentVoteCount = voteCounts[index] || 0;
+                    const userVotedForThis = userVotes[index] || false;
+                    
+                    return (
+                      <label
+                        key={index}
+                        className={`flex items-center justify-between p-3 sm:p-4 border rounded-lg transition-colors ${
+                          hasUserVoted 
+                            ? 'cursor-not-allowed opacity-60'
+                            : 'cursor-pointer'
+                        } ${
+                          selectedOption === index + 1
+                            ? isDarkMode 
+                              ? 'border-emerald-500 bg-emerald-900/20' 
+                              : 'border-emerald-500 bg-emerald-50'
+                            : isDarkMode
+                              ? 'border-gray-700 hover:bg-gray-700'
+                              : 'border-gray-200 hover:bg-gray-50'
+                        }`}
+                      >
+                        <div className="flex items-center">
+                          <input
+                            type="radio"
+                            name="option"
+                            value={index + 1}
+                            checked={selectedOption === index + 1}
+                            onChange={() => !hasUserVoted && setSelectedOption(index + 1)}
+                            disabled={hasUserVoted}
+                            className="mr-2 sm:mr-3 text-emerald-600"
+                          />
+                          <span className={`font-medium text-sm sm:text-base ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>
+                            {option}
+                          </span>
+                          {userVotedForThis && (
+                            <span className="ml-2 text-xs px-2 py-1 rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                              ✓ Voted
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            {currentVoteCount} votes
+                          </span>
+                        </div>
+                      </label>
+                    );
+                  })}
                 </div>
 
                 <button
                   onClick={handleVerify}
                   className={`w-full py-2 sm:py-3 px-4 sm:px-6 rounded-lg font-medium text-sm sm:text-base transition-colors flex items-center justify-center gap-2 ${
-                    !selectedOption || isVerifying
+                    !selectedOption || isVerifying || hasUserVoted
                       ? isDarkMode 
                         ? 'bg-gray-700 text-gray-500 cursor-not-allowed' 
                         : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       : 'bg-emerald-600 hover:bg-emerald-700 text-white'
                   }`}
-                  disabled={!selectedOption || isVerifying}
+                  disabled={!selectedOption || isVerifying || hasUserVoted}
                 >
                   {isVerifying && (
                     <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
                   )}
-                  {isVerifying ? 'Submitting...' : 'Submit Verification'}
+                  {isVerifying ? 'Submitting...' : hasUserVoted ? 'Already Voted' : 'Submit Verification'}
                 </button>
               </div>
             )}

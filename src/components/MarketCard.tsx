@@ -453,13 +453,28 @@ export function MarketCard({
   }
 
   const marketData = market;
-  const timeLeft = Number(marketData.endTime) - Math.floor(Date.now() / 1000);
+  
+  // Client-side only time calculations to prevent hydration issues
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [stakeTimeLeft, setStakeTimeLeft] = useState(0);
+  
+  useEffect(() => {
+    const updateTimes = () => {
+      const now = Math.floor(Date.now() / 1000);
+      setTimeLeft(Number(marketData.endTime) - now);
+      setStakeTimeLeft(Number(marketData.stakeEndTime) - now);
+    };
+    
+    updateTimes();
+    const interval = setInterval(updateTimes, 1000);
+    return () => clearInterval(interval);
+  }, [marketData.endTime, marketData.stakeEndTime]);
+  
   const hoursLeft = Math.max(0, Math.floor(timeLeft / 3600));
   const minutesLeft = Math.max(0, Math.floor((timeLeft % 3600) / 60));
   const canEndMarket = marketData.state === 0 && timeLeft <= 0;
 
   // Stake timing calculations
-  const stakeTimeLeft = Number(marketData.stakeEndTime) - Math.floor(Date.now() / 1000);
   const stakeHoursLeft = Math.max(0, Math.floor(stakeTimeLeft / 3600));
   const stakeMinutesLeft = Math.max(0, Math.floor((stakeTimeLeft % 3600) / 60));
   const canStake = marketData.state === 0 && stakeTimeLeft > 0 && !userHasStaked;

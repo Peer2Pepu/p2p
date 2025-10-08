@@ -479,7 +479,7 @@ export default function HomePage() {
       }
 
       const isCreator = marketData.creator && address && marketData.creator.toLowerCase() === address.toLowerCase();
-      const isAfterEndTime = Date.now() >= Number(marketData.endTime) * 1000;
+      const isAfterEndTime = typeof window !== 'undefined' ? Date.now() >= Number(marketData.endTime) * 1000 : false;
 
       if (isCreator && !isAfterEndTime) {
         setError('Creator early ending not yet implemented in contract. Please wait for endTime.');
