@@ -235,7 +235,26 @@ export default function HomePage() {
   const MARKET_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS as `0x${string}`;
   const ANALYTICS_ADDRESS = process.env.NEXT_PUBLIC_P2P_ANALYTICS_ADDRESS as `0x${string}`;
 
-  const { writeContract } = useWriteContract();
+  const { writeContract, data: writeHash } = useWriteContract();
+
+  // Wait for transaction confirmation
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+    hash: writeHash,
+  });
+
+  // Handle transaction success
+  useEffect(() => {
+    if (isConfirmed) {
+      if (isApprovalPending) {
+        setIsApprovalPending(false);
+        setSuccess('✅ Tokens approved successfully! You can now place your stake.');
+      } else if (isStakePending) {
+        setIsStakePending(false);
+        setSuccess('✅ Successfully added a stake!');
+      }
+      setError('');
+    }
+  }, [isConfirmed, isApprovalPending, isStakePending]);
 
   // Fetch only truly active markets (state = 0)
   const { data: activeMarketIds } = useReadContract({
@@ -386,7 +405,7 @@ export default function HomePage() {
           ],
           functionName: 'placeStakeWithToken',
           args: [BigInt(marketId), BigInt(option), stakeAmount],
-          gas: BigInt(300000), // Reasonable gas limit for staking with token
+          gas: BigInt(600000), // Further increased gas limit for staking with token
         });
         
         setSuccess('Stake transaction submitted...');
@@ -406,7 +425,7 @@ export default function HomePage() {
           functionName: 'placeStake',
           args: [BigInt(marketId), BigInt(option)],
           value: stakeAmount,
-          gas: BigInt(250000), // Reasonable gas limit for native staking
+          gas: BigInt(500000), // Further increased gas limit for native staking
         });
         
         setSuccess('Stake transaction submitted...');
@@ -517,7 +536,7 @@ export default function HomePage() {
                   Active Markets
                 </h1>
                 <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Place bets on live prediction markets
+                  Add stake to live prediction markets
                 </p>
                 </div>
               </div>
@@ -706,6 +725,8 @@ export default function HomePage() {
                   userAddress={address}
                   isApprovalPending={isApprovalPending}
                   isStakePending={isStakePending}
+                  isApprovalConfirming={isConfirming && isApprovalPending}
+                  isStakeConfirming={isConfirming && isStakePending}
                 />
               ))}
             </div>

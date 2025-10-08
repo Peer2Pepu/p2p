@@ -682,8 +682,8 @@ export default function CreateMarketPage() {
         gas: BigInt(1000000) // Gas limit for market creation
       });
 
-      console.log('✅ Market created successfully! Transaction:', txResult);
-      setSuccess('🎉 Market created successfully!');
+      console.log('✅ Market creation transaction submitted:', txResult);
+      setSuccess('Transaction submitted! Waiting for confirmation...');
       
       // Reset all states
       setIsCreating(false);
@@ -759,12 +759,17 @@ export default function CreateMarketPage() {
   // Handle transaction success
   useEffect(() => {
     if (isConfirmed) {
-      setSuccess('Market created successfully! Check the transaction on the block explorer.');
+      setSuccess('🎉 Market created successfully! Your market is now live and ready for staking.');
       setIsCreating(false);
       setIsUploadingImage(false);
       setIsUploadingMetadata(false);
       setIsCreatingContract(false);
       setError('');
+      
+      // Keep success message visible for 15 seconds
+      setTimeout(() => {
+        setSuccess('');
+      }, 15000);
       // Reset form
       setTitle('');
       setImageFile(null);
@@ -999,10 +1004,24 @@ export default function CreateMarketPage() {
               )}
 
               {success && (
-                <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle size={20} />
-                    <span className="font-medium">Success</span>
+                <div className={`mb-6 p-4 rounded-lg border ${
+                  isDarkMode 
+                    ? 'bg-emerald-900/20 border-emerald-700 text-emerald-300' 
+                    : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle size={20} className="text-emerald-500" />
+                      <span className="font-medium">Success</span>
+                    </div>
+                    <button
+                      onClick={() => setSuccess('')}
+                      className={`p-1 rounded-full hover:bg-emerald-200/50 transition-colors ${
+                        isDarkMode ? 'hover:bg-emerald-800/50' : 'hover:bg-emerald-200/50'
+                      }`}
+                    >
+                      <X size={16} className="text-emerald-600" />
+                    </button>
                   </div>
                   <p className="text-sm mt-1">{success}</p>
                 </div>
@@ -1028,7 +1047,7 @@ export default function CreateMarketPage() {
                           type="text"
                           value={title}
                           onChange={(e) => setTitle(e.target.value)}
-                          placeholder="e.g., Will Bitcoin reach $100k by end of 2025?"
+                          placeholder="e.g., Will Bitcoin reach $200k by end of 2025?"
                         className={`w-full px-3 py-2.5 border rounded-lg focus:border-emerald-500 focus:outline-none text-sm ${
                           isDarkMode 
                             ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
@@ -1363,36 +1382,6 @@ export default function CreateMarketPage() {
                     </div>
                   </div>
 
-                  {/* Buy Yes Buttons */}
-                  <div className="space-y-4">
-                    <h2 className={`text-base lg:text-lg font-semibold ${
-                      isDarkMode ? 'text-emerald-400' : 'text-emerald-600'
-                    }`}>Quick Actions</h2>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <button className={`
-                        px-4 py-3 rounded-lg border-2 transition-colors flex items-center justify-center gap-2 text-sm font-medium
-                        ${isDarkMode
-                          ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'
-                          : 'border-emerald-500 bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
-                        }
-                      `}>
-                        <TrendingUp size={18} />
-                        Buy Yes
-                      </button>
-                      
-                      <button className={`
-                        px-4 py-3 rounded-lg border-2 transition-colors flex items-center justify-center gap-2 text-sm font-medium
-                        ${isDarkMode
-                          ? 'border-red-500 bg-red-500/10 text-red-400 hover:bg-red-500/20'
-                          : 'border-red-500 bg-red-50 text-red-600 hover:bg-red-100'
-                        }
-                      `}>
-                        <TrendingDown size={18} />
-                        Buy No
-                      </button>
-                    </div>
-                  </div>
 
                   {/* Multiple Options */}
                   {outcomeType === 'multiple' && (

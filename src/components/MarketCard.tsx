@@ -159,7 +159,9 @@ export function MarketCard({
   onEndMarket, 
   userAddress,
   isApprovalPending,
-  isStakePending
+  isStakePending,
+  isApprovalConfirming,
+  isStakeConfirming
 }: {
   marketId: number;
   isDarkMode: boolean;
@@ -168,6 +170,8 @@ export function MarketCard({
   userAddress?: `0x${string}`;
   isApprovalPending?: boolean;
   isStakePending?: boolean;
+  isApprovalConfirming?: boolean;
+  isStakeConfirming?: boolean;
 }) {
   const MARKET_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS as `0x${string}`;
 
@@ -397,7 +401,7 @@ export function MarketCard({
   const { address: currentUserAddress } = useAccount();
 
   // Check token allowance for ERC20 markets
-  const { data: tokenAllowance } = useReadContract({
+  const { data: tokenAllowance, refetch: refetchAllowance } = useReadContract({
     address: market?.paymentToken as `0x${string}`,
     abi: [
       {
@@ -425,6 +429,17 @@ export function MarketCard({
   const requiredAmount = betAmount ? parseEther(betAmount) : BigInt(0);
   const hasSufficientAllowance = tokenAllowance !== undefined && betAmount ? tokenAllowance >= requiredAmount : false;
   const needsTokenApproval = isERC20Market && betAmount && !hasSufficientAllowance;
+
+  // Refetch allowance when approval is successful
+  useEffect(() => {
+    if (isApprovalPending === false && isERC20Market && betAmount) {
+      // Small delay to ensure the transaction is confirmed
+      const timer = setTimeout(() => {
+        refetchAllowance();
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [isApprovalPending, isERC20Market, betAmount, refetchAllowance]);
 
   if (loadingSupabase || !supabaseData) {
     return (
@@ -694,21 +709,21 @@ export function MarketCard({
                 {needsTokenApproval ? (
                   <button
                 onClick={() => onBet(marketId, selectedOption, betAmount, true)}
-                disabled={!betAmount || !canStake || isApprovalPending}
+                disabled={!betAmount || !canStake || isApprovalPending || isApprovalConfirming}
                 className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-                  !betAmount || !canStake || isApprovalPending
+                  !betAmount || !canStake || isApprovalPending || isApprovalConfirming
                     ? 'bg-gray-600 cursor-not-allowed text-gray-400'
                     : 'bg-blue-600 hover:bg-blue-700 text-white'
                     }`}
                   >
-                {isApprovalPending ? 'Approving...' : 'Approve'}
+                {isApprovalPending ? 'Approving...' : isApprovalConfirming ? 'Confirming...' : 'Approve'}
                   </button>
                 ) : (
                   <button
                     onClick={() => onBet(marketId, selectedOption, betAmount)}
-                disabled={!betAmount || !canStake || isStakePending}
+                disabled={!betAmount || !canStake || isStakePending || isStakeConfirming}
                 className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-                  !betAmount || !canStake || isStakePending
+                  !betAmount || !canStake || isStakePending || isStakeConfirming
                     ? 'bg-gray-600 cursor-not-allowed text-gray-400'
                         : isDarkMode 
                       ? 'bg-blue-600 hover:bg-blue-700 text-white' 
@@ -717,6 +732,7 @@ export function MarketCard({
                   >
 {!canStake ? (userHasStaked ? 'Already Staked' : 'Staking Closed') : 
   isStakePending ? 'Staking...' : 
+  isStakeConfirming ? 'Confirming...' : 
   'Stake'}
                   </button>
                 )}
