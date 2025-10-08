@@ -354,7 +354,7 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
                 />
               )}
               <div className="flex-1 min-w-0">
-                <h1 className={`text-lg sm:text-2xl font-bold truncate ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>
+                <h1 className={`text-lg sm:text-2xl font-bold ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>
                   {getMarketTitle()}
                 </h1>
                 <p className={`text-xs sm:text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>

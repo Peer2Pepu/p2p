@@ -20,6 +20,13 @@ import { formatEther } from 'viem';
 import { ethers } from 'ethers';
 import { Sidebar } from '../components/Sidebar';
 import { useTheme } from '../context/ThemeContext';
+import { createClient } from '@supabase/supabase-js';
+
+// Supabase client
+const supabase = createClient(
+  `https://${process.env.NEXT_PUBLIC_SUPABASE_PROJECT_ID}.supabase.co`,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 // Contract ABIs
 const MARKET_MANAGER_ABI = [
@@ -243,6 +250,8 @@ function MarketSearch({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteReason, setDeleteReason] = useState('');
   const [deleteSuccess, setDeleteSuccess] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isPermanentlyDeleting, setIsPermanentlyDeleting] = useState(false);
 
   const marketManagerAddress = process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS as `0x${string}`;
   const { writeContract } = useWriteContract();
@@ -307,6 +316,7 @@ function MarketSearch({
       
       const market = await contract.getMarket(BigInt(searchId));
       console.log('Market data:', market);
+      console.log('Market state:', market.state, 'Type:', typeof market.state);
       
       if (!market || !market.creator || market.creator === '0x0000000000000000000000000000000000000000') {
         setSearchError(`Market #${searchId} does not exist on the blockchain`);
@@ -421,21 +431,39 @@ function MarketSearch({
   const handleSoftDelete = async () => {
     if (!deleteReason.trim() || !searchedMarketId) return;
     
+    setIsDeleting(true);
+    setDeleteSuccess('');
+    setSearchError('');
+    
     try {
-      await writeContract({
+      // Submit blockchain transaction
+      writeContract({
         address: marketManagerAddress,
         abi: MARKET_MANAGER_ABI,
         functionName: 'deleteMarket',
         args: [BigInt(searchedMarketId), deleteReason]
       });
       
-      setDeleteSuccess(`Market #${searchedMarketId} soft deleted successfully`);
+      // Delete from Supabase immediately
+      const { error: supabaseError } = await supabase
+        .from('market')
+        .delete()
+        .eq('market_id', searchedMarketId.toString());
+      
+      if (supabaseError) {
+        console.error('Error deleting from Supabase:', supabaseError);
+      }
+      
+      setDeleteSuccess(`Market #${searchedMarketId} deleted successfully from database`);
       setSearchedMarketId(null);
       setShowDeleteModal(false);
       setDeleteReason('');
+      setIsDeleting(false);
       setTimeout(() => setDeleteSuccess(''), 5000);
+      
     } catch (err: any) {
-      setSearchError(err.message || 'Failed to delete market');
+      setSearchError(err.message || 'Failed to submit delete transaction');
+      setIsDeleting(false);
     }
   };
 
@@ -446,19 +474,37 @@ function MarketSearch({
       return;
     }
     
+    setIsPermanentlyDeleting(true);
+    setDeleteSuccess('');
+    setSearchError('');
+    
     try {
-      await writeContract({
+      // Submit blockchain transaction
+      writeContract({
         address: marketManagerAddress,
         abi: MARKET_MANAGER_ABI,
         functionName: 'permanentlyRemoveMarket',
         args: [BigInt(searchedMarketId)]
       });
       
-      setDeleteSuccess(`Market #${searchedMarketId} permanently removed`);
+      // Delete from Supabase immediately
+      const { error: supabaseError } = await supabase
+        .from('market')
+        .delete()
+        .eq('market_id', searchedMarketId.toString());
+      
+      if (supabaseError) {
+        console.error('Error deleting from Supabase:', supabaseError);
+      }
+      
+      setDeleteSuccess(`Market #${searchedMarketId} permanently removed from database`);
       setSearchedMarketId(null);
+      setIsPermanentlyDeleting(false);
       setTimeout(() => setDeleteSuccess(''), 5000);
+      
     } catch (err: any) {
-      setSearchError(err.message || 'Failed to remove market');
+      setSearchError(err.message || 'Failed to submit permanent delete transaction');
+      setIsPermanentlyDeleting(false);
     }
   };
 
@@ -521,123 +567,132 @@ function MarketSearch({
         )}
 
         {searchedMarketId && marketData && (
-          <div className={`p-3 rounded-lg border max-w-sm ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-            {/* Header */}
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-6 h-6 rounded bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                <span className="text-white font-bold text-xs">#{searchedMarketId}</span>
+          <div className={`w-full max-w-sm border rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg flex flex-col ${
+            isDarkMode 
+              ? 'bg-[#1a1d2e] border-gray-700 hover:shadow-gray-900/50' 
+              : 'bg-white border-gray-200 hover:shadow-gray-900/20'
+          }`}>
+            <div className="p-4 flex flex-col flex-1 min-h-0">
+              {/* Header with small image */}
+              <div className="flex items-start justify-between gap-3 mb-4 flex-shrink-0">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  {marketMetadata?.imageUrl && (
+                    <div className="flex-shrink-0">
+                      <img
+                        src={marketMetadata.imageUrl}
+                        alt=""
+                        className="w-12 h-12 rounded-lg object-cover border border-gray-700"
+                      />
               </div>
-              <div className="flex-1">
-                <h3 className={`text-xs font-semibold truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  )}
+                  
+                  <div className="flex-1 min-w-0">
+                    <h3 className={`font-semibold text-base leading-tight ${
+                      isDarkMode ? 'text-white' : 'text-gray-900'
+                    }`}>
                   {marketMetadata?.title || 'Loading...'}
                 </h3>
-                <div className="flex items-center gap-1">
-                  <span className={`text-xs px-1.5 py-0.5 rounded ${
-                    marketData.isMultiOption ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
-                  }`}>
-                    {marketData.isMultiOption ? 'Multi' : 'Binary'}
-                  </span>
-                  <span className={`text-xs px-1.5 py-0.5 rounded ${
-                    marketData.state === 0 
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className={`text-xs px-2 py-1 rounded ${
+                        marketData.isMultiOption ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                      }`}>
+                        {marketData.isMultiOption ? 'Multi' : 'Yes/No'}
+                      </span>
+                      <span className={`text-xs px-2 py-1 rounded ${
+                        Number(marketData.state) === 0 
                       ? 'bg-green-100 text-green-800' 
-                      : marketData.state === 1 
+                          : Number(marketData.state) === 1 
                       ? 'bg-yellow-100 text-yellow-800' 
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {marketData.state === 0 ? 'Active' : marketData.state === 1 ? 'Ended' : 'Resolved'}
+                          : Number(marketData.state) === 2
+                          ? 'bg-blue-100 text-blue-800'
+                          : Number(marketData.state) === 3
+                          ? 'bg-orange-100 text-orange-800'
+                          : Number(marketData.state) === 4
+                          ? 'bg-red-100 text-red-800'
+                          : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {Number(marketData.state) === 0 ? 'Active' : 
+                         Number(marketData.state) === 1 ? 'Ended' : 
+                         Number(marketData.state) === 2 ? 'Resolved' :
+                         Number(marketData.state) === 3 ? 'Cancelled' :
+                         Number(marketData.state) === 4 ? 'Deleted' :
+                         'Unknown'}
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Small Market Image */}
-            {marketMetadata?.imageUrl && (
-              <div className="mb-3">
-                <img 
-                  src={marketMetadata.imageUrl} 
-                  alt="Market" 
-                  className="w-full h-16 object-cover rounded"
-                />
+                <div className="flex-shrink-0">
+                  <div className={`w-8 h-8 rounded flex items-center justify-center ${
+                    isDarkMode ? 'bg-gray-700' : 'bg-gray-200'
+                  }`}>
+                    <span className={`font-bold text-xs ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>#{searchedMarketId}</span>
+                  </div>
+                </div>
               </div>
-            )}
 
-            {/* Compact Details */}
-            <div className="space-y-1 mb-3">
-              <div className="flex justify-between text-xs">
+              {/* Market Details */}
+              <div className="space-y-2 mb-4 flex-1">
+                <div className="flex justify-between text-sm">
                 <span className="text-gray-500">Creator:</span>
                 <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                   {marketData.creator?.slice(0, 6)}...{marketData.creator?.slice(-4)}
                 </span>
               </div>
-              <div className="flex justify-between text-xs">
+                <div className="flex justify-between text-sm">
                 <span className="text-gray-500">Min Stake:</span>
                 <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                   {formatEther(marketData.minStake)} {tokenSymbol || 'Token'}
                 </span>
               </div>
-              <div className="flex justify-between text-xs">
+                <div className="flex justify-between text-sm">
                 <span className="text-gray-500">Ends:</span>
                 <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                   {new Date(Number(marketData.endTime) * 1000).toLocaleDateString()}
                 </span>
               </div>
-              <div className="flex justify-between text-xs">
+                {supportPool !== undefined && (
+                  <div className="flex justify-between text-sm">
                 <span className="text-gray-500">Total Support:</span>
                 <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {supportPool !== undefined ? formatEther(supportPool) : 'Loading...'} {tokenSymbol || 'Token'}
+                      {formatEther(supportPool)} {tokenSymbol || 'Token'}
                 </span>
               </div>
+                )}
             </div>
 
-            {/* Support Section */}
-            <div className={`p-2 rounded border ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'} mb-3`}>
-              <div className="flex gap-1">
-                <input
-                  type="number"
-                  value={supportAmount}
-                  onChange={(e) => setSupportAmount(e.target.value)}
-                  placeholder={`Amount (${tokenSymbol || 'Token'})`}
-                  className={`flex-1 px-2 py-1 border rounded text-xs ${
-                    isDarkMode 
-                      ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                      : 'bg-white border-gray-300 text-gray-900'
-                  }`}
-                />
+              {/* Admin Actions */}
+              <div className="flex gap-2 mt-auto">
+                {/* Delete button - only show for non-deleted markets */}
+                {Number(marketData.state) !== 4 && (
                 <button
-                  onClick={handleSupport}
-                  disabled={!supportAmount || isSupporting || (Math.floor(Date.now() / 1000) > Number(marketData.endTime))}
-                  className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                    !supportAmount || isSupporting || (Math.floor(Date.now() / 1000) > Number(marketData.endTime))
+                    onClick={() => setShowDeleteModal(true)}
+                    disabled={isDeleting || isPermanentlyDeleting}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                      isDeleting || isPermanentlyDeleting
                       ? 'bg-gray-600 cursor-not-allowed text-gray-400'
-                      : 'bg-green-600 hover:bg-green-700 text-white'
+                        : 'bg-red-600 hover:bg-red-700 text-white'
                   }`}
                 >
-                  {isSupporting ? '...' : (Math.floor(Date.now() / 1000) > Number(marketData.endTime)) ? 'Ended' : 'Support'}
+                    <Trash2 size={12} />
+                    {isDeleting ? 'Deleting...' : 'Delete'}
                 </button>
-              </div>
-              <div className="text-xs text-gray-500 mt-1">
-                {marketData.paymentToken !== '0x0000000000000000000000000000000000000000' 
-                  ? `${tokenSymbol || 'Token'} (approve + transfer)` 
-                  : 'Direct ETH transfer'}
-              </div>
-            </div>
-            
-            {/* Admin Actions */}
-            <div className="flex gap-1">
-              <button
-                onClick={() => setShowDeleteModal(true)}
-                className="flex items-center gap-1 px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-medium transition-colors"
-              >
-                <Trash2 size={12} />
-                Delete
-              </button>
+                )}
+                
+                {/* Remove button - always show */}
               <button
                 onClick={handlePermanentDelete}
-                className="flex items-center gap-1 px-2 py-1 bg-orange-600 hover:bg-orange-700 text-white rounded text-xs font-medium transition-colors"
+                  disabled={isDeleting || isPermanentlyDeleting}
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                    isDeleting || isPermanentlyDeleting
+                      ? 'bg-gray-600 cursor-not-allowed text-gray-400'
+                      : 'bg-orange-600 hover:bg-orange-700 text-white'
+                  }`}
               >
                 <X size={12} />
-                Remove
+                  {isPermanentlyDeleting ? 'Removing...' : 'Remove'}
               </button>
+              </div>
             </div>
           </div>
         )}
@@ -684,14 +739,14 @@ function MarketSearch({
                   </button>
                   <button
                     onClick={handleSoftDelete}
-                    disabled={!deleteReason.trim()}
+                    disabled={!deleteReason.trim() || isDeleting || isPermanentlyDeleting}
                     className={`flex-1 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-                      !deleteReason.trim()
+                      !deleteReason.trim() || isDeleting || isPermanentlyDeleting
                         ? 'bg-gray-400 cursor-not-allowed text-gray-200'
                         : 'bg-red-600 hover:bg-red-700 text-white'
                     }`}
                   >
-                    Delete
+                    {isDeleting ? 'Deleting...' : 'Delete'}
                   </button>
                 </div>
               </div>
