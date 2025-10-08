@@ -15,7 +15,10 @@ import {
   TrendingUp,
   TrendingDown,
   AlertCircle,
-  Loader2
+  Loader2,
+  Trash2,
+  Minus,
+  Check
 } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
@@ -400,7 +403,7 @@ export default function CreateMarketPage() {
   };
 
   const addMultipleOption = () => {
-    if (multipleOptions.length < 4) {
+    if (multipleOptions.length < 8) {
       setMultipleOptions([...multipleOptions, '']);
     }
   };
@@ -1020,7 +1023,7 @@ export default function CreateMarketPage() {
                         isDarkMode ? 'hover:bg-emerald-800/50' : 'hover:bg-emerald-200/50'
                       }`}
                     >
-                      <X size={16} className="text-emerald-600" />
+                      <Check size={16} className="text-emerald-600" />
                     </button>
                   </div>
                   <p className="text-sm mt-1">{success}</p>
@@ -1139,7 +1142,7 @@ export default function CreateMarketPage() {
                               onClick={removeImage}
                               className="absolute top-2 right-2 p-1 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors"
                             >
-                              <X size={16} />
+                              <Trash2 size={16} />
                             </button>
                           </div>
                         )}
@@ -1330,7 +1333,7 @@ export default function CreateMarketPage() {
                               }
                             `}
                           >
-                            {selectedCategories.includes(category) && <X size={14} />}
+                            {selectedCategories.includes(category) && <Minus size={14} />}
                             {category}
                           </button>
                         ))}
@@ -1387,8 +1390,8 @@ export default function CreateMarketPage() {
                   {outcomeType === 'multiple' && (
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
-                        <h3 className="text-sm lg:text-md font-medium">Options (2-4)</h3>
-                        {multipleOptions.length < 4 && (
+                        <h3 className="text-sm lg:text-md font-medium">Options (2-8)</h3>
+                        {multipleOptions.length < 8 && (
                           <button
                             onClick={addMultipleOption}
                             className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-sm transition-colors flex items-center gap-2 text-white"
@@ -1418,7 +1421,7 @@ export default function CreateMarketPage() {
                                 onClick={() => removeMultipleOption(index)}
                                 className="px-3 py-2.5 bg-red-600 hover:bg-red-700 rounded-lg transition-colors text-white"
                               >
-                                <X size={16} />
+                                <Trash2 size={16} />
                               </button>
                             )}
                           </div>
@@ -1496,22 +1499,6 @@ export default function CreateMarketPage() {
 
                   {/* Submit Button */}
                   <div className="pt-4">
-                    {/* Debug info */}
-                    <div className={`mb-4 p-3 rounded-lg text-sm border ${
-                      isDarkMode 
-                        ? 'bg-gray-800 border-gray-600 text-gray-200' 
-                        : 'bg-gray-100 border-gray-300 text-gray-800'
-                    }`}>
-                      <p className={`font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Debug Info:</p>
-                      <div className="space-y-1 text-xs">
-                        <p>Outcome Type: <span className="font-mono">{outcomeType}</span></p>
-                        <p>Has Sufficient Allowance: <span className={`font-semibold ${hasSufficientAllowance ? 'text-green-500' : 'text-red-500'}`}>{hasSufficientAllowance ? 'Yes' : 'No'}</span></p>
-                        <p>Creator Deposit: <span className="font-mono">{creatorDeposit || 'Not set'}</span></p>
-                        <p>Required Amount: <span className="font-mono">{requiredAmount.toString()}</span></p>
-                        <p>Current Allowance: <span className="font-mono">{allowance ? allowance.toString() : 'Loading...'}</span></p>
-                        <p>Should Show Approval Button: <span className={`font-semibold ${((outcomeType === 'multiple' && !hasSufficientAllowance) || (outcomeType === 'yesno' && selectedToken !== '0x0000000000000000000000000000000000000000' && !hasSufficientAllowance)) ? 'text-green-500' : 'text-red-500'}`}>{((outcomeType === 'multiple' && !hasSufficientAllowance) || (outcomeType === 'yesno' && selectedToken !== '0x0000000000000000000000000000000000000000' && !hasSufficientAllowance)) ? 'YES' : 'NO'}</span></p>
-                      </div>
-                    </div>
 
                     {/* Single button that switches between Approve and Create Market */}
                     <button 

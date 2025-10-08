@@ -43,6 +43,13 @@ import { pepuMainnet } from './chains';
 import { Sidebar } from './components/Sidebar';
 import { MarketCard } from '../components/MarketCard';
 import { useTheme } from './context/ThemeContext';
+import { createClient } from '@supabase/supabase-js';
+
+// Supabase client
+const supabase = createClient(
+  `https://${process.env.NEXT_PUBLIC_SUPABASE_PROJECT_ID}.supabase.co`,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 // Type definitions
 interface MarketData {
@@ -61,6 +68,18 @@ interface MarketData {
   state: number;
   winningOption: bigint;
   isResolved: boolean;
+}
+
+interface SupabaseMarket {
+  market_id: string;
+  ipfs: string;
+  image: string;
+  stakeend: string;
+  endtime: string;
+  creator: string;
+  type: 'multi' | 'linear';
+  token: string;
+  created_at?: string;
 }
 
 // Contract ABIs
@@ -219,7 +238,8 @@ export default function HomePage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [filterType, setFilterType] = useState('all');
-  const [filterCategory, setFilterCategory] = useState('all');
+  const [filterToken, setFilterToken] = useState('all');
+  const [filterMarketType, setFilterMarketType] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
   const [showFilters, setShowFilters] = useState(false);
   const [error, setError] = useState('');
@@ -266,77 +286,64 @@ export default function HomePage() {
   // State to store market details for filtering
   const [marketDetails, setMarketDetails] = useState<Map<number, any>>(new Map());
 
-  // Analytics data
+  // State for Supabase markets
+  const [supabaseMarkets, setSupabaseMarkets] = useState<SupabaseMarket[]>([]);
+  const [loadingMarkets, setLoadingMarkets] = useState(true);
+  
+  // Fetch markets from Supabase with filtering
+  useEffect(() => {
+    const fetchMarkets = async () => {
+      try {
+        setLoadingMarkets(true);
+        
+        let query = supabase
+          .from('market')
+          .select('*');
+        
+        // Apply filters
+        if (filterToken !== 'all') {
+          query = query.eq('token', filterToken);
+        }
+        
+        if (filterMarketType !== 'all') {
+          query = query.eq('type', filterMarketType);
+        }
+        
+        // Apply sorting
+        if (sortBy === 'newest') {
+          query = query.order('created_at', { ascending: false });
+        } else if (sortBy === 'oldest') {
+          query = query.order('created_at', { ascending: true });
+        }
+        
+        const { data, error } = await query;
+        
+        if (error) {
+          console.error('Error fetching markets:', error);
+          return;
+        }
+        
+        console.log('Fetched markets from Supabase:', data);
+        setSupabaseMarkets(data || []);
+        
+      } catch (error) {
+        console.error('Error fetching markets:', error);
+      } finally {
+        setLoadingMarkets(false);
+      }
+    };
+    
+    fetchMarkets();
+  }, [filterToken, filterMarketType, sortBy]);
+
+  // Analytics data (simplified for now)
   const [totalParticipants, setTotalParticipants] = useState<number>(0);
   const [totalVolume, setTotalVolume] = useState<string>('0');
 
-  // Fetch market details and analytics for proper filtering
-  useEffect(() => {
-    if (!Array.isArray(activeMarketIds) || activeMarketIds.length === 0) {
-      setTotalParticipants(0);
-      setTotalVolume('0');
-      setMarketDetails(new Map());
-      return;
-    }
-    
-    const fetchMarketDetailsAndAnalytics = async () => {
-      const details = new Map();
-      let totalParticipantsCount = 0;
-      let totalVolumeAmount = BigInt(0);
-      
-      for (const marketId of activeMarketIds) {
-        try {
-          const provider = new ethers.JsonRpcProvider('https://rpc-pepu-v2-mainnet-0.t.conduit.xyz');
-          const contract = new ethers.Contract(MARKET_MANAGER_ADDRESS, MARKET_MANAGER_ABI, provider);
-          
-          const market = await contract.getMarket(marketId);
-          const stakerCount = await contract.getStakerCount(marketId);
-          const supporterCount = await contract.getSupporterCount(marketId);
-          const participants = Number(stakerCount) + Number(supporterCount) + 1;
-          totalParticipantsCount += participants;
-          
-          const option1Pool = await contract.getOptionPool(marketId, 1, market.paymentToken);
-          const option2Pool = await contract.getOptionPool(marketId, 2, market.paymentToken);
-          const option3Pool = await contract.getOptionPool(marketId, 3, market.paymentToken);
-          const option4Pool = await contract.getOptionPool(marketId, 4, market.paymentToken);
-          
-          const marketVolume = option1Pool + option2Pool + option3Pool + option4Pool;
-          totalVolumeAmount += marketVolume;
-          
-          const marketDetails = {
-            id: Number(marketId),
-            state: Number(market.state),
-            endTime: Number(market.endTime),
-            isMultiOption: market.isMultiOption,
-            participants,
-            volume: marketVolume,
-          };
-          
-          details.set(Number(marketId), marketDetails);
-          
-        } catch (error) {
-          console.error(`Error fetching market ${marketId}:`, error);
-        }
-      }
-      
-      setMarketDetails(details);
-      setTotalParticipants(totalParticipantsCount);
-      setTotalVolume(ethers.formatEther(totalVolumeAmount));
-    };
-    
-    fetchMarketDetailsAndAnalytics();
-  }, [activeMarketIds, MARKET_MANAGER_ADDRESS]);
-
-  // Filter markets to only show truly active ones (state 0)
+  // Convert Supabase markets to market IDs for rendering
   const filteredActiveMarkets = useMemo(() => {
-    if (!Array.isArray(activeMarketIds)) return [];
-    
-    return [...activeMarketIds].map(id => Number(id)).filter(marketId => {
-      const details = marketDetails.get(marketId);
-      if (!details) return true;
-      return details.state === 0;
-    });
-  }, [activeMarketIds, marketDetails]);
+    return supabaseMarkets.map(market => Number(market.market_id));
+  }, [supabaseMarkets]);
 
   const handleBet = async (marketId: number, option: number, amount: string, isApproval = false) => {
     if (!isConnected || !address) {
@@ -567,19 +574,42 @@ export default function HomePage() {
                           }`}>
                             Market Type
                           </label>
-                  <select
-                    value={filterType}
-                    onChange={(e) => setFilterType(e.target.value)}
+                          <select
+                            value={filterMarketType}
+                            onChange={(e) => setFilterMarketType(e.target.value)}
                             className={`w-full px-2 py-1.5 border rounded text-xs ${
-                      isDarkMode 
+                              isDarkMode 
                                 ? 'bg-gray-700 border-gray-600 text-white' 
-                        : 'bg-white border-gray-300 text-gray-900'
-                    }`}
-                  >
-                    <option value="all">All Types</option>
-                    <option value="yesno">Yes/No</option>
-                    <option value="multiple">Multiple Choice</option>
-                  </select>
+                                : 'bg-white border-gray-300 text-gray-900'
+                            }`}
+                          >
+                            <option value="all">All Types</option>
+                            <option value="linear">Linear (Yes/No)</option>
+                            <option value="multi">Multi-Option</option>
+                          </select>
+                        </div>
+                        
+                        <div>
+                          <label className={`block text-xs font-medium mb-1 ${
+                            isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                          }`}>
+                            Token
+                          </label>
+                          <select
+                            value={filterToken}
+                            onChange={(e) => setFilterToken(e.target.value)}
+                            className={`w-full px-2 py-1.5 border rounded text-xs ${
+                              isDarkMode 
+                                ? 'bg-gray-700 border-gray-600 text-white' 
+                                : 'bg-white border-gray-300 text-gray-900'
+                            }`}
+                          >
+                            <option value="all">All Tokens</option>
+                            <option value="PEPU">PEPU</option>
+                            <option value="P2P">P2P</option>
+                            <option value="USDC">USDC</option>
+                            <option value="WETH">WETH</option>
+                          </select>
                         </div>
                         
                         <div>
@@ -588,19 +618,18 @@ export default function HomePage() {
                           }`}>
                             Sort By
                           </label>
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value)}
+                          <select
+                            value={sortBy}
+                            onChange={(e) => setSortBy(e.target.value)}
                             className={`w-full px-2 py-1.5 border rounded text-xs ${
-                      isDarkMode 
+                              isDarkMode 
                                 ? 'bg-gray-700 border-gray-600 text-white' 
-                        : 'bg-white border-gray-300 text-gray-900'
-                    }`}
-                  >
-                  <option value="newest">Newest</option>
-                    <option value="volume">Volume</option>
-                    <option value="ending">Ending Soon</option>
-                  </select>
+                                : 'bg-white border-gray-300 text-gray-900'
+                            }`}
+                          >
+                            <option value="newest">Newest</option>
+                            <option value="oldest">Oldest</option>
+                          </select>
                         </div>
                       </div>
                     </div>
@@ -695,13 +724,29 @@ export default function HomePage() {
             </div>
           </div>
 
-          {!Array.isArray(activeMarketIds) || activeMarketIds.length === 0 ? (
+          {loadingMarkets ? (
+            <div className="text-center py-16">
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
+                isDarkMode ? 'bg-gray-800' : 'bg-gray-100'
+              }`}>
+                <div className={`animate-spin rounded-full h-8 w-8 border-b-2 ${
+                  isDarkMode ? 'border-emerald-400' : 'border-emerald-600'
+                }`}></div>
+              </div>
+              <h3 className={`text-lg font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                Loading Markets...
+              </h3>
+              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                Fetching active prediction markets
+              </p>
+            </div>
+          ) : filteredActiveMarkets.length === 0 ? (
             <div className="text-center py-16">
               <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
                 isDarkMode ? 'bg-gray-800' : 'bg-gray-100'
               }`}>
                 <BarChart3 className={`w-8 h-8 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
-            </div>
+              </div>
               <h3 className={`text-lg font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 No Active Markets
               </h3>

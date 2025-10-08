@@ -24,7 +24,7 @@ if (!MARKET_MANAGER_ADDRESS) {
     process.exit(1);
 }
 
-// Contract ABI for MarketCreated event
+// Contract ABI for MarketCreated event and getSupportedTokens function
 const MARKET_MANAGER_ABI = [
     {
         "anonymous": false,
@@ -43,6 +43,16 @@ const MARKET_MANAGER_ABI = [
         ],
         "name": "MarketCreated",
         "type": "event"
+    },
+    {
+        "inputs": [],
+        "name": "getSupportedTokens",
+        "outputs": [
+            {"name": "tokens", "type": "address[]"},
+            {"name": "symbols", "type": "string[]"}
+        ],
+        "stateMutability": "view",
+        "type": "function"
     }
 ];
 
@@ -62,6 +72,27 @@ async function getIPFSData(ipfsHash) {
     } catch (error) {
         console.error(`❌ Error fetching IPFS data for ${ipfsHash}:`, error.message);
         return null;
+    }
+}
+
+// Function to get token symbol from contract
+async function getTokenSymbol(contract, paymentToken) {
+    try {
+        const [tokens, symbols] = await contract.getSupportedTokens();
+        
+        // Find the matching token address
+        for (let i = 0; i < tokens.length; i++) {
+            if (tokens[i].toLowerCase() === paymentToken.toLowerCase()) {
+                return symbols[i];
+            }
+        }
+        
+        // If not found in supported tokens, return the address as fallback
+        console.log(`⚠️  Token ${paymentToken} not found in supported tokens`);
+        return paymentToken;
+    } catch (error) {
+        console.error(`❌ Error getting token symbol for ${paymentToken}:`, error.message);
+        return paymentToken; // Return address as fallback
     }
 }
 
@@ -130,7 +161,7 @@ async function monitorMarketEvents() {
     console.log(`📋 Found ${missedEvents.length} events in last 500 blocks`);
     
     for (const event of missedEvents) {
-        const { marketId, creator, ipfsHash, startTime, stakeEndTime, endTime } = event.args;
+        const { marketId, creator, ipfsHash, isMultiOption, paymentToken, startTime, stakeEndTime, endTime } = event.args;
 
         console.log(`🎯 Processing missed event: Market #${marketId}`);
 
@@ -155,6 +186,11 @@ async function monitorMarketEvents() {
             }
         }
 
+        // Get token symbol
+        console.log(`💰 Getting token symbol for ${paymentToken}`);
+        const tokenSymbol = await getTokenSymbol(contract, paymentToken);
+        console.log(`🏷️  Token symbol: ${tokenSymbol}`);
+
         // Prepare market data for Supabase
         const marketRecord = {
             market_id: marketId.toString(),
@@ -162,7 +198,9 @@ async function monitorMarketEvents() {
             image: imageUrl || '',
             stakeend: new Date(Number(stakeEndTime) * 1000).toISOString(),
             endtime: new Date(Number(endTime) * 1000).toISOString(),
-            creator: creator.toLowerCase()
+            creator: creator.toLowerCase(),
+            type: isMultiOption ? 'multi' : 'linear',
+            token: tokenSymbol
         };
 
         console.log(`📝 Market data:`, marketRecord);
@@ -186,7 +224,7 @@ async function monitorMarketEvents() {
                 const events = await contract.queryFilter(filter, latestBlock + 1, currentBlock);
 
                 for (const event of events) {
-                    const { marketId, creator, ipfsHash, startTime, stakeEndTime, endTime } = event.args;
+                    const { marketId, creator, ipfsHash, isMultiOption, paymentToken, startTime, stakeEndTime, endTime } = event.args;
 
                     console.log(`🎯 Found MarketCreated event: Market #${marketId}`);
 
@@ -211,6 +249,11 @@ async function monitorMarketEvents() {
                         }
                     }
 
+                    // Get token symbol
+                    console.log(`💰 Getting token symbol for ${paymentToken}`);
+                    const tokenSymbol = await getTokenSymbol(contract, paymentToken);
+                    console.log(`🏷️  Token symbol: ${tokenSymbol}`);
+
                     // Prepare market data for Supabase
                     const marketRecord = {
                         market_id: marketId.toString(),
@@ -218,7 +261,9 @@ async function monitorMarketEvents() {
                         image: imageUrl || '',
                         stakeend: new Date(Number(stakeEndTime) * 1000).toISOString(),
                         endtime: new Date(Number(endTime) * 1000).toISOString(),
-                        creator: creator.toLowerCase()
+                        creator: creator.toLowerCase(),
+                        type: isMultiOption ? 'multi' : 'linear',
+                        token: tokenSymbol
                     };
 
                     console.log(`📝 Market data:`, marketRecord);
