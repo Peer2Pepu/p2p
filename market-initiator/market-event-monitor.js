@@ -117,24 +117,38 @@ async function marketExists(marketId) {
     }
 }
 
-// Function to insert market data into Supabase
-async function insertMarket(marketData) {
-    try {
-        const { data, error } = await supabase
-            .from('market')
-            .insert([marketData]);
+// Function to insert market data into Supabase with retry logic
+async function insertMarket(marketData, retries = 3) {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+            console.log(`📝 Attempting to insert market ${marketData.market_id} (attempt ${attempt}/${retries})`);
+            
+            const { data, error } = await supabase
+                .from('market')
+                .insert([marketData]);
 
-        if (error) {
-            console.error('❌ Error inserting market:', error);
-            return false;
+            if (error) {
+                console.error(`❌ Error inserting market (attempt ${attempt}):`, error);
+                if (attempt === retries) {
+                    return false;
+                }
+                // Wait before retry
+                await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+                continue;
+            }
+
+            console.log(`✅ Market ${marketData.market_id} inserted successfully`);
+            return true;
+        } catch (error) {
+            console.error(`❌ Error inserting market (attempt ${attempt}):`, error);
+            if (attempt === retries) {
+                return false;
+            }
+            // Wait before retry
+            await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
         }
-
-        console.log(`✅ Market ${marketData.market_id} inserted successfully`);
-        return true;
-    } catch (error) {
-        console.error('❌ Error inserting market:', error);
-        return false;
     }
+    return false;
 }
 
 // Main monitoring function

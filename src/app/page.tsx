@@ -45,6 +45,21 @@ import { MarketCard } from '../components/MarketCard';
 import { useTheme } from './context/ThemeContext';
 import { createClient } from '@supabase/supabase-js';
 
+// Client-only wrapper to prevent hydration issues
+function ClientOnly({ children }: { children: React.ReactNode }) {
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
+  if (!hasMounted) {
+    return null;
+  }
+
+  return <>{children}</>;
+}
+
 // Supabase client
 const supabase = createClient(
   `https://${process.env.NEXT_PUBLIC_SUPABASE_PROJECT_ID}.supabase.co`,
@@ -463,9 +478,8 @@ export default function HomePage() {
         return;
       }
 
-      const currentTime = Math.floor(Date.now() / 1000);
       const isCreator = marketData.creator && address && marketData.creator.toLowerCase() === address.toLowerCase();
-      const isAfterEndTime = currentTime >= Number(marketData.endTime);
+      const isAfterEndTime = Date.now() >= Number(marketData.endTime) * 1000;
 
       if (isCreator && !isAfterEndTime) {
         setError('Creator early ending not yet implemented in contract. Please wait for endTime.');
@@ -643,20 +657,22 @@ export default function HomePage() {
                   {isDarkMode ? <Sun className="w-4 h-4 lg:w-5 lg:h-5 text-yellow-400" /> : <Moon className="w-4 h-4 lg:w-5 lg:h-5 text-gray-600" />}
                 </button>
                 
-                {isConnected ? (
-                  <div className={`flex items-center gap-1 lg:gap-2 px-2 lg:px-3 py-1.5 rounded text-xs lg:text-sm font-medium ${
-                    isDarkMode 
-                      ? 'bg-emerald-600/10 text-emerald-400 border border-emerald-600/20' 
-                      : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                  }`}>
-                    <Wallet size={12} className="lg:w-3.5 lg:h-3.5" />
-                    <span className="font-mono text-xs lg:text-sm">{address?.slice(0, 6)}...{address?.slice(-4)}</span>
-                  </div>
-                ) : (
-                  <div className="scale-90 lg:scale-100">
-                <ConnectButton />
-                  </div>
-                )}
+                <ClientOnly>
+                  {isConnected ? (
+                    <div className={`flex items-center gap-1 lg:gap-2 px-2 lg:px-3 py-1.5 rounded text-xs lg:text-sm font-medium ${
+                      isDarkMode 
+                        ? 'bg-emerald-600/10 text-emerald-400 border border-emerald-600/20' 
+                        : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    }`}>
+                      <Wallet size={12} className="lg:w-3.5 lg:h-3.5" />
+                      <span className="font-mono text-xs lg:text-sm">{address?.slice(0, 6)}...{address?.slice(-4)}</span>
+                    </div>
+                  ) : (
+                    <div className="scale-90 lg:scale-100">
+                      <ConnectButton />
+                    </div>
+                  )}
+                </ClientOnly>
               </div>
             </div>
           </div>
@@ -694,25 +710,27 @@ export default function HomePage() {
                 </span>
               </div>
               
-              {isConnected && address && (
-                <>
-                  <div className={`w-px h-3 lg:h-4 ${isDarkMode ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
-                  <div className="flex items-center gap-1 lg:gap-2">
-                    <Users size={12} className={`lg:w-3.5 lg:h-3.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
-                    <span className={`text-xs lg:text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                      {totalParticipants || 0} Participants
-                    </span>
-                  </div>
-                  
-                  <div className={`w-px h-3 lg:h-4 ${isDarkMode ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
-                  <div className="flex items-center gap-1 lg:gap-2">
-                    <TrendingUp size={12} className={`lg:w-3.5 lg:h-3.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
-                    <span className={`text-xs lg:text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                      {totalVolume || '0'} PEPU Volume
-                    </span>
-                  </div>
-                </>
-              )}
+              <ClientOnly>
+                {isConnected && address && (
+                  <>
+                    <div className={`w-px h-3 lg:h-4 ${isDarkMode ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
+                    <div className="flex items-center gap-1 lg:gap-2">
+                      <Users size={12} className={`lg:w-3.5 lg:h-3.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
+                      <span className={`text-xs lg:text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                        {totalParticipants || 0} Participants
+                      </span>
+                    </div>
+                    
+                    <div className={`w-px h-3 lg:h-4 ${isDarkMode ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
+                    <div className="flex items-center gap-1 lg:gap-2">
+                      <TrendingUp size={12} className={`lg:w-3.5 lg:h-3.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
+                      <span className={`text-xs lg:text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                        {totalVolume || '0'} PEPU Volume
+                      </span>
+                    </div>
+                  </>
+                )}
+              </ClientOnly>
             </div>
             
             <div className="flex items-center gap-2">

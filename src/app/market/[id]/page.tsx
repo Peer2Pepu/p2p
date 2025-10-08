@@ -50,23 +50,6 @@ const MARKET_MANAGER_ABI = [
     ],
     "stateMutability": "view",
     "type": "function"
-  },
-  {
-    "inputs": [
-      {"name": "marketId", "type": "uint256"},
-      {"name": "outcome", "type": "uint256"}
-    ],
-    "name": "verifyMarket",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [{"name": "marketId", "type": "uint256"}],
-    "name": "getVerificationCount",
-    "outputs": [{"name": "", "type": "uint256"}],
-    "stateMutability": "view",
-    "type": "function"
   }
 ];
 
@@ -88,6 +71,26 @@ const VALIDATION_CORE_ABI = [
   {
     "inputs": [],
     "name": "getVerifierCount",
+    "outputs": [{"name": "", "type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"name": "marketId", "type": "uint256"},
+      {"name": "option", "type": "uint256"}
+    ],
+    "name": "castVote",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"name": "marketId", "type": "uint256"},
+      {"name": "option", "type": "uint256"}
+    ],
+    "name": "getVoteCount",
     "outputs": [{"name": "", "type": "uint256"}],
     "stateMutability": "view",
     "type": "function"
@@ -124,13 +127,6 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
     args: marketId !== null ? [BigInt(marketId)] : [BigInt(0)],
   }) as { data: any; isLoading: boolean; error: any };
 
-  // Fetch verification count
-  const { data: verifications } = useReadContract({
-    address: MARKET_MANAGER_ADDRESS,
-    abi: MARKET_MANAGER_ABI,
-    functionName: 'getVerificationCount',
-    args: marketId !== null ? [BigInt(marketId)] : [BigInt(0)],
-  }) as { data: bigint | undefined };
 
   // Check if current user is a verifier
   const { data: isUserVerifier } = useReadContract({
@@ -139,6 +135,38 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
     functionName: 'isVerifier',
     args: address ? [address] : [address!],
   }) as { data: boolean | undefined };
+
+  // Fetch vote counts for each option
+  const { data: voteCount1 } = useReadContract({
+    address: VALIDATION_CORE_ADDRESS,
+    abi: VALIDATION_CORE_ABI,
+    functionName: 'getVoteCount',
+    args: marketId !== null ? [BigInt(marketId), BigInt(1)] : [BigInt(0), BigInt(1)],
+  }) as { data: bigint | undefined };
+
+  const { data: voteCount2 } = useReadContract({
+    address: VALIDATION_CORE_ADDRESS,
+    abi: VALIDATION_CORE_ABI,
+    functionName: 'getVoteCount',
+    args: marketId !== null ? [BigInt(marketId), BigInt(2)] : [BigInt(0), BigInt(2)],
+  }) as { data: bigint | undefined };
+
+  const { data: voteCount3 } = useReadContract({
+    address: VALIDATION_CORE_ADDRESS,
+    abi: VALIDATION_CORE_ABI,
+    functionName: 'getVoteCount',
+    args: marketId !== null ? [BigInt(marketId), BigInt(3)] : [BigInt(0), BigInt(3)],
+  }) as { data: bigint | undefined };
+
+  const { data: voteCount4 } = useReadContract({
+    address: VALIDATION_CORE_ADDRESS,
+    abi: VALIDATION_CORE_ABI,
+    functionName: 'getVoteCount',
+    args: marketId !== null ? [BigInt(marketId), BigInt(4)] : [BigInt(0), BigInt(4)],
+  }) as { data: bigint | undefined };
+
+  // Calculate total verification count
+  const totalVerifications = (Number(voteCount1 || 0) + Number(voteCount2 || 0) + Number(voteCount3 || 0) + Number(voteCount4 || 0));
 
   // Fetch IPFS metadata
   useEffect(() => {
@@ -173,25 +201,32 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
     try {
       setIsVerifying(true);
       
-      await writeContract({
-        address: MARKET_MANAGER_ADDRESS,
-        abi: MARKET_MANAGER_ABI,
-        functionName: 'verifyMarket',
+      writeContract({
+        address: VALIDATION_CORE_ADDRESS,
+        abi: VALIDATION_CORE_ABI,
+        functionName: 'castVote',
         args: [BigInt(marketId!), BigInt(selectedOption)],
         gas: BigInt(200000), // Set reasonable gas limit
       });
 
-      // Refresh page after verification
-      setTimeout(() => {
-        window.location.reload();
-      }, 2000);
-
+      console.log('Verification transaction submitted');
+      
     } catch (error) {
       console.error('Error verifying market:', error);
-    } finally {
       setIsVerifying(false);
     }
   };
+
+  // Reset verification state after a delay to allow user to see the submission
+  useEffect(() => {
+    if (isVerifying) {
+      const timer = setTimeout(() => {
+        setIsVerifying(false);
+      }, 3000); // Reset after 3 seconds
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isVerifying]);
 
   const getMarketTitle = () => {
     if (loading) return 'Loading...';
@@ -248,7 +283,6 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
   }
 
   const isMarketEnded = Number(market.state) === 1; // Convert BigInt to number
-  const verificationCount = verifications ? Number(verifications) : 0;
   const options = getMarketOptions();
 
   return (
@@ -379,8 +413,8 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
                   isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
                 }`}>
                   <Users size={16} />
-                  <span className="hidden sm:inline">{verificationCount} Verifications</span>
-                  <span className="sm:hidden">{verificationCount}</span>
+                  <span className="hidden sm:inline">{totalVerifications} Verifications</span>
+                  <span className="sm:hidden">{totalVerifications}</span>
                 </div>
                 {isConnected && (
                   <div className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm ${
@@ -487,16 +521,19 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
 
                 <button
                   onClick={handleVerify}
-                  disabled={!selectedOption || isVerifying}
-                  className={`w-full py-2 sm:py-3 px-4 sm:px-6 rounded-lg font-medium text-sm sm:text-base transition-colors ${
+                  className={`w-full py-2 sm:py-3 px-4 sm:px-6 rounded-lg font-medium text-sm sm:text-base transition-colors flex items-center justify-center gap-2 ${
                     !selectedOption || isVerifying
                       ? isDarkMode 
                         ? 'bg-gray-700 text-gray-500 cursor-not-allowed' 
                         : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       : 'bg-emerald-600 hover:bg-emerald-700 text-white'
                   }`}
+                  disabled={!selectedOption || isVerifying}
                 >
-                  {isVerifying ? 'Verifying...' : 'Submit Verification'}
+                  {isVerifying && (
+                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                  )}
+                  {isVerifying ? 'Submitting...' : 'Submit Verification'}
                 </button>
               </div>
             )}
