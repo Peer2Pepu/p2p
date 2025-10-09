@@ -814,7 +814,9 @@ export default function CreateMarketPage() {
         />
 
         {/* Main Content */}
-        <div className={`transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'}`}>
+        <div className={`transition-all duration-300 ${
+          sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'
+        }`}>
           {/* Header */}
           <header className={`sticky top-0 z-30 border-b backdrop-blur-sm ${
             isDarkMode ? 'bg-gray-900/95 border-gray-800' : 'bg-white/95 border-gray-200'
