@@ -805,12 +805,12 @@ export default function CreateMarketPage() {
   return (
       <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
         {/* Sidebar */}
-        <Sidebar
+        <Sidebar 
           isOpen={sidebarOpen}
-          onClose={onSidebarClose}
+          onClose={() => setSidebarOpen(false)}
           collapsed={sidebarCollapsed}
-          onToggleCollapse={onToggleCollapse}
-        isDarkMode={isDarkMode}
+          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+          isDarkMode={isDarkMode}
         />
 
         {/* Main Content */}
