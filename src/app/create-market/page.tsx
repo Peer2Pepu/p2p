@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { usePathname } from 'next/navigation';
 import { 
   Calendar, 
   Clock, 
@@ -28,8 +29,24 @@ import { useTheme } from '../context/ThemeContext';
 import { parseEther, formatEther } from 'viem';
 import lighthouse from '@lighthouse-web3/sdk';
 
+// Client-only wrapper to prevent hydration issues
+function ClientOnly({ children }: { children: React.ReactNode }) {
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
+  if (!hasMounted) {
+    return null;
+  }
+
+  return <>{children}</>;
+}
+
 export default function CreateMarketPage() {
   const { isDarkMode, toggleTheme } = useTheme();
+  const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showDisconnectModal, setShowDisconnectModal] = useState(false);
@@ -85,12 +102,12 @@ export default function CreateMarketPage() {
   });
 
   // Process supported tokens from contract
-  const tokens = supportedTokensData ? supportedTokensData[0].map((address, index) => ({
+  const tokens = useMemo(() => supportedTokensData ? supportedTokensData[0].map((address, index) => ({
     address: address as `0x${string}`,
     symbol: supportedTokensData[1][index],
     name: address === '0x0000000000000000000000000000000000000000' ? 'PEPU (Native)' : `${supportedTokensData[1][index]} Token`,
     isNative: address === '0x0000000000000000000000000000000000000000'
-  })) : [];
+  })) : [], [supportedTokensData]);
 
   // Get P2P token address from environment
   const P2P_TOKEN_ADDRESS = process.env.NEXT_PUBLIC_P2P_TOKEN_ADDRESS as `0x${string}`;
@@ -213,10 +230,10 @@ export default function CreateMarketPage() {
   const [tokenBalances, setTokenBalances] = useState<Array<{address: string, balance: any}>>([]);
 
   // Get balances for other supported tokens (excluding native PEPU and P2P token)
-  const otherTokens = tokens.filter(token => 
+  const otherTokens = useMemo(() => tokens.filter(token => 
     token.address !== '0x0000000000000000000000000000000000000000' && 
     token.address !== P2P_TOKEN_ADDRESS
-  );
+  ), [tokens]);
 
   // Fetch balances for other tokens dynamically using wagmi's useBalance hook
   useEffect(() => {
@@ -386,6 +403,10 @@ export default function CreateMarketPage() {
   const onMenuClick = () => setSidebarOpen(!sidebarOpen);
   const onSidebarClose = () => setSidebarOpen(false);
   const onToggleCollapse = () => setSidebarCollapsed(!sidebarCollapsed);
+
+  useEffect(() => {
+    console.log('CreateMarket pathname changed:', pathname);
+  }, [pathname]);
 
   const handleCategoryToggle = (category: string) => {
     if (selectedCategories.includes(category)) {
@@ -805,18 +826,16 @@ export default function CreateMarketPage() {
   return (
       <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
         {/* Sidebar */}
-        <Sidebar 
+        <Sidebar
           isOpen={sidebarOpen}
-          onClose={() => setSidebarOpen(false)}
+          onClose={onSidebarClose}
           collapsed={sidebarCollapsed}
-          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+          onToggleCollapse={onToggleCollapse}
           isDarkMode={isDarkMode}
         />
 
         {/* Main Content */}
-        <div className={`transition-all duration-300 ${
-          sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'
-        }`}>
+        <div className={`transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'}`}>
           {/* Header */}
           <header className={`sticky top-0 z-30 border-b backdrop-blur-sm ${
             isDarkMode ? 'bg-gray-900/95 border-gray-800' : 'bg-white/95 border-gray-200'
@@ -1224,7 +1243,7 @@ export default function CreateMarketPage() {
                           Total: {getStakingDurationMinutes()} minutes
                           <br />
                           <span className={`font-medium ${isDarkMode ? 'text-blue-300' : 'text-blue-600'}`}>
-                            Ends: {getStakingEndDate()}
+                            Ends: <ClientOnly>{getStakingEndDate()}</ClientOnly>
                           </span>
                         </p>
                       </div>
@@ -1291,7 +1310,7 @@ export default function CreateMarketPage() {
                           Total: {getResolutionDurationMinutes()} minutes
                           <br />
                           <span className={`font-medium ${isDarkMode ? 'text-green-300' : 'text-green-600'}`}>
-                            Resolves: {getResolutionEndDate()}
+                            Resolves: <ClientOnly>{getResolutionEndDate()}</ClientOnly>
                           </span>
                         </p>
                       </div>

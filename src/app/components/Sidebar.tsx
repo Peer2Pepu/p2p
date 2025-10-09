@@ -18,7 +18,8 @@ import {
   Wallet,
   Target,
   Receipt,
-  Shield
+  Shield,
+  User
 } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useBalance, useChainId, useDisconnect } from 'wagmi';
@@ -42,8 +43,9 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse, isDarkMo
   const sidebarItems = [
     { icon: Home, label: "Markets", href: "/", active: pathname === "/" },
     { icon: Target, label: "Resolve", href: "/resolve", active: pathname === "/resolve" },
-    { icon: Receipt, label: "Stakes", href: "/betslip", active: pathname === "/betslip" },
+    { icon: Receipt, label: "Stakes", href: "/stakes", active: pathname === "/stakes" },
     { icon: Plus, label: "Create Market", href: "/create-market", active: pathname === "/create-market" },
+    { icon: User, label: "Profile", href: "/profile", active: pathname === "/profile" },
     { icon: Plus, label: "Add Token", href: "/add-token", active: pathname === "/add-token" },
     { icon: History, label: "History", href: "/history", active: pathname === "/history" },
     { icon: TrendingUp, label: "Analytics", href: "/analytics", active: pathname === "/analytics" },
@@ -128,6 +130,7 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse, isDarkMo
               <Link
                 key={item.label}
                 href={item.href}
+                onClick={onClose}
                 className={`
                   w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
                   ${item.active
