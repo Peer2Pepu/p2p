@@ -661,6 +661,41 @@ function MarketSearch({
                 )}
             </div>
 
+              {/* Support Field - Only show for active markets */}
+              {Number(marketData.state) === 0 && (
+                <div className="space-y-3 mb-4">
+                  <div className="border-t pt-3">
+                    <h4 className={`text-sm font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                      Add Support
+                    </h4>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        value={supportAmount}
+                        onChange={(e) => setSupportAmount(e.target.value)}
+                        placeholder={`Amount in ${tokenSymbol || 'Token'}`}
+                        className={`flex-1 px-3 py-2 border rounded text-sm ${
+                          isDarkMode 
+                            ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                            : 'bg-white border-gray-300 text-gray-900'
+                        }`}
+                      />
+                      <button
+                        onClick={handleSupport}
+                        disabled={isSupporting || !supportAmount || Number(supportAmount) <= 0}
+                        className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
+                          isSupporting || !supportAmount || Number(supportAmount) <= 0
+                            ? 'bg-gray-600 cursor-not-allowed text-gray-400'
+                            : 'bg-green-600 hover:bg-green-700 text-white'
+                        }`}
+                      >
+                        {isSupporting ? 'Supporting...' : 'Support'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Admin Actions */}
               <div className="flex gap-2 mt-auto">
                 {/* Delete button - only show for non-deleted markets */}
