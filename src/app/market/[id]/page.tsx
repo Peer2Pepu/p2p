@@ -250,7 +250,7 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
         abi: VALIDATION_CORE_ABI,
         functionName: 'castVote',
         args: [BigInt(marketId!), BigInt(selectedOption)],
-        gas: BigInt(200000), // Set reasonable gas limit
+        gas: BigInt(500000), // Increased gas limit to prevent out of gas errors
       });
 
       console.log('Verification transaction submitted');
