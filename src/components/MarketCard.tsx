@@ -175,17 +175,188 @@ export function MarketCard({
 }) {
   const MARKET_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS as `0x${string}`;
 
+  // ============================================
+  // ALL HOOKS MUST BE AT THE TOP - NEVER CONDITIONAL
+  // ============================================
+  
+  // 1. ALL useState hooks
   const [betAmount, setBetAmount] = useState('');
   const [selectedOption, setSelectedOption] = useState(1);
   const [marketMetadata, setMarketMetadata] = useState<any>(null);
   const [loadingMetadata, setLoadingMetadata] = useState(false);
   const [needsApproval, setNeedsApproval] = useState(false);
-
-  // State for Supabase data
   const [supabaseData, setSupabaseData] = useState<any>(null);
   const [loadingSupabase, setLoadingSupabase] = useState(true);
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [stakeTimeLeft, setStakeTimeLeft] = useState(0);
 
-  // Fetch Supabase data first
+  // 2. Get user account
+  const { address: currentUserAddress } = useAccount();
+
+  // 3. ALL useReadContract hooks - must always be called
+  const { data: market } = useReadContract({
+    address: MARKET_MANAGER_ADDRESS,
+    abi: MARKET_MANAGER_ABI,
+    functionName: 'getMarket',
+    args: [BigInt(marketId)],
+  }) as { data: any | undefined };
+
+  const { data: tokenSymbol } = useReadContract({
+    address: MARKET_MANAGER_ADDRESS,
+    abi: [
+      {
+        "inputs": [{"name": "token", "type": "address"}],
+        "name": "tokenSymbols",
+        "outputs": [{"name": "", "type": "string"}],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ],
+    functionName: 'tokenSymbols',
+    args: [market?.paymentToken || '0x0000000000000000000000000000000000000000'],
+  });
+
+  const { data: userHasStaked } = useReadContract({
+    address: MARKET_MANAGER_ADDRESS,
+    abi: MARKET_MANAGER_ABI,
+    functionName: 'userHasStaked',
+    args: [BigInt(marketId), userAddress || '0x0000000000000000000000000000000000000000'],
+  }) as { data: boolean | undefined };
+
+  const { data: userStakeOption } = useReadContract({
+    address: MARKET_MANAGER_ADDRESS,
+    abi: MARKET_MANAGER_ABI,
+    functionName: 'userStakeOptions',
+    args: [BigInt(marketId), userAddress || '0x0000000000000000000000000000000000000000'],
+  }) as { data: bigint | undefined };
+
+  const { data: option1Pool } = useReadContract({
+    address: MARKET_MANAGER_ADDRESS,
+    abi: [
+      {
+        "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "option", "type": "uint256"}, {"name": "token", "type": "address"}],
+        "name": "getOptionPool",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ],
+    functionName: 'getOptionPool',
+    args: [BigInt(marketId), BigInt(1), market?.paymentToken || '0x0000000000000000000000000000000000000000'],
+  });
+
+  const { data: option2Pool } = useReadContract({
+    address: MARKET_MANAGER_ADDRESS,
+    abi: [
+      {
+        "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "option", "type": "uint256"}, {"name": "token", "type": "address"}],
+        "name": "getOptionPool",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ],
+    functionName: 'getOptionPool',
+    args: [BigInt(marketId), BigInt(2), market?.paymentToken || '0x0000000000000000000000000000000000000000'],
+  });
+
+  const { data: option3Pool } = useReadContract({
+    address: MARKET_MANAGER_ADDRESS,
+    abi: [
+      {
+        "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "option", "type": "uint256"}, {"name": "token", "type": "address"}],
+        "name": "getOptionPool",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ],
+    functionName: 'getOptionPool',
+    args: [BigInt(marketId), BigInt(3), market?.paymentToken || '0x0000000000000000000000000000000000000000'],
+  });
+
+  const { data: option4Pool } = useReadContract({
+    address: MARKET_MANAGER_ADDRESS,
+    abi: [
+      {
+        "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "option", "type": "uint256"}, {"name": "token", "type": "address"}],
+        "name": "getOptionPool",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ],
+    functionName: 'getOptionPool',
+    args: [BigInt(marketId), BigInt(4), market?.paymentToken || '0x0000000000000000000000000000000000000000'],
+  });
+
+  const { data: stakerCount } = useReadContract({
+    address: MARKET_MANAGER_ADDRESS,
+    abi: [
+      {
+        "inputs": [{"name": "marketId", "type": "uint256"}],
+        "name": "getStakerCount",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ],
+    functionName: 'getStakerCount',
+    args: [BigInt(marketId)],
+  });
+
+  const { data: supporterCount } = useReadContract({
+    address: MARKET_MANAGER_ADDRESS,
+    abi: [
+      {
+        "inputs": [{"name": "marketId", "type": "uint256"}],
+        "name": "getSupporterCount",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ],
+    functionName: 'getSupporterCount',
+    args: [BigInt(marketId)],
+  });
+
+  const { data: supportPool } = useReadContract({
+    address: MARKET_MANAGER_ADDRESS,
+    abi: [
+      {
+        "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "token", "type": "address"}],
+        "name": "getSupportPool",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ],
+    functionName: 'getSupportPool',
+    args: [BigInt(marketId), market?.paymentToken || '0x0000000000000000000000000000000000000000'],
+  }) as { data: bigint | undefined };
+
+  const { data: tokenAllowance, refetch: refetchAllowance } = useReadContract({
+    address: market?.paymentToken as `0x${string}`,
+    abi: [
+      {
+        "inputs": [
+          {"name": "owner", "type": "address"},
+          {"name": "spender", "type": "address"}
+        ],
+        "name": "allowance",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ],
+    functionName: 'allowance',
+    args: market?.paymentToken && MARKET_MANAGER_ADDRESS && currentUserAddress ? [
+      currentUserAddress,
+      MARKET_MANAGER_ADDRESS
+    ] : undefined,
+  });
+
+  // 4. ALL useEffect hooks
   useEffect(() => {
     const fetchSupabaseData = async () => {
       try {
@@ -249,178 +420,32 @@ export function MarketCard({
     fetchSupabaseData();
   }, [marketId]);
 
-  // Fetch market data
-  const { data: market } = useReadContract({
-    address: MARKET_MANAGER_ADDRESS,
-    abi: MARKET_MANAGER_ABI,
-    functionName: 'getMarket',
-    args: [BigInt(marketId)],
-  }) as { data: any | undefined };
+  useEffect(() => {
+    if (!market) return;
+    
+    const updateTimes = () => {
+      const now = Math.floor(Date.now() / 1000);
+      setTimeLeft(Number(market.endTime) - now);
+      setStakeTimeLeft(Number(market.stakeEndTime) - now);
+    };
+    
+    updateTimes();
+    const interval = setInterval(updateTimes, 1000);
+    return () => clearInterval(interval);
+  }, [market?.endTime, market?.stakeEndTime]);
 
-  // Get token symbol
-  const { data: tokenSymbol } = useReadContract({
-    address: MARKET_MANAGER_ADDRESS,
-    abi: [
-      {
-        "inputs": [{"name": "token", "type": "address"}],
-        "name": "tokenSymbols",
-        "outputs": [{"name": "", "type": "string"}],
-        "stateMutability": "view",
-        "type": "function"
-      }
-    ],
-    functionName: 'tokenSymbols',
-    args: [market?.paymentToken || '0x0000000000000000000000000000000000000000'],
-  });
+  useEffect(() => {
+    if (isApprovalPending === false && market?.paymentToken && market.paymentToken !== '0x0000000000000000000000000000000000000000' && betAmount) {
+      const timer = setTimeout(() => {
+        refetchAllowance();
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [isApprovalPending, market?.paymentToken, betAmount, refetchAllowance]);
 
-  // Check if user has staked on this market
-  const { data: userHasStaked } = useReadContract({
-    address: MARKET_MANAGER_ADDRESS,
-    abi: MARKET_MANAGER_ABI,
-    functionName: 'userHasStaked',
-    args: [BigInt(marketId), userAddress || '0x0000000000000000000000000000000000000000'],
-  }) as { data: boolean | undefined };
-
-  // Get user's stake option
-  const { data: userStakeOption } = useReadContract({
-    address: MARKET_MANAGER_ADDRESS,
-    abi: MARKET_MANAGER_ABI,
-    functionName: 'userStakeOptions',
-    args: [BigInt(marketId), userAddress || '0x0000000000000000000000000000000000000000'],
-  }) as { data: bigint | undefined };
-
-  // Get option pools
-  const { data: option1Pool } = useReadContract({
-    address: MARKET_MANAGER_ADDRESS,
-    abi: [
-      {
-        "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "option", "type": "uint256"}, {"name": "token", "type": "address"}],
-        "name": "getOptionPool",
-        "outputs": [{"name": "", "type": "uint256"}],
-        "stateMutability": "view",
-        "type": "function"
-      }
-    ],
-    functionName: 'getOptionPool',
-    args: [BigInt(marketId), BigInt(1), market?.paymentToken || '0x0000000000000000000000000000000000000000'],
-  });
-
-  const { data: option2Pool } = useReadContract({
-    address: MARKET_MANAGER_ADDRESS,
-    abi: [
-      {
-        "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "option", "type": "uint256"}, {"name": "token", "type": "address"}],
-        "name": "getOptionPool",
-        "outputs": [{"name": "", "type": "uint256"}],
-        "stateMutability": "view",
-        "type": "function"
-      }
-    ],
-    functionName: 'getOptionPool',
-    args: [BigInt(marketId), BigInt(2), market?.paymentToken || '0x0000000000000000000000000000000000000000'],
-  });
-
-  const { data: option3Pool } = useReadContract({
-    address: MARKET_MANAGER_ADDRESS,
-    abi: [
-      {
-        "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "option", "type": "uint256"}, {"name": "token", "type": "address"}],
-        "name": "getOptionPool",
-        "outputs": [{"name": "", "type": "uint256"}],
-        "stateMutability": "view",
-        "type": "function"
-      }
-    ],
-    functionName: 'getOptionPool',
-    args: [BigInt(marketId), BigInt(3), market?.paymentToken || '0x0000000000000000000000000000000000000000'],
-  });
-
-  const { data: option4Pool } = useReadContract({
-    address: MARKET_MANAGER_ADDRESS,
-    abi: [
-      {
-        "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "option", "type": "uint256"}, {"name": "token", "type": "address"}],
-        "name": "getOptionPool",
-        "outputs": [{"name": "", "type": "uint256"}],
-        "stateMutability": "view",
-        "type": "function"
-      }
-    ],
-    functionName: 'getOptionPool',
-    args: [BigInt(marketId), BigInt(4), market?.paymentToken || '0x0000000000000000000000000000000000000000'],
-  });
-
-  // Get participant counts
-  const { data: stakerCount } = useReadContract({
-    address: MARKET_MANAGER_ADDRESS,
-    abi: [
-      {
-        "inputs": [{"name": "marketId", "type": "uint256"}],
-        "name": "getStakerCount",
-        "outputs": [{"name": "", "type": "uint256"}],
-        "stateMutability": "view",
-        "type": "function"
-      }
-    ],
-    functionName: 'getStakerCount',
-    args: [BigInt(marketId)],
-  });
-
-  const { data: supporterCount } = useReadContract({
-    address: MARKET_MANAGER_ADDRESS,
-    abi: [
-      {
-        "inputs": [{"name": "marketId", "type": "uint256"}],
-        "name": "getSupporterCount",
-        "outputs": [{"name": "", "type": "uint256"}],
-        "stateMutability": "view",
-        "type": "function"
-      }
-    ],
-    functionName: 'getSupporterCount',
-    args: [BigInt(marketId)],
-  });
-
-  // Get support pool
-  const { data: supportPool } = useReadContract({
-    address: MARKET_MANAGER_ADDRESS,
-    abi: [
-      {
-        "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "token", "type": "address"}],
-        "name": "getSupportPool",
-        "outputs": [{"name": "", "type": "uint256"}],
-        "stateMutability": "view",
-        "type": "function"
-      }
-    ],
-    functionName: 'getSupportPool',
-    args: [BigInt(marketId), market?.paymentToken || '0x0000000000000000000000000000000000000000'],
-  }) as { data: bigint | undefined };
-
-  // Get user account for allowance checking
-  const { address: currentUserAddress } = useAccount();
-
-  // Check token allowance for ERC20 markets
-  const { data: tokenAllowance, refetch: refetchAllowance } = useReadContract({
-    address: market?.paymentToken as `0x${string}`,
-    abi: [
-      {
-        "inputs": [
-          {"name": "owner", "type": "address"},
-          {"name": "spender", "type": "address"}
-        ],
-        "name": "allowance",
-        "outputs": [{"name": "", "type": "uint256"}],
-        "stateMutability": "view",
-        "type": "function"
-      }
-    ],
-    functionName: 'allowance',
-    args: market?.paymentToken && MARKET_MANAGER_ADDRESS && currentUserAddress ? [
-      currentUserAddress,
-      MARKET_MANAGER_ADDRESS
-    ] : undefined,
-  });
+  // ============================================
+  // NOW WE CAN DO CONDITIONAL LOGIC AND RETURNS
+  // ============================================
 
   // Check if this is an ERC20 market
   const isERC20Market = market?.paymentToken && market.paymentToken !== '0x0000000000000000000000000000000000000000';
@@ -430,17 +455,7 @@ export function MarketCard({
   const hasSufficientAllowance = tokenAllowance !== undefined && betAmount ? tokenAllowance >= requiredAmount : false;
   const needsTokenApproval = isERC20Market && betAmount && !hasSufficientAllowance;
 
-  // Refetch allowance when approval is successful
-  useEffect(() => {
-    if (isApprovalPending === false && isERC20Market && betAmount) {
-      // Small delay to ensure the transaction is confirmed
-      const timer = setTimeout(() => {
-        refetchAllowance();
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [isApprovalPending, isERC20Market, betAmount, refetchAllowance]);
-
+  // Loading state
   if (loadingSupabase || !supabaseData) {
     return (
       <div className={`border rounded-xl p-4 w-full max-w-sm ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
@@ -454,35 +469,19 @@ export function MarketCard({
 
   const marketData = market;
   
-  // Client-side only time calculations to prevent hydration issues
-  const [timeLeft, setTimeLeft] = useState(0);
-  const [stakeTimeLeft, setStakeTimeLeft] = useState(0);
-  
-  useEffect(() => {
-    const updateTimes = () => {
-      const now = Math.floor(Date.now() / 1000);
-      setTimeLeft(Number(marketData.endTime) - now);
-      setStakeTimeLeft(Number(marketData.stakeEndTime) - now);
-    };
-    
-    updateTimes();
-    const interval = setInterval(updateTimes, 1000);
-    return () => clearInterval(interval);
-  }, [marketData.endTime, marketData.stakeEndTime]);
-  
-  const hoursLeft = Math.max(0, Math.floor(timeLeft / 3600));
-  const minutesLeft = Math.max(0, Math.floor((timeLeft % 3600) / 60));
-  const canEndMarket = marketData.state === 0 && timeLeft <= 0;
-
-  // Stake timing calculations
-  const stakeHoursLeft = Math.max(0, Math.floor(stakeTimeLeft / 3600));
-  const stakeMinutesLeft = Math.max(0, Math.floor((stakeTimeLeft % 3600) / 60));
-  const canStake = marketData.state === 0 && stakeTimeLeft > 0 && !userHasStaked;
-
   // Skip markets that are not active
-  if (marketData.state !== 0) {
+  if (marketData && marketData.state !== 0) {
     return null;
   }
+
+  // Helper functions
+  const hoursLeft = Math.max(0, Math.floor(timeLeft / 3600));
+  const minutesLeft = Math.max(0, Math.floor((timeLeft % 3600) / 60));
+  const canEndMarket = marketData && marketData.state === 0 && timeLeft <= 0;
+
+  const stakeHoursLeft = Math.max(0, Math.floor(stakeTimeLeft / 3600));
+  const stakeMinutesLeft = Math.max(0, Math.floor((stakeTimeLeft % 3600) / 60));
+  const canStake = marketData && marketData.state === 0 && stakeTimeLeft > 0 && !userHasStaked;
 
   const getMarketTitle = () => {
     if (loadingSupabase) return 'Loading...';
@@ -505,17 +504,15 @@ export function MarketCard({
     return ['Yes', 'No'];
   };
 
-  // Calculate total pool (option pools + support pool)
   const getTotalPool = () => {
     const optionPools = [option1Pool || BigInt(0), option2Pool || BigInt(0), option3Pool || BigInt(0), option4Pool || BigInt(0)];
     const maxOptions = market ? Number(market.maxOptions) : 2;
     const relevantPools = optionPools.slice(0, maxOptions);
     const totalOptionPools = relevantPools.reduce((sum, pool) => sum + pool, BigInt(0));
     const supportAmount = supportPool || BigInt(0);
-    return totalOptionPools + supportAmount; // Total = Option pools + Support pool
+    return totalOptionPools + supportAmount;
   };
 
-  // Calculate option percentages - YOUR ACTUAL CALCULATION
   const getOptionPercentage = (optionIndex: number) => {
     const optionPools = [option1Pool || BigInt(0), option2Pool || BigInt(0), option3Pool || BigInt(0), option4Pool || BigInt(0)];
     const maxOptions = market ? Number(market.maxOptions) : 2;
@@ -570,7 +567,7 @@ export function MarketCard({
               }`}>
                 {getMarketTitle()}
               </h3>
-              </div>
+            </div>
           </div>
           
           {/* Multi-segment circle at top-right */}
@@ -583,7 +580,7 @@ export function MarketCard({
             size={60}
             isDarkMode={isDarkMode}
           />
-      </div>
+        </div>
 
         {/* Scrollable Options */}
         <div 
@@ -597,21 +594,21 @@ export function MarketCard({
         >
           <div className="space-y-2">
             {options.map((option: string, index: number) => {
-                const percentage = getOptionPercentage(index);
-                const isSelected = selectedOption === index + 1;
+              const percentage = getOptionPercentage(index);
+              const isSelected = selectedOption === index + 1;
               const isUserStake = userHasStaked && userStakeOption && Number(userStakeOption) === index + 1;
               const optionColor = ['#10B981', '#EF4444', '#3B82F6', '#F59E0B'][index] || '#6B7280';
                 
-                return (
-              <div
-                    key={index}
+              return (
+                <div
+                  key={index}
                   onClick={() => !canEndMarket && !isUserStake && setSelectedOption(index + 1)}
                   className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-all ${
                     isUserStake
-                        ? (isDarkMode ? 'border-green-500 bg-green-500/10' : 'border-green-500 bg-green-50')
-                        : isSelected 
-                    ? (isDarkMode ? 'border-blue-500 bg-blue-500/10' : 'border-blue-500 bg-blue-50')
-                      : (isDarkMode ? 'border-gray-600 hover:bg-gray-700/50' : 'border-gray-200 hover:bg-gray-50')
+                      ? (isDarkMode ? 'border-green-500 bg-green-500/10' : 'border-green-500 bg-green-50')
+                      : isSelected 
+                        ? (isDarkMode ? 'border-blue-500 bg-blue-500/10' : 'border-blue-500 bg-blue-50')
+                        : (isDarkMode ? 'border-gray-600 hover:bg-gray-700/50' : 'border-gray-200 hover:bg-gray-50')
                   }`}
                 >
                   {/* Color indicator dot */}
@@ -633,10 +630,10 @@ export function MarketCard({
                   </span>
                   
                   {/* Radio button */}
-                    <input
-                      type="radio"
+                  <input
+                    type="radio"
                     name={`option-${marketId}`}
-                      value={index + 1}
+                    value={index + 1}
                     checked={isSelected || !!isUserStake}
                     onChange={() => {}}
                     disabled={canEndMarket || !!isUserStake}
@@ -660,9 +657,9 @@ export function MarketCard({
               <Users size={14} className={isDarkMode ? 'text-gray-500' : 'text-gray-400'} />
               <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                 {totalParticipants}
-                    </span>
+              </span>
             </div>
-                </div>
+          </div>
                 
           {/* Time indicators */}
           <div className="flex items-center justify-between text-xs">
@@ -674,31 +671,31 @@ export function MarketCard({
                   if (stakeHoursLeft > 0) return `${stakeHoursLeft}h`;
                   return `${stakeMinutesLeft}m`;
                 })() : 'Closed'}
-                    </span>
-                </div>
+              </span>
+            </div>
             <div className="flex items-center gap-1">
               <Clock size={12} className={isDarkMode ? 'text-gray-500' : 'text-gray-400'} />
               <span className={`${canEndMarket ? 'text-orange-500 font-medium' : isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                 Resolve: {formatTime()}
               </span>
-              </div>
+            </div>
           </div>
-          </div>
+        </div>
 
         {/* Bet Input Section */}
         <div className="flex-shrink-0 mt-3">
           {userHasStaked === true && userAddress && canEndMarket ? (
             <div>
               {canEndMarket && (
-          <button
-            onClick={() => onEndMarket(marketId)}
+                <button
+                  onClick={() => onEndMarket(marketId)}
                   className="w-full py-2.5 px-4 rounded-lg text-sm font-semibold bg-orange-600 hover:bg-orange-700 text-white transition-colors flex items-center justify-center gap-2"
-          >
-            <Timer size={16} />
+                >
+                  <Timer size={16} />
                   End Market
-          </button>
+                </button>
               )}
-          </div>
+            </div>
           ) : canEndMarket ? (
             <button
               onClick={() => onEndMarket(marketId)}
@@ -709,57 +706,57 @@ export function MarketCard({
             </button>
           ) : (
             <div className="flex gap-1">
-                <input
-                  type="number"
-                  value={betAmount}
-                  onChange={(e) => setBetAmount(e.target.value)}
-                  placeholder={`Min: ${market?.minStake ? formatEther(market.minStake) : '0'} ${tokenSymbol || 'PEPU'}`}
-              disabled={!canStake}
-              className={`flex-1 px-2 py-1.5 border rounded text-xs ${
-                    isDarkMode 
-                  ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-500' 
-                      : 'bg-white border-gray-300 text-gray-900'
+              <input
+                type="number"
+                value={betAmount}
+                onChange={(e) => setBetAmount(e.target.value)}
+                placeholder={`Min: ${market?.minStake ? formatEther(market.minStake) : '0'} ${tokenSymbol || 'PEPU'}`}
+                disabled={!canStake}
+                className={`flex-1 px-2 py-1.5 border rounded text-xs ${
+                  isDarkMode 
+                    ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-500' 
+                    : 'bg-white border-gray-300 text-gray-900'
+                }`}
+              />
+              {needsTokenApproval ? (
+                <button
+                  onClick={() => onBet(marketId, selectedOption, betAmount, true)}
+                  disabled={!betAmount || !canStake || isApprovalPending || isApprovalConfirming}
+                  className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                    !betAmount || !canStake || isApprovalPending || isApprovalConfirming
+                      ? 'bg-gray-600 cursor-not-allowed text-gray-400'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white'
                   }`}
-                />
-                {needsTokenApproval ? (
-                  <button
-                onClick={() => onBet(marketId, selectedOption, betAmount, true)}
-                disabled={!betAmount || !canStake || isApprovalPending || isApprovalConfirming}
-                className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-                  !betAmount || !canStake || isApprovalPending || isApprovalConfirming
-                    ? 'bg-gray-600 cursor-not-allowed text-gray-400'
-                    : 'bg-blue-600 hover:bg-blue-700 text-white'
-                    }`}
-                  >
-                {isApprovalPending ? 'Approving...' : isApprovalConfirming ? 'Confirming...' : 'Approve'}
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => onBet(marketId, selectedOption, betAmount)}
-                disabled={!betAmount || !canStake || isStakePending || isStakeConfirming}
-                className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-                  !betAmount || !canStake || isStakePending || isStakeConfirming
-                    ? 'bg-gray-600 cursor-not-allowed text-gray-400'
-                        : isDarkMode 
-                      ? 'bg-blue-600 hover:bg-blue-700 text-white' 
-                      : 'bg-blue-500 hover:bg-blue-600 text-white'
-                    }`}
-                  >
-{!canStake ? (userHasStaked ? 'Already Staked' : 'Staking Closed') : 
-  isStakePending ? 'Staking...' : 
-  isStakeConfirming ? 'Confirming...' : 
-  'Stake'}
-                  </button>
-                )}
-              </div>
-        )}
-              {needsTokenApproval && (
-              <p className="text-xs text-yellow-600 mt-2 text-center">
-                Approve {tokenSymbol || 'tokens'} before staking
-              </p>
+                >
+                  {isApprovalPending ? 'Approving...' : isApprovalConfirming ? 'Confirming...' : 'Approve'}
+                </button>
+              ) : (
+                <button
+                  onClick={() => onBet(marketId, selectedOption, betAmount)}
+                  disabled={!betAmount || !canStake || isStakePending || isStakeConfirming}
+                  className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                    !betAmount || !canStake || isStakePending || isStakeConfirming
+                      ? 'bg-gray-600 cursor-not-allowed text-gray-400'
+                      : isDarkMode 
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                        : 'bg-blue-500 hover:bg-blue-600 text-white'
+                  }`}
+                >
+                  {!canStake ? (userHasStaked ? 'Already Staked' : 'Staking Closed') : 
+                    isStakePending ? 'Staking...' : 
+                    isStakeConfirming ? 'Confirming...' : 
+                    'Stake'}
+                </button>
               )}
-          </div>
             </div>
+          )}
+          {needsTokenApproval && (
+            <p className="text-xs text-yellow-600 mt-2 text-center">
+              Approve {tokenSymbol || 'tokens'} before staking
+            </p>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
