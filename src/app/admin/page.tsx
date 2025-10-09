@@ -387,7 +387,8 @@ function MarketSearch({
             }
           ],
           functionName: 'approve',
-          args: [marketManagerAddress, amount]
+          args: [marketManagerAddress, amount],
+          gas: BigInt(200000) // Gas limit for approval
         });
         
         console.log('Approve transaction hash:', approveHash);
@@ -402,18 +403,20 @@ function MarketSearch({
           address: marketManagerAddress,
           abi: MARKET_MANAGER_ABI,
           functionName: 'supportMarket',
-          args: [BigInt(searchId), amount]
+          args: [BigInt(searchId), amount],
+          gas: BigInt(300000) // Gas limit for support
         });
         
         console.log('Support transaction hash:', supportHash);
       } else {
-        // For ETH, use supportMarket with value
+        // For PEPU (native token), use supportMarket with value
         await writeContract({
           address: marketManagerAddress,
           abi: MARKET_MANAGER_ABI,
           functionName: 'supportMarket',
           args: [BigInt(searchId), amount],
-          value: amount
+          value: amount,
+          gas: BigInt(200000) // Gas limit for PEPU support
         });
       }
       
