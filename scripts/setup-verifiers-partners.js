@@ -44,7 +44,6 @@ async function main() {
         console.log(`   Partner: ${PARTNER_ADDRESS}`);
         console.log(`   Verifier 1: ${wallet1.address}`);
         console.log(`   Verifier 2: ${wallet2.address}`);
-        console.log(`   Verifier 3: ${signer.address}`);
 
         // 1. Set partner in Treasury
         console.log(`\n1. Setting partner in Treasury...`);
@@ -56,44 +55,37 @@ async function main() {
         // 2. Add verifiers to ValidationCore
         console.log(`\n2. Adding verifiers to ValidationCore...`);
 
-        // Check if verifiers already exist
-        const isVerifier1 = await verification.isVerifier(wallet1.address);
-        const isVerifier2 = await verification.isVerifier(wallet2.address);
-        const isVerifier3 = await verification.isVerifier(signer.address);
-
-        if (!isVerifier1) {
+        try {
             console.log(`   Adding verifier 1: ${wallet1.address}`);
             const addVerifier1Tx = await verification.addVerifier(wallet1.address);
             console.log(`   Transaction: ${addVerifier1Tx.hash}`);
             await addVerifier1Tx.wait();
             console.log(`   ✅ Verifier 1 added`);
-        } else {
-            console.log(`   ✅ Verifier 1 already exists: ${wallet1.address}`);
+        } catch (error) {
+            if (error.message.includes("Already a verifier")) {
+                console.log(`   ✅ Verifier 1 already exists: ${wallet1.address}`);
+            } else {
+                throw error;
+            }
         }
 
-        if (!isVerifier2) {
+        try {
             console.log(`   Adding verifier 2: ${wallet2.address}`);
             const addVerifier2Tx = await verification.addVerifier(wallet2.address);
             console.log(`   Transaction: ${addVerifier2Tx.hash}`);
             await addVerifier2Tx.wait();
             console.log(`   ✅ Verifier 2 added`);
-        } else {
-            console.log(`   ✅ Verifier 2 already exists: ${wallet2.address}`);
-        }
-
-        if (!isVerifier3) {
-            console.log(`   Adding verifier 3: ${signer.address}`);
-            const addVerifier3Tx = await verification.addVerifier(signer.address);
-            console.log(`   Transaction: ${addVerifier3Tx.hash}`);
-            await addVerifier3Tx.wait();
-            console.log(`   ✅ Verifier 3 added`);
-        } else {
-            console.log(`   ✅ Verifier 3 already exists: ${signer.address}`);
+        } catch (error) {
+            if (error.message.includes("Already a verifier")) {
+                console.log(`   ✅ Verifier 2 already exists: ${wallet2.address}`);
+            } else {
+                throw error;
+            }
         }
 
         console.log(`\n🎉 Setup complete!`);
         console.log(`   Partner: ${PARTNER_ADDRESS}`);
-        console.log(`   Verifiers: ${wallet1.address}, ${wallet2.address}, ${signer.address}`);
+        console.log(`   Verifiers: ${wallet1.address}, ${wallet2.address}`);
 
     } catch (error) {
         console.error('❌ Error setting up verifiers and partners:', error.message);

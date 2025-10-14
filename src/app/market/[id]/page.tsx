@@ -326,7 +326,8 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
     );
   }
 
-  const isMarketEnded = Number(market.state) === 1; // Convert BigInt to number
+  const isMarketEnded = Number(market.state) === 1; // Ended
+  const isMarketResolved = Number(market.state) === 2; // Resolved
   const options = getMarketOptions();
 
   return (
@@ -441,16 +442,18 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
               </div>
               <div className="flex items-center gap-2 sm:gap-3">
                 <div className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm ${
-                  isMarketEnded 
-                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200' 
-                    : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                  isMarketResolved
+                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                    : isMarketEnded 
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200' 
+                      : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
                 }`}>
-                  {isMarketEnded ? <CheckCircle size={16} /> : <Clock size={16} />}
+                  {isMarketResolved ? <CheckCircle size={16} /> : (isMarketEnded ? <CheckCircle size={16} /> : <Clock size={16} />)}
                   <span className="hidden sm:inline">
-                    {isMarketEnded ? 'Ended' : 'Active'}
+                    {isMarketResolved ? 'Resolved' : isMarketEnded ? 'Ended' : 'Active'}
                   </span>
                   <span className="sm:hidden">
-                    {isMarketEnded ? 'End' : 'Live'}
+                    {isMarketResolved ? 'Res.' : isMarketEnded ? 'End' : 'Live'}
                   </span>
                 </div>
                 <div className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm ${
@@ -515,6 +518,20 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
                 </p>
                 <p className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-600'}`}>
                   Your address: {address?.slice(0, 6)}...{address?.slice(-4)}
+                </p>
+              </div>
+            ) : isMarketResolved ? (
+              <div className="text-center py-6 sm:py-8">
+                <div className={`w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 rounded-full flex items-center justify-center ${
+                  isDarkMode ? 'bg-blue-900' : 'bg-blue-100'
+                }`}>
+                  <CheckCircle className={`${isDarkMode ? 'text-blue-300' : 'text-blue-700'}`} size={32} />
+                </div>
+                <h3 className={`text-lg font-semibold mb-2 ${isDarkMode ? 'text-blue-200' : 'text-blue-800'}`}>
+                  Market Resolved
+                </h3>
+                <p className={`mb-4 text-sm sm:text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  This market has been resolved. Verifications are closed.
                 </p>
               </div>
             ) : !isMarketEnded ? (

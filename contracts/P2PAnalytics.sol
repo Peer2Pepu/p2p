@@ -590,9 +590,9 @@ contract MetricsHub is Ownable {
         for (uint256 i = 1; i < nextMarketId; i++) {
             EventPool.Market memory market = EventPool(marketManager).getMarket(i);
             if (market.state == EventPool.MarketState.Active) {
-                uint256 stakerCount = EventPool(marketManager).getStakerCount(i);
-                uint256 supporterCount = EventPool(marketManager).getSupporterCount(i);
-                uint256 totalParticipants = stakerCount + supporterCount;
+            uint256 stakerCount = EventPool(marketManager).getStakerCount(i);
+            uint256 supporterCount = EventPool(marketManager).getSupporterCount(i);
+            uint256 totalParticipants = stakerCount + supporterCount;
                 
                 // Add to arrays
                 uint256[] memory tempIds = new uint256[](marketIds.length + 1);

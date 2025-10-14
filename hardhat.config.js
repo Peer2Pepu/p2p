@@ -7,9 +7,10 @@ module.exports = {
     settings: {
       optimizer: {
         enabled: true,
-        runs: 1  // Very low runs value for smallest bytecode
+        runs: 1  // Minimal runs for smallest bytecode
       },
-      viaIR: true  // Enable viaIR to fix stack too deep errors
+      viaIR: true,  // Enable viaIR to fix stack too deep errors
+      evmVersion: 'paris'  // Use Paris EVM version for better optimization
     }
   },
   networks: {

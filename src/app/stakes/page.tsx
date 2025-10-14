@@ -94,6 +94,13 @@ const MARKET_MANAGER_ABI = [
 
 const ANALYTICS_ABI = [
   {
+    "inputs": [{"name": "user", "type": "address"}],
+    "name": "getUserMarkets",
+    "outputs": [{"name": "", "type": "uint256[]"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [{"name": "user", "type": "address"}, {"name": "state", "type": "uint8"}],
     "name": "getUserMarketsByState",
     "outputs": [{"name": "", "type": "uint256[]"}],
@@ -141,6 +148,9 @@ function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate }: {
     args: [BigInt(marketId)],
   }) as { data: any | undefined };
 
+  // Calculate derived values
+  const marketData = market as any;
+
   // Get user's stake amount
   const { data: userStakeAmount } = useReadContract({
     address: TREASURY_ADDRESS,
@@ -165,10 +175,18 @@ function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate }: {
     args: [BigInt(marketId), userAddress],
   });
 
-  // Get token symbol
+  // Get token symbol from AdminManager contract
   const { data: tokenSymbol } = useReadContract({
-    address: MARKET_MANAGER_ADDRESS,
-    abi: MARKET_MANAGER_ABI,
+    address: process.env.NEXT_PUBLIC_P2P_ADMIN_ADDRESS as `0x${string}`,
+    abi: [
+      {
+        "inputs": [{"name": "token", "type": "address"}],
+        "name": "tokenSymbols",
+        "outputs": [{"name": "", "type": "string"}],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ],
     functionName: 'tokenSymbols',
     args: [(market as any)?.paymentToken || '0x0000000000000000000000000000000000000000'],
   }) as { data: string | undefined };
@@ -219,8 +237,6 @@ function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate }: {
     }
   }, [isConfirmed]);
 
-  // Calculate derived values
-  const marketData = market as any;
   const isWinningStake = userStakeOption && marketData?.winningOption ? Number(userStakeOption) === Number(marketData.winningOption) : false;
   const canClaim = isWinningStake && !hasClaimed;
 
@@ -266,7 +282,10 @@ function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate }: {
   };
 
   const getWinningOptionText = () => {
-    if (!marketData?.winningOption) return 'Not resolved';
+    // Check if market is actually resolved and has a winning option
+    if (!marketData?.isResolved || !marketData?.winningOption || marketData.winningOption === 0) {
+      return 'Not resolved';
+    }
     const options = getMarketOptions();
     const optionIndex = Number(marketData.winningOption) - 1;
     return options[optionIndex] || 'Unknown';
@@ -323,15 +342,38 @@ function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate }: {
             }`}>
               {marketData.isMultiOption ? 'Multiple' : 'Yes/No'}
             </div>
+            
+            {/* Market State Badge */}
+            <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+              marketData.state === 0 // Active
+                ? (isDarkMode ? 'bg-green-900/50 text-green-300' : 'bg-green-100 text-green-800')
+                : marketData.state === 1 // Ended
+                ? (isDarkMode ? 'bg-yellow-900/50 text-yellow-300' : 'bg-yellow-100 text-yellow-800')
+                : marketData.state === 2 && marketData.isResolved // Resolved
+                ? (isDarkMode ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-800')
+                : marketData.state === 3 // Cancelled
+                ? (isDarkMode ? 'bg-red-900/50 text-red-300' : 'bg-red-100 text-red-800')
+                : (isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-800')
+            }`}>
+              {marketData.state === 0 ? 'Active' : 
+               marketData.state === 1 ? 'Ended' : 
+               marketData.state === 2 && marketData.isResolved ? 'Resolved' : 
+               marketData.state === 2 ? 'Ended' :
+               marketData.state === 3 ? 'Cancelled' : 'Unknown'}
+            </div>
+            
+            {/* Claim Status Badge - Only show for resolved markets */}
+            {marketData.state === 2 && marketData.isResolved && (
             <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${
               canClaim 
-                ? (isDarkMode ? 'bg-green-900/50 text-green-300' : 'bg-green-100 text-green-800')
+                  ? (isDarkMode ? 'bg-emerald-900/50 text-emerald-300' : 'bg-emerald-100 text-emerald-800')
                 : hasClaimed
                   ? (isDarkMode ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-800')
                   : (isDarkMode ? 'bg-red-900/50 text-red-300' : 'bg-red-100 text-red-800')
             }`}>
               {canClaim ? 'Won - Claim Available' : hasClaimed ? 'Claimed' : 'Lost'}
             </div>
+            )}
           </div>
         </div>
         
@@ -361,12 +403,16 @@ function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate }: {
         <div className="flex justify-between">
           <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Status:</span>
           <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-            Resolved
+            {marketData.state === 0 ? 'Active' : 
+             marketData.state === 1 ? 'Ended' : 
+             marketData.state === 2 && marketData.isResolved ? 'Resolved' : 
+             marketData.state === 2 ? 'Ended' :
+             marketData.state === 3 ? 'Cancelled' : 'Unknown'}
           </span>
         </div>
       </div>
 
-      {canClaim && (
+      {canClaim && marketData.state === 2 && marketData.isResolved && (
         <div className="mt-4 pt-3 border-t border-gray-600 dark:border-gray-700">
           {claimError && (
             <div className={`mb-3 p-2 rounded text-sm ${
@@ -424,26 +470,26 @@ export default function StakesPage() {
   const MARKET_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS as `0x${string}`;
   const ANALYTICS_ADDRESS = process.env.NEXT_PUBLIC_P2P_ANALYTICS_ADDRESS as `0x${string}`;
 
-  // Fetch user's resolved markets
-  const { data: resolvedMarketIds } = useReadContract({
+  // Fetch user's all markets (regardless of status)
+  const { data: userMarketIds } = useReadContract({
     address: ANALYTICS_ADDRESS,
     abi: ANALYTICS_ABI,
-    functionName: 'getUserMarketsByState',
-    args: [address || '0x0000000000000000000000000000000000000000', 2], // State 2 = Resolved
+    functionName: 'getUserMarkets',
+    args: [address || '0x0000000000000000000000000000000000000000'],
   });
 
-  // Sort markets
+  // Sort markets (show all user markets regardless of state)
   const sortedMarkets = React.useMemo(() => {
-    if (!Array.isArray(resolvedMarketIds)) return [];
+    if (!Array.isArray(userMarketIds)) return [];
     
-    const markets = [...resolvedMarketIds].map(id => Number(id));
+    const markets = [...userMarketIds].map(id => Number(id));
     
     if (sortBy === 'newest') {
       return markets.sort((a, b) => b - a); // Higher market ID = newer
     } else {
       return markets.sort((a, b) => a - b); // Lower market ID = older
     }
-  }, [resolvedMarketIds, sortBy]);
+  }, [userMarketIds, sortBy]);
 
   // Show limited or all markets
   const displayedMarkets = showAll ? sortedMarkets : sortedMarkets.slice(0, 5);
@@ -507,7 +553,7 @@ export default function StakesPage() {
                     Stakes
                   </h1>
                   <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                    Claim winnings from your resolved markets
+                    View all your staked markets and claim winnings
                   </p>
                 </div>
               </div>
@@ -561,7 +607,7 @@ export default function StakesPage() {
             <div className={`rounded-lg border p-3 lg:p-4 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className={`text-xs lg:text-sm font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Resolved Markets</p>
+                  <p className={`text-xs lg:text-sm font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>All Markets</p>
                   <p className={`text-lg lg:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                     {sortedMarkets.length}
                   </p>
@@ -607,10 +653,10 @@ export default function StakesPage() {
                 Connect Your Wallet
               </h3>
               <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                Connect your wallet to view your resolved markets and claim winnings
+                Connect your wallet to view all your staked markets
               </p>
             </div>
-          ) : !Array.isArray(resolvedMarketIds) || resolvedMarketIds.length === 0 ? (
+          ) : !Array.isArray(userMarketIds) || userMarketIds.length === 0 ? (
             <div className="text-center py-16">
               <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
                 isDarkMode ? 'bg-gray-800' : 'bg-gray-100'
@@ -618,10 +664,10 @@ export default function StakesPage() {
                 <Receipt className={`w-8 h-8 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
               </div>
               <h3 className={`text-lg font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                No Resolved Markets
+                No Staked Markets
               </h3>
               <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                You don't have any resolved markets yet. Start betting to see your results here!
+                You haven't staked in any markets yet. Start betting to see your markets here!
               </p>
             </div>
           ) : (

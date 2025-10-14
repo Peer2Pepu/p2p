@@ -76,7 +76,8 @@ class MarketBot {
     this.contract = new ethers.Contract(MARKET_MANAGER_ADDRESS, MARKET_MANAGER_ABI, this.wallet);
     this.bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: false });
     
-    this.processedMarkets = new Set();
+    // Track notifications already sent to avoid duplicates
+    this.processedEndNotices = new Set();
     this.pollingInterval = 5000; // 5 seconds
   }
 
@@ -134,29 +135,29 @@ class MarketBot {
           const market = await this.contract.getMarket(marketId);
           const currentTime = Math.floor(Date.now() / 1000);
           const endTime = Number(market.endTime);
+          const state = Number(market.state);
           
-          console.log(`Market ${marketId}: state=${market.state}, currentTime=${currentTime}, endTime=${endTime}, shouldEnd=${currentTime >= endTime}`);
-          console.log(`Market ${marketId}: state check=${Number(market.state) === 0}, time check=${currentTime >= endTime}, both=${Number(market.state) === 0 && currentTime >= endTime}`);
+          console.log(`Market ${marketId}: state=${state}, currentTime=${currentTime}, endTime=${endTime}, shouldEnd=${currentTime >= endTime}`);
+          console.log(`Market ${marketId}: state check=${state === 0}, time check=${currentTime >= endTime}, both=${state === 0 && currentTime >= endTime}`);
           
-          // Check if market should be ended
-          if (Number(market.state) === 0 && currentTime >= endTime) {
+          // Only end active markets that have reached end time; notify only after a successful end
+          if (state === 0 && currentTime >= endTime) {
             console.log(`⏰ Market ${marketId} reached end time, attempting to end...`);
-            
             try {
-              // Try to end the market
               const tx = await this.contract.endMarket(marketId);
               console.log(`📝 Transaction sent: ${tx.hash}`);
               await tx.wait();
-              
               console.log(`✅ Market ${marketId} ended successfully!`);
-              
-              // Send notification
-              await this.sendEndNotification(marketId, market);
-              
+
+              // Refetch to ensure fresh data and notify once per runtime
+              if (!this.processedEndNotices.has(marketId)) {
+                const endedMarket = await this.contract.getMarket(marketId);
+                await this.sendEndNotification(marketId, endedMarket);
+                this.processedEndNotices.add(marketId);
+              }
             } catch (endError) {
               console.error(`❌ Failed to end market ${marketId}:`, endError.message);
             }
-            
           }
         } catch (error) {
           console.error(`Error checking market ${marketId}:`, error);

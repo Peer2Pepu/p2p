@@ -202,7 +202,7 @@ export function MarketCard({
   }) as { data: any | undefined };
 
   const { data: tokenSymbol } = useReadContract({
-    address: MARKET_MANAGER_ADDRESS,
+    address: process.env.NEXT_PUBLIC_P2P_ADMIN_ADDRESS as `0x${string}`,
     abi: [
       {
         "inputs": [{"name": "token", "type": "address"}],

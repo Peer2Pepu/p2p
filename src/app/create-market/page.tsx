@@ -82,10 +82,11 @@ export default function CreateMarketPage() {
 
   // Contract addresses from environment
   const P2P_MARKETMANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS as `0x${string}`;
+  const ADMIN_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_ADMIN_ADDRESS as `0x${string}`;
 
-  // Get supported tokens from contract
+  // Get supported tokens from AdminManager contract
   const { data: supportedTokensData } = useReadContract({
-    address: P2P_MARKETMANAGER_ADDRESS,
+    address: ADMIN_MANAGER_ADDRESS,
     abi: [
       {
         "inputs": [],
@@ -115,6 +116,7 @@ export default function CreateMarketPage() {
   // Debug log to check if P2P token address is loaded
   console.log('P2P_TOKEN_ADDRESS from env:', P2P_TOKEN_ADDRESS);
   console.log('P2P_MARKETMANAGER_ADDRESS:', P2P_MARKETMANAGER_ADDRESS);
+  console.log('ADMIN_MANAGER_ADDRESS:', ADMIN_MANAGER_ADDRESS);
   console.log('supportedTokensData:', supportedTokensData);
   console.log('tokens array:', tokens);
 

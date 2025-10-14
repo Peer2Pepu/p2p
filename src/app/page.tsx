@@ -255,6 +255,7 @@ export default function HomePage() {
   const [filterType, setFilterType] = useState('all');
   const [filterToken, setFilterToken] = useState('all');
   const [filterMarketType, setFilterMarketType] = useState('all');
+  const [filterCategory, setFilterCategory] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
   const [showFilters, setShowFilters] = useState(false);
   const [error, setError] = useState('');
@@ -263,6 +264,9 @@ export default function HomePage() {
   // Transaction state for approval and staking
   const [isApprovalPending, setIsApprovalPending] = useState(false);
   const [isStakePending, setIsStakePending] = useState(false);
+  
+  // State to track which markets the user has staked in
+  const [userStakedMarkets, setUserStakedMarkets] = useState<Set<number>>(new Set());
 
   const { address, isConnected } = useAccount();
 
@@ -286,10 +290,40 @@ export default function HomePage() {
       } else if (isStakePending) {
         setIsStakePending(false);
         setSuccess('✅ Successfully added a stake!');
+        // Refresh stake status to hide the market from main page
+        setTimeout(() => {
+          const checkUserStakes = async () => {
+            if (!address || supabaseMarkets.length === 0) return;
+            
+            try {
+              const stakedMarkets = new Set<number>();
+              
+              for (const market of supabaseMarkets) {
+                try {
+                  const provider = new ethers.JsonRpcProvider('https://rpc-pepu-v2-mainnet-0.t.conduit.xyz');
+                  const contract = new ethers.Contract(MARKET_MANAGER_ADDRESS, MARKET_MANAGER_ABI, provider);
+                  
+                  const hasStaked = await contract.userHasStaked(Number(market.market_id), address);
+                  if (hasStaked) {
+                    stakedMarkets.add(Number(market.market_id));
+                  }
+                } catch (error) {
+                  console.error(`Error checking stake for market ${market.market_id}:`, error);
+                }
+              }
+              
+              setUserStakedMarkets(stakedMarkets);
+            } catch (error) {
+              console.error('Error refreshing user stakes:', error);
+            }
+          };
+          
+          checkUserStakes();
+        }, 2000); // Wait 2 seconds for transaction to be processed
       }
       setError('');
     }
-  }, [isConfirmed, isApprovalPending, isStakePending]);
+  }, [isConfirmed, isApprovalPending, isStakePending, address]);
 
   // Fetch only truly active markets (state = 0)
   const { data: activeMarketIds } = useReadContract({
@@ -324,6 +358,10 @@ export default function HomePage() {
           query = query.eq('type', filterMarketType);
         }
         
+        if (filterCategory !== 'all') {
+          query = query.ilike('category', `%${filterCategory}%`);
+        }
+        
         // Apply sorting
         if (sortBy === 'newest') {
           query = query.order('created_at', { ascending: false });
@@ -349,7 +387,42 @@ export default function HomePage() {
     };
     
     fetchMarkets();
-  }, [filterToken, filterMarketType, sortBy]);
+  }, [filterToken, filterMarketType, filterCategory, sortBy]);
+
+  // Check if user has staked in markets
+  useEffect(() => {
+    const checkUserStakes = async () => {
+      if (!address || supabaseMarkets.length === 0) {
+        setUserStakedMarkets(new Set());
+        return;
+      }
+
+      try {
+        const stakedMarkets = new Set<number>();
+        
+        // Check each market to see if user has staked
+        for (const market of supabaseMarkets) {
+          try {
+            const provider = new ethers.JsonRpcProvider('https://rpc-pepu-v2-mainnet-0.t.conduit.xyz');
+            const contract = new ethers.Contract(MARKET_MANAGER_ADDRESS, MARKET_MANAGER_ABI, provider);
+            
+            const hasStaked = await contract.userHasStaked(Number(market.market_id), address);
+            if (hasStaked) {
+              stakedMarkets.add(Number(market.market_id));
+            }
+          } catch (error) {
+            console.error(`Error checking stake for market ${market.market_id}:`, error);
+          }
+        }
+        
+        setUserStakedMarkets(stakedMarkets);
+      } catch (error) {
+        console.error('Error checking user stakes:', error);
+      }
+    };
+
+    checkUserStakes();
+  }, [address, supabaseMarkets]);
 
   // Analytics data (simplified for now)
   const [totalParticipants, setTotalParticipants] = useState<number>(0);
@@ -359,6 +432,14 @@ export default function HomePage() {
   const filteredActiveMarkets = useMemo(() => {
     return supabaseMarkets.map(market => Number(market.market_id));
   }, [supabaseMarkets]);
+
+  // Only count markets that are actually active on-chain (state = 0)
+  const availableActiveMarkets = useMemo(() => {
+    const activeSet = new Set(
+      Array.isArray(activeMarketIds) ? activeMarketIds.map((id: any) => Number(id)) : []
+    );
+    return filteredActiveMarkets.filter((id) => activeSet.has(id));
+  }, [filteredActiveMarkets, activeMarketIds]);
 
   const handleBet = async (marketId: number, option: number, amount: string, isApproval = false) => {
     if (!isConnected || !address) {
@@ -396,7 +477,7 @@ export default function HomePage() {
           ],
           functionName: 'approve',
           args: [MARKET_MANAGER_ADDRESS, stakeAmount],
-          gas: BigInt(200000), // Reasonable gas limit for approval
+          gas: BigInt(300000), // Increased gas limit for approval
         });
         
         setSuccess('Approval transaction submitted...');
@@ -427,7 +508,7 @@ export default function HomePage() {
           ],
           functionName: 'placeStakeWithToken',
           args: [BigInt(marketId), BigInt(option), stakeAmount],
-          gas: BigInt(600000), // Further increased gas limit for staking with token
+          gas: BigInt(800000), // Increased gas limit for staking with token
         });
         
         setSuccess('Stake transaction submitted...');
@@ -447,7 +528,7 @@ export default function HomePage() {
           functionName: 'placeStake',
           args: [BigInt(marketId), BigInt(option)],
           value: stakeAmount,
-          gas: BigInt(500000), // Further increased gas limit for native staking
+          gas: BigInt(700000), // Increased gas limit for native staking
         });
         
         setSuccess('Stake transaction submitted...');
@@ -630,6 +711,33 @@ export default function HomePage() {
                           <label className={`block text-xs font-medium mb-1 ${
                             isDarkMode ? 'text-gray-300' : 'text-gray-700'
                           }`}>
+                            Category
+                          </label>
+                          <select
+                            value={filterCategory}
+                            onChange={(e) => setFilterCategory(e.target.value)}
+                            className={`w-full px-2 py-1.5 border rounded text-xs ${
+                              isDarkMode 
+                                ? 'bg-gray-700 border-gray-600 text-white' 
+                                : 'bg-white border-gray-300 text-gray-900'
+                            }`}
+                          >
+                            <option value="all">All Categories</option>
+                            <option value="Entertainment">Entertainment</option>
+                            <option value="Sports">Sports</option>
+                            <option value="Politics">Politics</option>
+                            <option value="Technology">Technology</option>
+                            <option value="Finance">Finance</option>
+                            <option value="Crypto">Crypto</option>
+                            <option value="Weather">Weather</option>
+                            <option value="Other">Other</option>
+                          </select>
+                        </div>
+                        
+                        <div>
+                          <label className={`block text-xs font-medium mb-1 ${
+                            isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                          }`}>
                             Sort By
                           </label>
                           <select
@@ -706,9 +814,23 @@ export default function HomePage() {
               <div className="flex items-center gap-1 lg:gap-2">
                 <div className={`w-1.5 h-1.5 lg:w-2 lg:h-2 rounded-full ${isDarkMode ? 'bg-green-400' : 'bg-green-500'}`}></div>
                 <span className={`text-xs lg:text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  {filteredActiveMarkets.length} Active
+                  {availableActiveMarkets.length} Available
                 </span>
               </div>
+              
+              <ClientOnly>
+                {isConnected && address && userStakedMarkets.size > 0 && (
+                  <>
+                    <div className={`w-px h-3 lg:h-4 ${isDarkMode ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
+                    <div className="flex items-center gap-1 lg:gap-2">
+                      <Target size={12} className={`lg:w-3.5 lg:h-3.5 ${isDarkMode ? 'text-blue-400' : 'text-blue-500'}`} />
+                      <span className={`text-xs lg:text-sm ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>
+                        {userStakedMarkets.size} Staked
+                      </span>
+                    </div>
+                  </>
+                )}
+              </ClientOnly>
               
               <ClientOnly>
                 {isConnected && address && (
@@ -758,7 +880,7 @@ export default function HomePage() {
                 Fetching active prediction markets
               </p>
             </div>
-          ) : filteredActiveMarkets.length === 0 ? (
+          ) : availableActiveMarkets.length === 0 ? (
             <div className="text-center py-16">
               <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
                 isDarkMode ? 'bg-gray-800' : 'bg-gray-100'
@@ -772,28 +894,58 @@ export default function HomePage() {
                 Be the first to create a prediction market!
               </p>
             </div>
-          ) : (
-            <div className={`grid gap-4 transition-all duration-300 ${
-              sidebarCollapsed 
-                ? 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5' 
-                : 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3'
-            }`}>
-              {filteredActiveMarkets.map((marketId: number) => (
-                <MarketCard
-                  key={marketId}
-                  marketId={marketId}
-                  isDarkMode={isDarkMode}
-                  onBet={handleBet}
-                  onEndMarket={handleEndMarket}
-                  userAddress={address}
-                  isApprovalPending={isApprovalPending}
-                  isStakePending={isStakePending}
-                  isApprovalConfirming={isConfirming && isApprovalPending}
-                  isStakeConfirming={isConfirming && isStakePending}
-                />
-              ))}
-            </div>
-          )}
+          ) : availableActiveMarkets.length > 0 ? (
+              <div className={`grid gap-4 transition-all duration-300 ${
+                sidebarCollapsed 
+                  ? 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5' 
+                  : 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3'
+              }`}>
+                {availableActiveMarkets.map((marketId: number) => (
+                  <MarketCard
+                    key={marketId}
+                    marketId={marketId}
+                    isDarkMode={isDarkMode}
+                    onBet={handleBet}
+                    onEndMarket={handleEndMarket}
+                    userAddress={address}
+                    isApprovalPending={isApprovalPending}
+                    isStakePending={isStakePending}
+                    isApprovalConfirming={isConfirming && isApprovalPending}
+                    isStakeConfirming={isConfirming && isStakePending}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-16">
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
+                  isDarkMode ? 'bg-gray-800' : 'bg-gray-100'
+                }`}>
+                  <Target size={24} className={isDarkMode ? 'text-gray-400' : 'text-gray-500'} />
+                </div>
+                <h3 className={`text-lg font-semibold mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  No Available Markets
+                </h3>
+                <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} mb-4`}>
+                  {isConnected && userStakedMarkets.size > 0 
+                    ? `You've already staked in ${userStakedMarkets.size} market${userStakedMarkets.size > 1 ? 's' : ''}. Check your stakes page to view them.`
+                    : 'No markets are currently available for staking.'
+                  }
+                </p>
+                {isConnected && userStakedMarkets.size > 0 && (
+                  <a 
+                    href="/stakes" 
+                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      isDarkMode 
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                        : 'bg-blue-500 hover:bg-blue-600 text-white'
+                    }`}
+                  >
+                    <Target size={16} />
+                    View My Stakes
+                  </a>
+                )}
+              </div>
+            )}
         </main>
       </div>
     </div>

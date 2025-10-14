@@ -253,13 +253,14 @@ function MarketSearch({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isPermanentlyDeleting, setIsPermanentlyDeleting] = useState(false);
 
+  const ADMIN_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_ADMIN_ADDRESS as `0x${string}`;
   const marketManagerAddress = process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS as `0x${string}`;
   const { writeContract } = useWriteContract();
   const { address: userAddress } = useAccount();
 
-  // Get token symbol from contract
+  // Get token symbol from AdminManager contract
   const { data: tokenSymbol } = useReadContract({
-    address: marketManagerAddress,
+    address: process.env.NEXT_PUBLIC_P2P_ADMIN_ADDRESS as `0x${string}`,
     abi: [
       {
         "inputs": [{"name": "token", "type": "address"}],
@@ -351,12 +352,12 @@ function MarketSearch({
   const handleSupport = async () => {
     if (!supportAmount || !marketData) return;
     
-    // Check if market has ended
+    // Check if support period has ended (support ends at stakeEndTime, not endTime)
     const currentTime = Math.floor(Date.now() / 1000);
-    const endTime = Number(marketData.endTime);
+    const stakeEndTime = Number(marketData.stakeEndTime);
     
-    if (currentTime > endTime) {
-      alert('Cannot support market after it has ended');
+    if (currentTime >= stakeEndTime) {
+      alert('Cannot support market after staking period has ended');
       return;
     }
     
@@ -664,8 +665,12 @@ function MarketSearch({
                 )}
             </div>
 
-              {/* Support Field - Only show for active markets */}
-              {Number(marketData.state) === 0 && (
+              {/* Support Field - Only show for active markets and before stake end time */}
+              {Number(marketData.state) === 0 && (() => {
+                const currentTime = Math.floor(Date.now() / 1000);
+                const stakeEndTime = Number(marketData.stakeEndTime);
+                return currentTime < stakeEndTime;
+              })() && (
                 <div className="space-y-3 mb-4">
                   <div className="border-t pt-3">
                     <h4 className={`text-sm font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
@@ -1108,8 +1113,9 @@ export default function AdminPage() {
 
   const { hasAccess, isLoading, isConnected } = useAdminAccess();
   const { address } = useAccount();
-  const { writeContract } = useWriteContract();
+  const ADMIN_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_ADMIN_ADDRESS as `0x${string}`;
   const marketManagerAddress = process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS as `0x${string}`;
+  const { writeContract } = useWriteContract();
 
   if (isLoading) {
     return (
@@ -1128,18 +1134,18 @@ export default function AdminPage() {
     setIsBlacklisting(true);
     try {
       await writeContract({
-        address: marketManagerAddress,
+        address: ADMIN_MANAGER_ADDRESS,
         abi: [
           {
-            "inputs": [{"name": "user", "type": "address"}],
-            "name": "blacklistUser",
+            "inputs": [{"name": "wallet", "type": "address"}, {"name": "blacklisted", "type": "bool"}],
+            "name": "setWalletBlacklist",
             "outputs": [],
             "stateMutability": "nonpayable",
             "type": "function"
           }
         ],
-        functionName: 'blacklistUser',
-        args: [blacklistAddress as `0x${string}`]
+        functionName: 'setWalletBlacklist',
+        args: [blacklistAddress as `0x${string}`, true]
       });
       
       setUserManagementSuccess(`User ${blacklistAddress.slice(0, 6)}...${blacklistAddress.slice(-4)} blacklisted successfully`);

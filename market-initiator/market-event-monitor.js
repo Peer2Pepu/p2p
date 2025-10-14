@@ -17,6 +17,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Contract configuration
 const MARKET_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS;
+const ADMIN_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_ADMIN_ADDRESS;
 const RPC_URL = 'https://rpc-pepu-v2-mainnet-0.t.conduit.xyz';
 
 if (!MARKET_MANAGER_ADDRESS) {
@@ -24,7 +25,12 @@ if (!MARKET_MANAGER_ADDRESS) {
     process.exit(1);
 }
 
-// Contract ABI for MarketCreated event and getSupportedTokens function
+if (!ADMIN_MANAGER_ADDRESS) {
+    console.error('❌ Missing NEXT_PUBLIC_P2P_ADMIN_ADDRESS in .env');
+    process.exit(1);
+}
+
+// Contract ABI for MarketCreated event
 const MARKET_MANAGER_ABI = [
     {
         "anonymous": false,
@@ -43,7 +49,11 @@ const MARKET_MANAGER_ABI = [
         ],
         "name": "MarketCreated",
         "type": "event"
-    },
+    }
+];
+
+// Contract ABI for AdminManager getSupportedTokens function
+const ADMIN_MANAGER_ABI = [
     {
         "inputs": [],
         "name": "getSupportedTokens",
@@ -75,10 +85,11 @@ async function getIPFSData(ipfsHash) {
     }
 }
 
-// Function to get token symbol from contract
-async function getTokenSymbol(contract, paymentToken) {
+// Function to get token symbol from AdminManager contract
+async function getTokenSymbol(provider, paymentToken) {
     try {
-        const [tokens, symbols] = await contract.getSupportedTokens();
+        const adminContract = new ethers.Contract(ADMIN_MANAGER_ADDRESS, ADMIN_MANAGER_ABI, provider);
+        const [tokens, symbols] = await adminContract.getSupportedTokens();
         
         // Find the matching token address
         for (let i = 0; i < tokens.length; i++) {
@@ -128,6 +139,12 @@ async function insertMarket(marketData, retries = 3) {
                 .insert([marketData]);
 
             if (error) {
+                // Check if it's a duplicate key error
+                if (error.code === '23505' || error.message.includes('duplicate key')) {
+                    console.log(`⏭️  Market ${marketData.market_id} already exists (duplicate key), skipping`);
+                    return true; // Consider this a success since the market exists
+                }
+                
                 console.error(`❌ Error inserting market (attempt ${attempt}):`, error);
                 if (attempt === retries) {
                     return false;
@@ -140,6 +157,12 @@ async function insertMarket(marketData, retries = 3) {
             console.log(`✅ Market ${marketData.market_id} inserted successfully`);
             return true;
         } catch (error) {
+            // Check if it's a duplicate key error
+            if (error.code === '23505' || error.message.includes('duplicate key')) {
+                console.log(`⏭️  Market ${marketData.market_id} already exists (duplicate key), skipping`);
+                return true; // Consider this a success since the market exists
+            }
+            
             console.error(`❌ Error inserting market (attempt ${attempt}):`, error);
             if (attempt === retries) {
                 return false;
@@ -151,19 +174,111 @@ async function insertMarket(marketData, retries = 3) {
     return false;
 }
 
+// Function to process a single market event
+async function processMarketEvent(event, provider) {
+    const { marketId, creator, ipfsHash, isMultiOption, paymentToken, startTime, stakeEndTime, endTime } = event.args;
+
+    console.log(`🎯 Processing MarketCreated event: Market #${marketId}`);
+
+    // Check if market already exists
+    if (await marketExists(marketId)) {
+        console.log(`⏭️  Market ${marketId} already exists, skipping`);
+        return;
+    }
+
+    // Get IPFS data
+    let ipfsData = null;
+    let imageUrl = null;
+
+    if (ipfsHash) {
+        console.log(`📥 Fetching IPFS data for ${ipfsHash}`);
+        ipfsData = await getIPFSData(ipfsHash);
+        
+        if (ipfsData && ipfsData.imageUrl) {
+            // Use the imageUrl directly from IPFS data
+            imageUrl = ipfsData.imageUrl;
+            console.log(`🖼️  Image URL: ${imageUrl}`);
+        }
+    }
+
+    // Get token symbol
+    console.log(`💰 Getting token symbol for ${paymentToken}`);
+    const tokenSymbol = await getTokenSymbol(provider, paymentToken);
+    console.log(`🏷️  Token symbol: ${tokenSymbol}`);
+
+    // Extract categories from IPFS data
+    let categories = '';
+    if (ipfsData && ipfsData.categories && Array.isArray(ipfsData.categories)) {
+        categories = ipfsData.categories.join(', ');
+        console.log(`🏷️  Categories extracted: ${categories}`);
+    }
+
+    // Prepare market data for Supabase
+    const marketRecord = {
+        market_id: marketId.toString(),
+        ipfs: ipfsHash || '',
+        image: imageUrl || '',
+        stakeend: new Date(Number(stakeEndTime) * 1000).toISOString(),
+        endtime: new Date(Number(endTime) * 1000).toISOString(),
+        creator: creator.toLowerCase(),
+        type: isMultiOption ? 'multi' : 'linear',
+        token: tokenSymbol,
+        category: categories
+    };
+
+    console.log(`📝 Market data:`, marketRecord);
+
+    // Double-check if market exists before inserting (race condition protection)
+    if (await marketExists(marketId)) {
+        console.log(`⏭️  Market ${marketId} already exists in Supabase, skipping insertion`);
+        return;
+    }
+
+    // Insert into Supabase
+    await insertMarket(marketRecord);
+}
+
 // Main monitoring function
 async function monitorMarketEvents() {
     console.log('🚀 Starting Market Event Monitor...');
     console.log(`📡 Monitoring MarketManager: ${MARKET_MANAGER_ADDRESS}`);
     console.log(`🔄 Polling every 5 seconds`);
 
-    // Create provider
-    const provider = new ethers.JsonRpcProvider(RPC_URL);
+    // Create provider with retry configuration
+    const provider = new ethers.JsonRpcProvider(RPC_URL, undefined, {
+        polling: true,
+        pollingInterval: 5000,
+        timeout: 30000, // 30 second timeout
+        retryDelay: 2000, // 2 second retry delay
+        maxRetries: 3
+    });
+    
+    // Test connection with retry logic
+    let latestBlock;
+    let retries = 0;
+    const maxRetries = 5;
+    
+    while (retries < maxRetries) {
+        try {
+            console.log(`🔌 Testing RPC connection (attempt ${retries + 1}/${maxRetries})...`);
+            latestBlock = await provider.getBlockNumber();
+            console.log(`📦 Connected! Starting from block: ${latestBlock}`);
+            break;
+        } catch (error) {
+            retries++;
+            console.error(`❌ RPC connection failed (attempt ${retries}/${maxRetries}):`, error.message);
+            
+            if (retries >= maxRetries) {
+                console.error('❌ Failed to connect to RPC after maximum retries. Exiting...');
+                process.exit(1);
+            }
+            
+            console.log(`⏳ Waiting 5 seconds before retry...`);
+            await new Promise(resolve => setTimeout(resolve, 5000));
+        }
+    }
+    
     const contract = new ethers.Contract(MARKET_MANAGER_ADDRESS, MARKET_MANAGER_ABI, provider);
-
-    // Get the latest block number to start monitoring from
-    let latestBlock = await provider.getBlockNumber();
-    console.log(`📦 Starting from block: ${latestBlock}`);
     
     // Check last 500 blocks for any missed events on startup
     console.log(`🔍 Checking last 500 blocks for missed events...`);
@@ -174,53 +289,9 @@ async function monitorMarketEvents() {
     
     console.log(`📋 Found ${missedEvents.length} events in last 500 blocks`);
     
+    // Process missed events
     for (const event of missedEvents) {
-        const { marketId, creator, ipfsHash, isMultiOption, paymentToken, startTime, stakeEndTime, endTime } = event.args;
-
-        console.log(`🎯 Processing missed event: Market #${marketId}`);
-
-        // Check if market already exists
-        if (await marketExists(marketId)) {
-            console.log(`⏭️  Market ${marketId} already exists, skipping`);
-            continue;
-        }
-
-        // Get IPFS data
-        let ipfsData = null;
-        let imageUrl = null;
-
-        if (ipfsHash) {
-            console.log(`📥 Fetching IPFS data for ${ipfsHash}`);
-            ipfsData = await getIPFSData(ipfsHash);
-            
-            if (ipfsData && ipfsData.imageUrl) {
-                // Use the imageUrl directly from IPFS data
-                imageUrl = ipfsData.imageUrl;
-                console.log(`🖼️  Image URL: ${imageUrl}`);
-            }
-        }
-
-        // Get token symbol
-        console.log(`💰 Getting token symbol for ${paymentToken}`);
-        const tokenSymbol = await getTokenSymbol(contract, paymentToken);
-        console.log(`🏷️  Token symbol: ${tokenSymbol}`);
-
-        // Prepare market data for Supabase
-        const marketRecord = {
-            market_id: marketId.toString(),
-            ipfs: ipfsHash || '',
-            image: imageUrl || '',
-            stakeend: new Date(Number(stakeEndTime) * 1000).toISOString(),
-            endtime: new Date(Number(endTime) * 1000).toISOString(),
-            creator: creator.toLowerCase(),
-            type: isMultiOption ? 'multi' : 'linear',
-            token: tokenSymbol
-        };
-
-        console.log(`📝 Market data:`, marketRecord);
-
-        // Insert into Supabase
-        await insertMarket(marketRecord);
+        await processMarketEvent(event, provider);
     }
     
     console.log(`✅ Finished processing missed events. Starting real-time monitoring...`);
@@ -237,53 +308,9 @@ async function monitorMarketEvents() {
                 const filter = contract.filters.MarketCreated();
                 const events = await contract.queryFilter(filter, latestBlock + 1, currentBlock);
 
+                // Process new events
                 for (const event of events) {
-                    const { marketId, creator, ipfsHash, isMultiOption, paymentToken, startTime, stakeEndTime, endTime } = event.args;
-
-                    console.log(`🎯 Found MarketCreated event: Market #${marketId}`);
-
-                    // Check if market already exists
-                    if (await marketExists(marketId)) {
-                        console.log(`⏭️  Market ${marketId} already exists, skipping`);
-                        continue;
-                    }
-
-                    // Get IPFS data
-                    let ipfsData = null;
-                    let imageUrl = null;
-
-                    if (ipfsHash) {
-                        console.log(`📥 Fetching IPFS data for ${ipfsHash}`);
-                        ipfsData = await getIPFSData(ipfsHash);
-                        
-                        if (ipfsData && ipfsData.imageUrl) {
-                            // Use the imageUrl directly from IPFS data
-                            imageUrl = ipfsData.imageUrl;
-                            console.log(`🖼️  Image URL: ${imageUrl}`);
-                        }
-                    }
-
-                    // Get token symbol
-                    console.log(`💰 Getting token symbol for ${paymentToken}`);
-                    const tokenSymbol = await getTokenSymbol(contract, paymentToken);
-                    console.log(`🏷️  Token symbol: ${tokenSymbol}`);
-
-                    // Prepare market data for Supabase
-                    const marketRecord = {
-                        market_id: marketId.toString(),
-                        ipfs: ipfsHash || '',
-                        image: imageUrl || '',
-                        stakeend: new Date(Number(stakeEndTime) * 1000).toISOString(),
-                        endtime: new Date(Number(endTime) * 1000).toISOString(),
-                        creator: creator.toLowerCase(),
-                        type: isMultiOption ? 'multi' : 'linear',
-                        token: tokenSymbol
-                    };
-
-                    console.log(`📝 Market data:`, marketRecord);
-
-                    // Insert into Supabase
-                    await insertMarket(marketRecord);
+                    await processMarketEvent(event, provider);
                 }
 
                 latestBlock = currentBlock;

@@ -1,49 +1,9 @@
 {
   "_format": "hh-sol-cache-2",
   "files": {
-    "C:\\Users\\User\\p2p\\contracts\\P2PAnalytics.sol": {
-      "lastModificationDate": 1759482150508,
-      "contentHash": "fb7ac56a8b668a016881e463d5cb2f63",
-      "sourceName": "contracts/P2PAnalytics.sol",
-      "solcConfig": {
-        "version": "0.8.20",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 1
-          },
-          "viaIR": true,
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "@openzeppelin/contracts/access/Ownable.sol",
-        "./P2PMarketManager.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "MetricsHub"
-      ]
-    },
     "C:\\Users\\User\\p2p\\contracts\\P2PMarketManager.sol": {
-      "lastModificationDate": 1759493315098,
-      "contentHash": "fe9dfd213105d2594529c60e34a35e83",
+      "lastModificationDate": 1760357401859,
+      "contentHash": "1f4c40c7e14b989f80565a63fbd705c4",
       "sourceName": "contracts/P2PMarketManager.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -76,13 +36,21 @@
         "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
         "./P2PTreasury.sol",
         "./P2PVerification.sol",
+        "./P2PAnalytics.sol",
+        "@openzeppelin/contracts/access/Ownable.sol",
+        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
+        "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
+        "./P2PTreasury.sol",
+        "./P2PVerification.sol",
         "./P2PAnalytics.sol"
       ],
       "versionPragmas": [
+        "^0.8.20",
         "^0.8.20"
       ],
       "artifacts": [
-        "EventPool"
+        "EventPool",
+        "IAdminManager"
       ]
     },
     "C:\\Users\\User\\p2p\\node_modules\\@openzeppelin\\contracts\\access\\Ownable.sol": {
@@ -125,8 +93,8 @@
       ]
     },
     "C:\\Users\\User\\p2p\\contracts\\P2PTreasury.sol": {
-      "lastModificationDate": 1759185552382,
-      "contentHash": "37975f76bc6f227858adba193e94fd83",
+      "lastModificationDate": 1760092713414,
+      "contentHash": "da103c378f233826caf643dc13823b78",
       "sourceName": "contracts/P2PTreasury.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -162,11 +130,12 @@
         "^0.8.20"
       ],
       "artifacts": [
+        "IMarketManager",
         "PoolVault"
       ]
     },
     "C:\\Users\\User\\p2p\\contracts\\P2PVerification.sol": {
-      "lastModificationDate": 1757613719795,
+      "lastModificationDate": 1760094967615,
       "contentHash": "c287d92c01a65e5d2aa963500d298487",
       "sourceName": "contracts/P2PVerification.sol",
       "solcConfig": {
@@ -668,6 +637,86 @@
       ],
       "artifacts": [
         "PoolToken"
+      ]
+    },
+    "C:\\Users\\User\\p2p\\contracts\\AdminManger.sol": {
+      "lastModificationDate": 1760096140473,
+      "contentHash": "46a05406705f71dd4e8bf82bdf37ef04",
+      "sourceName": "contracts/AdminManger.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 1
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts/access/Ownable.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "AdminManager",
+        "IEventPool"
+      ]
+    },
+    "C:\\Users\\User\\p2p\\contracts\\P2PAnalytics.sol": {
+      "lastModificationDate": 1760096462875,
+      "contentHash": "f8dd94dded14bcfd8b7fe9416ee6c79a",
+      "sourceName": "contracts/P2PAnalytics.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 1
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts/access/Ownable.sol",
+        "./P2PMarketManager.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "MetricsHub"
       ]
     }
   }
