@@ -389,7 +389,7 @@ function MarketSearch({
           ],
           functionName: 'approve',
           args: [marketManagerAddress, amount],
-          gas: BigInt(200000) // Gas limit for approval
+          gas: BigInt(500000) // Gas limit for approval
         });
         
         console.log('Approve transaction hash:', approveHash);
@@ -405,7 +405,7 @@ function MarketSearch({
           abi: MARKET_MANAGER_ABI,
           functionName: 'supportMarket',
           args: [BigInt(searchId), amount],
-          gas: BigInt(300000) // Gas limit for support
+          gas: BigInt(500000) // Gas limit for support
         });
         
         console.log('Support transaction hash:', supportHash);
@@ -417,7 +417,7 @@ function MarketSearch({
           functionName: 'supportMarket',
           args: [BigInt(searchId), amount],
           value: amount,
-          gas: BigInt(200000) // Gas limit for PEPU support
+          gas: BigInt(500000) // Gas limit for PEPU support
         });
       }
       
