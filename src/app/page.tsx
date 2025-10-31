@@ -256,7 +256,7 @@ export default function HomePage() {
   const [filterToken, setFilterToken] = useState('all');
   const [filterMarketType, setFilterMarketType] = useState('all');
   const [filterCategory, setFilterCategory] = useState('all');
-  const [sortBy, setSortBy] = useState('newest');
+  const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'ending_soon'>('newest');
   const [showFilters, setShowFilters] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -367,6 +367,9 @@ export default function HomePage() {
           query = query.order('created_at', { ascending: false });
         } else if (sortBy === 'oldest') {
           query = query.order('created_at', { ascending: true });
+        } else if (sortBy === 'ending_soon') {
+          // For ending soon, we'll order by endtime ascending (closest to now first)
+          query = query.order('endtime', { ascending: true });
         }
         
         const { data, error } = await query;
@@ -430,8 +433,51 @@ export default function HomePage() {
 
   // Convert Supabase markets to market IDs for rendering
   const filteredActiveMarkets = useMemo(() => {
-    return supabaseMarkets.map(market => Number(market.market_id));
-  }, [supabaseMarkets]);
+    let markets = supabaseMarkets;
+    
+    // Filter for "ending soon" (within 24 hours)
+    if (sortBy === 'ending_soon') {
+      const now = Math.floor(Date.now() / 1000); // Current time in seconds
+      const twentyFourHours = 24 * 60 * 60; // 24 hours in seconds
+      
+      markets = markets.filter(market => {
+        // Parse endtime - it could be a timestamp string or ISO date string
+        let endTime: number;
+        if (typeof market.endtime === 'string') {
+          // Check if it's a timestamp string (numeric)
+          const parsed = parseInt(market.endtime);
+          if (!isNaN(parsed)) {
+            endTime = parsed;
+          } else {
+            // Try parsing as ISO date string
+            const date = new Date(market.endtime);
+            endTime = Math.floor(date.getTime() / 1000);
+          }
+        } else {
+          endTime = market.endtime;
+        }
+        
+        // Check if market ends within 24 hours and hasn't ended yet
+        const timeUntilEnd = endTime - now;
+        return timeUntilEnd > 0 && timeUntilEnd <= twentyFourHours;
+      });
+      
+      // Sort by endtime ascending (ending soonest first)
+      markets = markets.sort((a, b) => {
+        const getEndTime = (market: SupabaseMarket) => {
+          if (typeof market.endtime === 'string') {
+            const parsed = parseInt(market.endtime);
+            if (!isNaN(parsed)) return parsed;
+            return Math.floor(new Date(market.endtime).getTime() / 1000);
+          }
+          return market.endtime;
+        };
+        return getEndTime(a) - getEndTime(b);
+      });
+    }
+    
+    return markets.map(market => Number(market.market_id));
+  }, [supabaseMarkets, sortBy]);
 
   // Only count markets that are actually active on-chain (state = 0)
   const availableActiveMarkets = useMemo(() => {
@@ -751,6 +797,7 @@ export default function HomePage() {
                           >
                             <option value="newest">Newest</option>
                             <option value="oldest">Oldest</option>
+                            <option value="ending_soon">Ending Soon</option>
                           </select>
                         </div>
                       </div>
