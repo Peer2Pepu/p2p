@@ -21,23 +21,66 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('address', address.toLowerCase())
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('address', address.toLowerCase())
+        .single();
 
-    if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
-      console.error('Supabase error:', error);
+      if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
+        // Check if it's a network error
+        if (error.message?.includes('fetch failed') || error.message?.includes('ENOTFOUND')) {
+          console.error('Network error connecting to Supabase:', error.message);
+          return NextResponse.json(
+            { 
+              error: 'Network error: Unable to connect to database. Please check your internet connection.',
+              profile: null 
+            },
+            { status: 503 } // Service Unavailable
+          );
+        }
+        
+        console.error('Supabase error:', error);
+        return NextResponse.json(
+          { error: 'Failed to fetch profile' },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({ profile: data || null });
+    } catch (supabaseError: any) {
+      // Handle network errors specifically
+      if (supabaseError?.message?.includes('fetch failed') || 
+          supabaseError?.code === 'ENOTFOUND' ||
+          supabaseError?.cause?.code === 'ENOTFOUND') {
+        console.error('Network connectivity issue:', supabaseError.message);
+        return NextResponse.json(
+          { 
+            error: 'Network error: Unable to connect to database. Please check your internet connection.',
+            profile: null 
+          },
+          { status: 503 }
+        );
+      }
+      throw supabaseError; // Re-throw if it's not a network error
+    }
+  } catch (error: any) {
+    console.error('API error:', error);
+    
+    // Check if it's a network error
+    if (error?.message?.includes('fetch failed') || 
+        error?.code === 'ENOTFOUND' ||
+        error?.cause?.code === 'ENOTFOUND') {
       return NextResponse.json(
-        { error: 'Failed to fetch profile' },
-        { status: 500 }
+        { 
+          error: 'Network error: Unable to connect to service. Please check your internet connection.',
+          profile: null 
+        },
+        { status: 503 }
       );
     }
-
-    return NextResponse.json({ profile: data || null });
-  } catch (error) {
-    console.error('API error:', error);
+    
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

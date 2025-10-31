@@ -46,7 +46,6 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse, isDarkMo
     { icon: Receipt, label: "Stakes", href: "/stakes", active: pathname === "/stakes" },
     { icon: Plus, label: "Create Market", href: "/create-market", active: pathname === "/create-market" },
     { icon: User, label: "Profile", href: "/profile", active: pathname === "/profile" },
-    { icon: Plus, label: "Add Token", href: "/add-token", active: pathname === "/add-token" },
     { icon: History, label: "History", href: "/history", active: pathname === "/history" },
     { icon: TrendingUp, label: "Analytics", href: "/analytics", active: pathname === "/analytics" },
     { icon: MessageCircle, label: "Community", href: "/community", active: pathname === "/community" },

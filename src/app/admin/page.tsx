@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { 
   Users, 
   DollarSign, 
@@ -12,10 +12,15 @@ import {
   Menu,
   Wallet,
   Sun,
-  Moon
+  Moon,
+  Tag,
+  Hash,
+  Loader2,
+  Coins,
+  Plus
 } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useDisconnect } from 'wagmi';
 import { formatEther } from 'viem';
 import { ethers } from 'ethers';
 import { Sidebar } from '../components/Sidebar';
@@ -120,6 +125,31 @@ const MARKET_MANAGER_ABI = [
     "name": "permanentlyRemoveMarket",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  }
+];
+
+// AdminManager Contract ABI
+const ADMIN_MANAGER_ABI = [
+  {
+    "inputs": [{"name": "wallet", "type": "address"}, {"name": "blacklisted", "type": "bool"}],
+    "name": "setWalletBlacklist",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getBlacklistedAddresses",
+    "outputs": [{"name": "", "type": "address[]"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "wallet", "type": "address"}],
+    "name": "isWalletBlacklisted",
+    "outputs": [{"name": "", "type": "bool"}],
+    "stateMutability": "view",
     "type": "function"
   }
 ];
@@ -252,6 +282,7 @@ function MarketSearch({
   const [deleteSuccess, setDeleteSuccess] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [isPermanentlyDeleting, setIsPermanentlyDeleting] = useState(false);
+  const [creatorLabel, setCreatorLabel] = useState<string>('');
 
   const ADMIN_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_ADMIN_ADDRESS as `0x${string}`;
   const marketManagerAddress = process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS as `0x${string}`;
@@ -293,6 +324,139 @@ function MarketSearch({
     }
   }) as { data: bigint | undefined };
 
+  // Get option pools (up to 4 like main page)
+  const { data: option1Pool } = useReadContract({
+    address: marketManagerAddress,
+    abi: [
+      {
+        "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "option", "type": "uint256"}, {"name": "token", "type": "address"}],
+        "name": "getOptionPool",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ],
+    functionName: 'getOptionPool',
+    args: searchedMarketId && marketData?.paymentToken ? [BigInt(searchedMarketId), BigInt(1), marketData.paymentToken] : undefined,
+    query: { enabled: !!(searchedMarketId && marketData?.paymentToken) }
+  });
+
+  const { data: option2Pool } = useReadContract({
+    address: marketManagerAddress,
+    abi: [
+      {
+        "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "option", "type": "uint256"}, {"name": "token", "type": "address"}],
+        "name": "getOptionPool",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ],
+    functionName: 'getOptionPool',
+    args: searchedMarketId && marketData?.paymentToken ? [BigInt(searchedMarketId), BigInt(2), marketData.paymentToken] : undefined,
+    query: { enabled: !!(searchedMarketId && marketData?.paymentToken && marketData?.maxOptions && Number(marketData.maxOptions) >= 2) }
+  });
+
+  const { data: option3Pool } = useReadContract({
+    address: marketManagerAddress,
+    abi: [
+      {
+        "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "option", "type": "uint256"}, {"name": "token", "type": "address"}],
+        "name": "getOptionPool",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ],
+    functionName: 'getOptionPool',
+    args: searchedMarketId && marketData?.paymentToken ? [BigInt(searchedMarketId), BigInt(3), marketData.paymentToken] : undefined,
+    query: { enabled: !!(searchedMarketId && marketData?.paymentToken && marketData?.maxOptions && Number(marketData.maxOptions) >= 3) }
+  });
+
+  const { data: option4Pool } = useReadContract({
+    address: marketManagerAddress,
+    abi: [
+      {
+        "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "option", "type": "uint256"}, {"name": "token", "type": "address"}],
+        "name": "getOptionPool",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ],
+    functionName: 'getOptionPool',
+    args: searchedMarketId && marketData?.paymentToken ? [BigInt(searchedMarketId), BigInt(4), marketData.paymentToken] : undefined,
+    query: { enabled: !!(searchedMarketId && marketData?.paymentToken && marketData?.maxOptions && Number(marketData.maxOptions) >= 4) }
+  });
+
+  // Staker and supporter counts
+  const { data: stakerCount } = useReadContract({
+    address: marketManagerAddress,
+    abi: [
+      {
+        "inputs": [{"name": "marketId", "type": "uint256"}],
+        "name": "getStakerCount",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ],
+    functionName: 'getStakerCount',
+    args: searchedMarketId ? [BigInt(searchedMarketId)] : undefined,
+    query: { enabled: !!searchedMarketId }
+  });
+
+  const { data: supporterCount } = useReadContract({
+    address: marketManagerAddress,
+    abi: [
+      {
+        "inputs": [{"name": "marketId", "type": "uint256"}],
+        "name": "getSupporterCount",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ],
+    functionName: 'getSupporterCount',
+    args: searchedMarketId ? [BigInt(searchedMarketId)] : undefined,
+    query: { enabled: !!searchedMarketId }
+  });
+
+  // Compute totals like main page
+  const getTotalPool = () => {
+    const pools = [option1Pool || BigInt(0), option2Pool || BigInt(0), option3Pool || BigInt(0), option4Pool || BigInt(0)];
+    const maxOptions = marketData?.maxOptions ? Number(marketData.maxOptions) : 2;
+    const relevant = pools.slice(0, maxOptions);
+    const totalOptions = relevant.reduce((sum, p) => sum + p, BigInt(0));
+    const supportAmt = supportPool || BigInt(0);
+    return totalOptions + supportAmt;
+  };
+
+  const totalParticipants = (stakerCount ? Number(stakerCount) : 0) + (supporterCount ? Number(supporterCount) : 0) + 1;
+
+  // Helper function to get market options
+  const getMarketOptions = () => {
+    if (marketMetadata?.options && Array.isArray(marketMetadata.options)) {
+      return marketMetadata.options;
+    }
+    // Fallback for multi-option markets
+    if (marketData?.isMultiOption) {
+      const maxOpts = marketData?.maxOptions ? Number(marketData.maxOptions) : 4;
+      return ['Option 1', 'Option 2', 'Option 3', 'Option 4'].slice(0, maxOpts);
+    }
+    return ['Yes', 'No'];
+  };
+
+  // Helper function to get winning option text
+  const getWinningOptionText = () => {
+    if (!marketData?.isResolved || !marketData?.winningOption || Number(marketData.winningOption) === 0) {
+      return null;
+    }
+    const options = getMarketOptions();
+    const optionIndex = Number(marketData.winningOption) - 1;
+    return options[optionIndex] || `Option ${marketData.winningOption}`;
+  };
+
   const handleSearch = async () => {
     if (!searchId || isNaN(Number(searchId))) {
       setSearchError('Enter a valid market ID number');
@@ -327,6 +491,21 @@ function MarketSearch({
       
       setMarketData(market);
       setSearchedMarketId(Number(searchId));
+
+      // Resolve creator label via profile API
+      try {
+        const res = await fetch(`/api/profile?address=${market.creator}`);
+        if (res.ok) {
+          const json = await res.json();
+          const profile = json?.profile;
+          const name = profile?.display_name || profile?.username;
+          setCreatorLabel(name || `${market.creator.slice(0, 6)}...${market.creator.slice(-4)}`);
+        } else {
+          setCreatorLabel(`${market.creator.slice(0, 6)}...${market.creator.slice(-4)}`);
+        }
+      } catch {
+        setCreatorLabel(`${market.creator.slice(0, 6)}...${market.creator.slice(-4)}`);
+      }
       
       // Fetch IPFS metadata
       if (market.ipfsHash) {
@@ -572,9 +751,7 @@ function MarketSearch({
 
         {searchedMarketId && marketData && (
           <div className={`w-full max-w-sm border rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg flex flex-col ${
-            isDarkMode 
-              ? 'bg-[#1a1d2e] border-gray-700 hover:shadow-gray-900/50' 
-              : 'bg-white border-gray-200 hover:shadow-gray-900/20'
+            isDarkMode ? 'bg-[#1a1d2e] border-gray-700 hover:shadow-gray-900/50' : 'bg-white border-gray-200 hover:shadow-gray-900/20'
           }`}>
             <div className="p-4 flex flex-col flex-1 min-h-0">
               {/* Header with small image */}
@@ -640,7 +817,19 @@ function MarketSearch({
                 <div className="flex justify-between text-sm">
                 <span className="text-gray-500">Creator:</span>
                 <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {marketData.creator?.slice(0, 6)}...{marketData.creator?.slice(-4)}
+                  {creatorLabel || (marketData.creator?.slice(0, 6) + '...' + marketData.creator?.slice(-4))}
+                </span>
+              </div>
+                <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Participants:</span>
+                <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  {totalParticipants}
+                </span>
+              </div>
+                <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Total Pool:</span>
+                <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  {formatEther(getTotalPool())} {tokenSymbol || 'Token'}
                 </span>
               </div>
                 <div className="flex justify-between text-sm">
@@ -660,6 +849,14 @@ function MarketSearch({
                 <span className="text-gray-500">Total Support:</span>
                 <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                       {formatEther(supportPool)} {tokenSymbol || 'Token'}
+                </span>
+              </div>
+                )}
+                {Number(marketData.state) === 2 && marketData.isResolved && getWinningOptionText() && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Winning Outcome:</span>
+                    <span className={`font-medium px-2 py-1 rounded ${isDarkMode ? 'bg-emerald-900/30 text-emerald-300' : 'bg-emerald-100 text-emerald-700'}`}>
+                      {getWinningOptionText()}
                 </span>
               </div>
                 )}
@@ -738,6 +935,11 @@ function MarketSearch({
               </div>
             </div>
           </div>
+        )}
+
+        {/* Market Participants */}
+        {searchedMarketId && marketData && (
+          <MarketParticipants marketId={searchedMarketId} isDarkMode={isDarkMode} />
         )}
 
         {/* Delete Modal */}
@@ -1097,25 +1299,388 @@ function VerifierManagement({ isDarkMode }: { isDarkMode: boolean }) {
   );
 }
 
+// Token Management Section
+function TokenManagementSection({ isDarkMode }: { isDarkMode: boolean }) {
+  const ADMIN_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_ADMIN_ADDRESS as `0x${string}`;
+  const { address, isConnected } = useAccount();
+  const { disconnect } = useDisconnect();
+  const [tokenAddress, setTokenAddress] = useState('');
+  const [tokenSymbol, setTokenSymbol] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const { writeContract, data: hash, isPending, error: writeError } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
+
+  const { data: supportedTokensData } = useReadContract({
+    address: ADMIN_MANAGER_ADDRESS,
+    abi: [
+      {
+        inputs: [],
+        name: 'getSupportedTokens',
+        outputs: [
+          { name: 'tokens', type: 'address[]' },
+          { name: 'symbols', type: 'string[]' }
+        ],
+        stateMutability: 'view',
+        type: 'function',
+      }
+    ],
+    functionName: 'getSupportedTokens',
+  });
+  const tokens = useMemo(() => (
+    supportedTokensData && supportedTokensData.length === 2
+      ? supportedTokensData[0].map((address: string, idx: number) => ({
+          address: address as `0x${string}`,
+          symbol: supportedTokensData[1][idx],
+          isNative: address === '0x0000000000000000000000000000000000000000'
+        }))
+      : []
+  ), [supportedTokensData]);
+
+  const isValidAddress = (addr: string) => /^0x[a-fA-F0-9]{40}$/.test(addr);
+  const isValidSymbol = (symbol: string) => symbol.length >= 1 && symbol.length <= 10 && /^[A-Z0-9]+$/.test(symbol);
+  const addToken = async () => {
+    if (!isConnected || !address) { setError('Please connect your wallet'); return; }
+    if (!tokenAddress.trim()) { setError('Please enter a token address'); return; }
+    if (!isValidAddress(tokenAddress)) { setError('Please enter a valid token address (0x...)'); return; }
+    if (!tokenSymbol.trim()) { setError('Please enter a token symbol'); return; }
+    if (!isValidSymbol(tokenSymbol)) { setError('Token symbol must be 1-10 uppercase letters/numbers only'); return; }
+    setIsAdding(true); setError(''); setSuccess('');
+    try {
+      await writeContract({
+        address: ADMIN_MANAGER_ADDRESS,
+        abi: [{ inputs: [{ name: 'token', type: 'address' }, { name: 'symbol', type: 'string' }], name: 'addSupportedToken', outputs: [], stateMutability: 'nonpayable', type: 'function' }],
+        functionName: 'addSupportedToken',
+        args: [tokenAddress as `0x${string}`, tokenSymbol.toUpperCase()],
+      });
+    } catch (err: any) {
+      setError(err.message || 'Failed to add token');
+      setIsAdding(false); setSuccess('');
+    }
+  };
+  useEffect(() => { if (isConfirmed) { setSuccess(`Token ${tokenSymbol.toUpperCase()} added successfully!`); setIsAdding(false); setError(''); setTokenAddress(''); setTokenSymbol(''); } }, [isConfirmed, tokenSymbol]);
+  useEffect(() => { if (writeError) { setError(`Transaction failed: ${writeError.message}`); setIsAdding(false); setSuccess(''); } }, [writeError]);
+  useEffect(() => { if (success) { const t = setTimeout(() => setSuccess(''), 5000); return () => clearTimeout(t); } }, [success]);
+
+    return (
+    <div className="w-full">
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className={`rounded-xl border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+          <div className="p-6">
+            <h3 className={`font-semibold text-lg mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Supported Tokens</h3>
+            {tokens.length > 0 ? (
+              <div className="overflow-x-auto rounded">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+                  <thead>
+                    <tr>
+                      <th className="px-3 py-2 text-left whitespace-nowrap">Symbol</th>
+                      <th className="px-3 py-2 text-left whitespace-nowrap">Address</th>
+                      <th className="px-3 py-2 text-left whitespace-nowrap">Type</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tokens.map((t) => (
+                      <tr key={t.address} className={`${isDarkMode ? 'odd:bg-gray-800 even:bg-gray-900' : 'odd:bg-gray-50 even:bg-white'} border-b border-gray-100 dark:border-gray-800`}>
+                        <td className="px-3 py-2 font-medium whitespace-nowrap">{t.symbol}</td>
+                        <td className="px-3 py-2 font-mono text-xs break-all">{t.address}</td>
+                        <td className="px-3 py-2 whitespace-nowrap">{t.isNative ? 'Native' : 'ERC20'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-gray-500 dark:text-gray-400">No supported tokens found.</div>
+            )}
+          </div>
+        </div>
+        <div className={`rounded-xl border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+          <div className="p-6">
+            <h3 className={`font-semibold text-lg mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Add New Token</h3>
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-800 rounded-lg"><div className="flex items-center gap-2"><AlertCircle size={20}/><b>Error</b></div><div className="ml-7 text-sm mt-1">{error}</div></div>
+            )}
+            {success && (
+              <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg"><div className="flex items-center gap-2"><CheckCircle size={20}/><b>Success</b></div><div className="ml-7 text-sm mt-1">{success}</div></div>
+            )}
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2"><div className="flex items-center gap-2"><Hash className="w-4 h-4"/>Token Address</div></label>
+                <input type="text" value={tokenAddress} onChange={(e) => setTokenAddress(e.target.value)} placeholder="0x..." className={`w-full px-3 py-2.5 border rounded-lg focus:border-emerald-500 focus:outline-none text-sm ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500'}`} />
+                <p className="text-xs text-gray-500 mt-1">Enter the contract address of the ERC20 token</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2"><div className="flex items-center gap-2"><Tag className="w-4 h-4"/>Token Symbol</div></label>
+                <input type="text" value={tokenSymbol} onChange={(e) => setTokenSymbol(e.target.value.toUpperCase())} placeholder="USDC" className={`w-full px-3 py-2.5 border rounded-lg focus:border-emerald-500 focus:outline-none text-sm ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500'}`} />
+                <p className="text-xs text-gray-500 mt-1">Enter the token symbol (1-10 uppercase letters/numbers)</p>
+              </div>
+            </div>
+            <div className="pt-4">
+              <button onClick={addToken} disabled={!isConnected || isAdding || isPending || isConfirming} className={`w-full px-6 py-3 font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 ${!isConnected || isAdding || isPending || isConfirming ? 'bg-gray-400 cursor-not-allowed text-gray-200' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}>{(isAdding || isPending || isConfirming) && <Loader2 size={20} className="animate-spin" />}{isAdding ? 'Adding Token...' : isPending ? 'Confirming Transaction...' : isConfirming ? 'Processing...' : 'Add Token'}</button>
+              {!isConnected && <p className="text-sm text-gray-500 mt-2 text-center">Please connect your wallet to add a token</p>}
+            </div>
+            <div className={`mt-6 p-4 rounded-lg border ${isDarkMode ? 'bg-blue-900/20 border-blue-800 text-blue-200' : 'bg-blue-50 border-blue-200 text-blue-800'}`}>
+              <div className="flex items-start gap-3"><Coins className="w-5 h-5 mt-0.5 flex-shrink-0" /><div className="text-sm"><p className="font-medium mb-1">Important Notes:</p><ul className="space-y-1 text-xs"><li>• Only contract owner can add new tokens</li><li>• Token must be a valid ERC20 contract</li><li>• Symbol will be automatically converted to uppercase</li><li>• Once added, tokens can be used for market creation</li></ul></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      </div>
+    );
+  }
+
+// Blacklist Management Component
+function BlacklistManagement({ 
+  isDarkMode, 
+  blacklistAddress, 
+  setBlacklistAddress, 
+  isBlacklisting, 
+  setIsBlacklisting,
+  removeAddress, 
+  setRemoveAddress, 
+  isRemoving, 
+  setIsRemoving,
+  userManagementSuccess,
+  setUserManagementSuccess
+}: { 
+  isDarkMode: boolean;
+  blacklistAddress: string;
+  setBlacklistAddress: (value: string) => void;
+  isBlacklisting: boolean;
+  setIsBlacklisting: (value: boolean) => void;
+  removeAddress: string;
+  setRemoveAddress: (value: string) => void;
+  isRemoving: boolean;
+  setIsRemoving: (value: boolean) => void;
+  userManagementSuccess: string;
+  setUserManagementSuccess: (value: string) => void;
+}) {
+  const ADMIN_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_ADMIN_ADDRESS as `0x${string}`;
+  const { writeContract } = useWriteContract();
+
+  // Fetch blacklisted addresses
+  const { data: blacklistedAddresses, refetch: refetchBlacklist } = useReadContract({
+    address: ADMIN_MANAGER_ADDRESS,
+    abi: ADMIN_MANAGER_ABI,
+    functionName: 'getBlacklistedAddresses',
+  }) as { data: `0x${string}`[] | undefined; refetch: () => void };
+
+  const handleBlacklist = async () => {
+    if (!blacklistAddress.trim()) {
+      alert('Please enter an address');
+      return;
+    }
+
+    if (!ethers.isAddress(blacklistAddress)) {
+      alert('Invalid address format');
+      return;
+    }
+    
+    setIsBlacklisting(true);
+    setUserManagementSuccess('');
+    
+    try {
+      await writeContract({
+        address: ADMIN_MANAGER_ADDRESS,
+        abi: ADMIN_MANAGER_ABI,
+        functionName: 'setWalletBlacklist',
+        args: [blacklistAddress as `0x${string}`, true],
+      });
+      
+      setUserManagementSuccess(`Blacklisting ${blacklistAddress}...`);
+      setBlacklistAddress('');
+      
+      // Refetch after a delay
+      setTimeout(() => {
+        refetchBlacklist();
+        setUserManagementSuccess(`Address ${blacklistAddress} blacklisted successfully`);
+      }, 3000);
+      
+      setTimeout(() => setUserManagementSuccess(''), 8000);
+    } catch (err: any) {
+      console.error('Blacklist error:', err);
+      alert('Failed to blacklist: ' + (err.message || 'Unknown error'));
+      setUserManagementSuccess('');
+    } finally {
+      setIsBlacklisting(false);
+    }
+  };
+
+  const handleRemoveFromBlacklist = async () => {
+    if (!removeAddress.trim()) {
+      alert('Please enter an address');
+      return;
+    }
+
+    if (!ethers.isAddress(removeAddress)) {
+      alert('Invalid address format');
+      return;
+    }
+    
+    setIsRemoving(true);
+    setUserManagementSuccess('');
+    
+    try {
+      await writeContract({
+        address: ADMIN_MANAGER_ADDRESS,
+        abi: ADMIN_MANAGER_ABI,
+        functionName: 'setWalletBlacklist',
+        args: [removeAddress as `0x${string}`, false],
+      });
+      
+      setUserManagementSuccess(`Removing ${removeAddress} from blacklist...`);
+      setRemoveAddress('');
+      
+      // Refetch after a delay
+      setTimeout(() => {
+        refetchBlacklist();
+        setUserManagementSuccess(`Address ${removeAddress} removed from blacklist successfully`);
+      }, 3000);
+      
+      setTimeout(() => setUserManagementSuccess(''), 8000);
+    } catch (err: any) {
+      console.error('Remove blacklist error:', err);
+      alert('Failed to remove from blacklist: ' + (err.message || 'Unknown error'));
+      setUserManagementSuccess('');
+    } finally {
+      setIsRemoving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className={`p-6 rounded-xl border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+        <h2 className={`text-2xl font-bold mb-6 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Blacklist Management</h2>
+        
+        {userManagementSuccess && (
+          <div className={`p-4 rounded-lg border flex items-start gap-3 mb-6 ${
+            isDarkMode ? 'bg-green-900/20 border-green-800 text-green-300' : 'bg-green-50 border-green-200 text-green-800'
+          }`}>
+            <CheckCircle size={20} className="flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold">Success</p>
+              <p className="text-sm">{userManagementSuccess}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Add to Blacklist */}
+        <div className={`p-4 rounded-lg border mb-6 ${isDarkMode ? 'bg-gray-700/50 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+          <h3 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Add to Blacklist</h3>
+          <div className="flex gap-3">
+            <input
+              type="text"
+              value={blacklistAddress}
+              onChange={(e) => setBlacklistAddress(e.target.value)}
+              placeholder="Enter wallet address (0x...)"
+              className={`flex-1 px-4 py-2 border rounded-lg text-sm ${
+                isDarkMode 
+                  ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                  : 'bg-white border-gray-300 text-gray-900'
+              }`}
+      />
+            <button
+              onClick={handleBlacklist}
+              disabled={isBlacklisting || !blacklistAddress.trim()}
+              className={`px-6 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                isBlacklisting || !blacklistAddress.trim()
+                  ? 'bg-gray-600 cursor-not-allowed text-gray-400'
+                  : 'bg-red-600 hover:bg-red-700 text-white'
+              }`}
+            >
+              {isBlacklisting ? 'Blacklisting...' : 'Blacklist'}
+            </button>
+          </div>
+        </div>
+
+        {/* Remove from Blacklist */}
+        <div className={`p-4 rounded-lg border mb-6 ${isDarkMode ? 'bg-gray-700/50 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+          <h3 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Remove from Blacklist</h3>
+          <div className="flex gap-3">
+            <input
+              type="text"
+              value={removeAddress}
+              onChange={(e) => setRemoveAddress(e.target.value)}
+              placeholder="Enter wallet address (0x...)"
+              className={`flex-1 px-4 py-2 border rounded-lg text-sm ${
+                isDarkMode 
+                  ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                  : 'bg-white border-gray-300 text-gray-900'
+              }`}
+            />
+                <button
+              onClick={handleRemoveFromBlacklist}
+              disabled={isRemoving || !removeAddress.trim()}
+              className={`px-6 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                isRemoving || !removeAddress.trim()
+                  ? 'bg-gray-600 cursor-not-allowed text-gray-400'
+                  : 'bg-green-600 hover:bg-green-700 text-white'
+              }`}
+                >
+              {isRemoving ? 'Removing...' : 'Remove'}
+                </button>
+                </div>
+              </div>
+
+        {/* Blacklisted Addresses List */}
+        <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-gray-700/50 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+          <h3 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            Blacklisted Addresses ({blacklistedAddresses?.length || 0})
+          </h3>
+          {blacklistedAddresses && blacklistedAddresses.length > 0 ? (
+            <div className="space-y-2">
+              {blacklistedAddresses.map((address) => (
+                <div
+                  key={address}
+                  className={`flex items-center justify-between p-3 rounded border ${
+                    isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+                  }`}
+                >
+                  <span className={`font-mono text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    {address}
+                    </span>
+                  <button
+                    onClick={() => {
+                      setRemoveAddress(address);
+                      handleRemoveFromBlacklist();
+                    }}
+                    disabled={isRemoving}
+                    className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                      isRemoving
+                        ? 'bg-gray-600 cursor-not-allowed text-gray-400'
+                        : 'bg-green-600 hover:bg-green-700 text-white'
+                    }`}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+                  </div>
+                ) : (
+            <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              No blacklisted addresses
+            </p>
+          )}
+                    </div>
+                  </div>
+    </div>
+  );
+}
+
 // Main Admin Page Component
 export default function AdminPage() {
   const { isDarkMode, toggleTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [activeTab, setActiveTab] = useState<'market' | 'blacklist' | 'verifiers'>('market');
-
-  // User Management State
+  const [activeTab, setActiveTab] = useState<'market' | 'blacklist' | 'verifiers' | 'tokens'>('market');
   const [blacklistAddress, setBlacklistAddress] = useState('');
   const [isBlacklisting, setIsBlacklisting] = useState(false);
   const [removeAddress, setRemoveAddress] = useState('');
   const [isRemoving, setIsRemoving] = useState(false);
   const [userManagementSuccess, setUserManagementSuccess] = useState('');
-
   const { hasAccess, isLoading, isConnected } = useAdminAccess();
   const { address } = useAccount();
-  const ADMIN_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_ADMIN_ADDRESS as `0x${string}`;
-  const marketManagerAddress = process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS as `0x${string}`;
-  const { writeContract } = useWriteContract();
 
   if (isLoading) {
     return (
@@ -1125,160 +1690,54 @@ export default function AdminPage() {
     );
   }
 
-  const onSidebarClose = () => setSidebarOpen(false);
-  const onToggleCollapse = () => setSidebarCollapsed(!sidebarCollapsed);
-
-  const handleBlacklistUser = async () => {
-    if (!blacklistAddress.trim()) return;
-    
-    setIsBlacklisting(true);
-    try {
-      await writeContract({
-        address: ADMIN_MANAGER_ADDRESS,
-        abi: [
-          {
-            "inputs": [{"name": "wallet", "type": "address"}, {"name": "blacklisted", "type": "bool"}],
-            "name": "setWalletBlacklist",
-            "outputs": [],
-            "stateMutability": "nonpayable",
-            "type": "function"
-          }
-        ],
-        functionName: 'setWalletBlacklist',
-        args: [blacklistAddress as `0x${string}`, true]
-      });
-      
-      setUserManagementSuccess(`User ${blacklistAddress.slice(0, 6)}...${blacklistAddress.slice(-4)} blacklisted successfully`);
-      setBlacklistAddress('');
-      setTimeout(() => setUserManagementSuccess(''), 5000);
-      
-    } catch (err: any) {
-      console.error('Blacklist failed:', err);
-    } finally {
-      setIsBlacklisting(false);
-    }
-  };
-
-  const handleRemoveUser = async () => {
-    if (!removeAddress.trim()) return;
-    
-    setIsRemoving(true);
-    try {
-      await writeContract({
-        address: marketManagerAddress,
-        abi: [
-          {
-            "inputs": [{"name": "user", "type": "address"}],
-            "name": "removeUser",
-            "outputs": [],
-            "stateMutability": "nonpayable",
-            "type": "function"
-          }
-        ],
-        functionName: 'removeUser',
-        args: [removeAddress as `0x${string}`]
-      });
-      
-      setUserManagementSuccess(`User ${removeAddress.slice(0, 6)}...${removeAddress.slice(-4)} removed successfully`);
-      setRemoveAddress('');
-      setTimeout(() => setUserManagementSuccess(''), 5000);
-      
-    } catch (err: any) {
-      console.error('Remove failed:', err);
-    } finally {
-      setIsRemoving(false);
-    }
-  };
-
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
       <Sidebar 
         isOpen={sidebarOpen} 
-        onClose={onSidebarClose} 
+        onClose={() => setSidebarOpen(false)}
         collapsed={sidebarCollapsed}
-        onToggleCollapse={onToggleCollapse}
+        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         isDarkMode={isDarkMode}
       />
-      
       <div className={`transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'}`}>
-        {/* Header */}
         <div className={`sticky top-0 z-40 border-b ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
-          <div className="px-4 sm:px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 sm:gap-4">
-                <button
-                  onClick={() => setSidebarOpen(true)}
-                  className={`lg:hidden p-2 rounded-lg ${isDarkMode ? 'bg-gray-800 text-white hover:bg-gray-700' : 'bg-white text-gray-900 hover:bg-gray-50'} shadow-sm transition-colors`}
-                >
-                  <Menu size={20} />
-                </button>
-                <div className="min-w-0 flex-1">
-                  <h1 className={`text-lg sm:text-2xl font-bold truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                    Admin Panel
-                  </h1>
-                  <p className={`text-xs sm:text-sm hidden sm:block ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                    Manage markets, users, and platform settings
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 sm:gap-4">
-                {isConnected ? (
-                  <div className="flex items-center gap-1 sm:gap-2">
-                    <Wallet size={16} className="text-emerald-500" />
-                    <span className={`font-mono text-xs sm:text-sm hidden sm:inline ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
-                      {address?.slice(0, 6)}...{address?.slice(-4)}
-                    </span>
-                    <span className={`font-mono text-xs sm:hidden ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
-                      {address?.slice(0, 4)}...{address?.slice(-2)}
-                    </span>
+          <div className="px-4 sm:px-6 py-4 flex items-center justify-between">
+            <h1 className={`text-xl sm:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Admin Panel</h1>
+            <div className="flex items-center gap-3">
+              <ConnectButton.Custom>
+                {({ account, chain, openConnectModal, mounted }) => {
+                  const ready = mounted && account && chain;
+                  return ready ? (
+                    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium ${isDarkMode ? 'bg-emerald-600/10 text-emerald-400 border border-emerald-600/20' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>
+                      <Wallet size={14} className="text-emerald-500" />
+                      <span className="font-mono">{account?.address?.slice(0, 6)}...{account?.address?.slice(-4)}</span>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-1 sm:gap-2">
-                    <Wallet size={16} className="text-gray-400" />
-                    <div className="scale-90 sm:scale-100">
-                      <ConnectButton />
-                    </div>
-                  </div>
-                )}
                 <button
-                  onClick={toggleTheme}
-                  className={`p-2 rounded-lg transition-colors ${
-                    isDarkMode 
-                      ? 'hover:bg-gray-800 text-gray-300' 
-                      : 'hover:bg-gray-100 text-gray-700'
-                  }`}
+                      onClick={openConnectModal}
+                      className="px-4 py-2 rounded-lg text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white"
                 >
-                  {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+                      Connect
                 </button>
+                  );
+                }}
+              </ConnectButton.Custom>
+              <button onClick={toggleTheme} className={`px-3 py-2 rounded-lg text-sm ${isDarkMode ? 'bg-gray-700 text-white' : 'bg-gray-200 text-gray-900'}`}>{isDarkMode ? 'Light Mode' : 'Dark Mode'}</button>
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Main Content */}
         <div className="p-4 sm:p-6">
+          <div className="max-w-6xl mx-auto">
           {!isConnected ? (
             <div className={`p-4 sm:p-8 rounded-xl border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-              <h2 className={`text-lg sm:text-2xl font-bold mb-3 sm:mb-4 text-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                Connect Wallet Required
-              </h2>
-              <p className={`text-center mb-4 sm:mb-6 text-sm sm:text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                Please connect your wallet to access the admin panel.
-              </p>
-              <div className="flex justify-center">
-                <div className="scale-90 sm:scale-100">
-                  <ConnectButton />
-                </div>
-              </div>
+                <h2 className={`text-lg sm:text-2xl font-bold mb-3 sm:mb-4 text-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Connect Wallet Required</h2>
+                <p className={`text-center mb-4 sm:mb-6 text-sm sm:text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Please connect your wallet to access the admin panel.</p>
+                <div className="flex justify-center"><div className="scale-90 sm:scale-100"><ConnectButton /></div></div>
             </div>
           ) : !hasAccess ? (
             <div className={`p-4 sm:p-8 rounded-xl border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-              <h2 className={`text-lg sm:text-2xl font-bold mb-3 sm:mb-4 text-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                Access Denied
-              </h2>
-              <p className={`text-center mb-3 sm:mb-4 text-sm sm:text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                You don't have permission to access the admin panel.
-              </p>
+                <h2 className={`text-lg sm:text-2xl font-bold mb-3 sm:mb-4 text-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Access Denied</h2>
+                <p className={`text-center mb-3 sm:mb-4 text-sm sm:text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>You don't have permission to access the admin panel.</p>
               <div className={`text-center text-xs sm:text-sm ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>
                 <p>Owner: {process.env.NEXT_PUBLIC_OWNER_ADDRESS?.slice(0, 6)}...{process.env.NEXT_PUBLIC_OWNER_ADDRESS?.slice(-4)}</p>
                 <p>Partner: {process.env.NEXT_PUBLIC_PARTNER_ADDRESS?.slice(0, 6)}...{process.env.NEXT_PUBLIC_PARTNER_ADDRESS?.slice(-4)}</p>
@@ -1287,36 +1746,16 @@ export default function AdminPage() {
             </div>
           ) : (
             <>
-              {/* Tab Navigation */}
               <div className={`flex gap-1 p-1 rounded-lg mb-4 sm:mb-6 ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'}`}>
                 {[
                   { id: 'market', label: 'Market Management' },
+                    { id: 'tokens', label: 'Token Management' },
                   { id: 'blacklist', label: 'Blacklist Management' },
                   { id: 'verifiers', label: 'Verifier Management' }
                 ].map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id as any)}
-                    className={`px-2 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors flex-1 sm:flex-none ${
-                      activeTab === tab.id
-                        ? isDarkMode
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-white text-blue-600 shadow-sm'
-                        : isDarkMode
-                          ? 'text-gray-400 hover:text-white'
-                          : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    <span className="hidden sm:inline">{tab.label}</span>
-                    <span className="sm:hidden">
-                      {tab.id === 'market' ? 'Market' : 
-                       tab.id === 'blacklist' ? 'Users' : 'Verifiers'}
-                    </span>
-                  </button>
+                    <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`px-2 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors flex-1 sm:flex-none ${activeTab === tab.id ? (isDarkMode ? 'bg-blue-600 text-white' : 'bg-white text-blue-600 shadow-sm') : (isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900')}`}> <span className="hidden sm:inline">{tab.label}</span><span className="sm:hidden">{tab.id === 'market' ? 'Market' : tab.id === 'blacklist' ? 'Users' : tab.id === 'verifiers' ? 'Verifiers' : 'Tokens'}</span> </button>
                 ))}
               </div>
-
-              {/* Tab Content */}
               <div className="space-y-6">
                 {activeTab === 'market' && (
                   <MarketSearch 
@@ -1328,102 +1767,378 @@ export default function AdminPage() {
                     setRemoveAddress={setRemoveAddress}
                     isRemoving={isRemoving}
                     userManagementSuccess={userManagementSuccess}
-                    handleBlacklistUser={handleBlacklistUser}
-                    handleRemoveUser={handleRemoveUser}
+                      handleBlacklistUser={() => setIsBlacklisting(true)}
+                      handleRemoveUser={() => setIsRemoving(true)}
                   />
                 )}
+                  {activeTab === 'tokens' && (<TokenManagementSection isDarkMode={isDarkMode} />)}
                 {activeTab === 'blacklist' && (
-                  <div className={`p-6 rounded-xl border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-                    <h2 className={`text-2xl font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                      User Management
-                    </h2>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Blacklist User */}
-                      <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
-                        <h3 className={`text-lg font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                          Blacklist User
-                        </h3>
-                        <div className="space-y-3">
-                          <input
-                            type="text"
-                            value={blacklistAddress}
-                            onChange={(e) => setBlacklistAddress(e.target.value)}
-                            placeholder="Enter wallet address to blacklist"
-                            className={`w-full px-3 py-2 border rounded-lg text-sm ${
-                              isDarkMode 
-                                ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-400' 
-                                : 'bg-white border-gray-300 text-gray-900'
-                            }`}
-                          />
-                          <button
-                            onClick={handleBlacklistUser}
-                            disabled={!blacklistAddress.trim() || isBlacklisting}
-                            className={`w-full px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                              !blacklistAddress.trim() || isBlacklisting
-                                ? 'bg-gray-600 cursor-not-allowed text-gray-400'
-                                : 'bg-red-600 hover:bg-red-700 text-white'
-                            }`}
-                          >
-                            {isBlacklisting ? 'Blacklisting...' : 'Blacklist User'}
-                          </button>
+                  <BlacklistManagement 
+                    isDarkMode={isDarkMode}
+                    blacklistAddress={blacklistAddress}
+                    setBlacklistAddress={setBlacklistAddress}
+                    isBlacklisting={isBlacklisting}
+                    setIsBlacklisting={setIsBlacklisting}
+                    removeAddress={removeAddress}
+                    setRemoveAddress={setRemoveAddress}
+                    isRemoving={isRemoving}
+                    setIsRemoving={setIsRemoving}
+                    userManagementSuccess={userManagementSuccess}
+                    setUserManagementSuccess={setUserManagementSuccess}
+                  />
+                )}
+                  {activeTab === 'verifiers' && (<VerifierManagement isDarkMode={isDarkMode} />)}
                         </div>
+              </>
+            )}
                       </div>
-
-                      {/* Remove User */}
-                      <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
-                        <h3 className={`text-lg font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                          Remove User
-                        </h3>
-                        <div className="space-y-3">
-                          <input
-                            type="text"
-                            value={removeAddress}
-                            onChange={(e) => setRemoveAddress(e.target.value)}
-                            placeholder="Enter wallet address to remove"
-                            className={`w-full px-3 py-2 border rounded-lg text-sm ${
-                              isDarkMode 
-                                ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-400' 
-                                : 'bg-white border-gray-300 text-gray-900'
-                            }`}
-                          />
-                          <button
-                            onClick={handleRemoveUser}
-                            disabled={!removeAddress.trim() || isRemoving}
-                            className={`w-full px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                              !removeAddress.trim() || isRemoving
-                                ? 'bg-gray-600 cursor-not-allowed text-gray-400'
-                                : 'bg-orange-600 hover:bg-orange-700 text-white'
-                            }`}
-                          >
-                            {isRemoving ? 'Removing...' : 'Remove User'}
-                          </button>
                         </div>
                       </div>
                     </div>
+  );
+}
 
-                    {/* Success Message */}
-                    {userManagementSuccess && (
-                      <div className={`p-4 rounded-lg border flex items-start gap-3 mt-6 ${
-                        isDarkMode ? 'bg-green-900/20 border-green-800 text-green-300' : 'bg-green-50 border-green-200 text-green-800'
-                      }`}>
-                        <CheckCircle size={20} className="flex-shrink-0 mt-0.5" />
-                        <div>
-                          <p className="font-semibold">Success</p>
-                          <p className="text-sm">{userManagementSuccess}</p>
-                        </div>
-                      </div>
-                    )}
+function MarketParticipants({ marketId, isDarkMode }: { marketId: number; isDarkMode: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [participants, setParticipants] = useState<{stakers: `0x${string}`[], supporters: `0x${string}`[], creator?: `0x${string}`, paymentToken?: `0x${string}`, tokenSymbol?: string}>({stakers: [], supporters: []});
+  const [loading, setLoading] = useState(false);
+  const [marketMetadata, setMarketMetadata] = useState<any>(null);
+  const [loadingMetadata, setLoadingMetadata] = useState(false);
+
+  // Get stakers directly - more reliable than getMarketInfo arrays
+  const { data: directStakers } = useReadContract({
+    address: process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS as `0x${string}`,
+    abi: [
+      {
+        inputs: [{ name: 'marketId', type: 'uint256' }],
+        name: 'getMarketStakers',
+        outputs: [{ name: '', type: 'address[]' }],
+        stateMutability: 'view',
+        type: 'function',
+      }
+    ],
+    functionName: 'getMarketStakers',
+    args: [BigInt(marketId)],
+    query: { enabled: open }
+  });
+
+  // Get supporters - check if there's a similar function, otherwise use getMarketInfo
+  const { data: supporterCount } = useReadContract({
+    address: process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS as `0x${string}`,
+    abi: [
+      {
+        inputs: [{ name: 'marketId', type: 'uint256' }],
+        name: 'getSupporterCount',
+        outputs: [{ name: '', type: 'uint256' }],
+        stateMutability: 'view',
+        type: 'function',
+      }
+    ],
+    functionName: 'getSupporterCount',
+    args: [BigInt(marketId)],
+    query: { enabled: open }
+  });
+
+  const { data } = useReadContract({
+    address: process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS as `0x${string}`,
+    abi: [
+      {
+        inputs: [{ name: 'marketId', type: 'uint256' }],
+        name: 'getMarketInfo',
+        outputs: [
+          {
+            components: [
+              { name: 'creator', type: 'address' },
+              { name: 'ipfsHash', type: 'string' },
+              { name: 'isMultiOption', type: 'bool' },
+              { name: 'maxOptions', type: 'uint256' },
+              { name: 'paymentToken', type: 'address' },
+              { name: 'minStake', type: 'uint256' },
+              { name: 'creatorDeposit', type: 'uint256' },
+              { name: 'creatorOutcome', type: 'uint256' },
+              { name: 'startTime', type: 'uint256' },
+              { name: 'stakeEndTime', type: 'uint256' },
+              { name: 'endTime', type: 'uint256' },
+              { name: 'resolutionEndTime', type: 'uint256' },
+              { name: 'state', type: 'uint8' },
+              { name: 'winningOption', type: 'uint256' },
+              { name: 'isResolved', type: 'bool' }
+            ],
+            name: 'market',
+            type: 'tuple'
+          },
+          { name: 'totalPool', type: 'uint256' },
+          { name: 'supportPool', type: 'uint256' },
+          { name: 'stakerCount', type: 'uint256' },
+          { name: 'supporterCount', type: 'uint256' },
+          { name: 'stakers', type: 'address[]' },
+          { name: 'supporters', type: 'address[]' },
+          { name: 'tokenSymbol', type: 'string' },
+        ],
+        stateMutability: 'view',
+        type: 'function',
+      }
+    ],
+    functionName: 'getMarketInfo',
+    args: [BigInt(marketId)],
+    query: { enabled: open }
+  });
+
+  useEffect(() => {
+    setParticipants({stakers: [], supporters: []});
+    setOpen(false);
+    setMarketMetadata(null);
+  }, [marketId]);
+
+  // Fetch market metadata for options
+  useEffect(() => {
+    if (open && data && !marketMetadata && !loadingMetadata) {
+      const marketData = data[0] as any;
+      if (marketData?.ipfsHash) {
+        setLoadingMetadata(true);
+        const fetchMetadata = async () => {
+          try {
+            const response = await fetch(`https://gateway.lighthouse.storage/ipfs/${marketData.ipfsHash}`);
+            if (response.ok) {
+              const metadata = await response.json();
+              setMarketMetadata(metadata);
+            }
+          } catch (error) {
+            console.error('Error fetching IPFS metadata:', error);
+          } finally {
+            setLoadingMetadata(false);
+          }
+        };
+        fetchMetadata();
+      }
+    }
+  }, [open, data, marketMetadata, loadingMetadata]);
+
+  // Helper to get market options
+  const getMarketOptions = () => {
+    if (marketMetadata?.options && Array.isArray(marketMetadata.options)) {
+      return marketMetadata.options;
+    }
+    // Get from market data if available
+    const marketData = data?.[0] as any;
+    if (marketData?.isMultiOption) {
+      const maxOpts = marketData?.maxOptions ? Number(marketData.maxOptions) : 4;
+      return ['Option 1', 'Option 2', 'Option 3', 'Option 4'].slice(0, maxOpts);
+    }
+    return ['Yes', 'No'];
+  };
+  useEffect(() => {
+    if (data && directStakers !== undefined) {
+      const marketData = data[0] as any;
+      const paymentToken = (marketData?.paymentToken || '0x0000000000000000000000000000000000000000') as `0x${string}`;
+      const creator = marketData?.creator ? (marketData.creator.toLowerCase() as `0x${string}`) : undefined;
+      
+      // Use direct stakers call - more reliable
+      const allStakers = Array.isArray(directStakers) 
+        ? directStakers
+            .filter((addr): addr is string => typeof addr === 'string' && addr.length === 42)
+            .map((addr: string) => addr.toLowerCase() as `0x${string}`)
+        : [];
+      
+      // Get supporters from getMarketInfo (no direct function available)
+      let supportersArray: any[] = [];
+      if (Array.isArray(data[6])) {
+        supportersArray = data[6];
+      }
+      
+      const allSupporters = supportersArray
+        .filter((addr): addr is string => typeof addr === 'string' && addr.length === 42)
+        .map((addr: string) => addr.toLowerCase() as `0x${string}`);
+      
+      setParticipants({
+        stakers: allStakers,
+        supporters: allSupporters,
+        creator: creator,
+        paymentToken: paymentToken.toLowerCase() as `0x${string}`,
+        tokenSymbol: data[7] || 'Token'
+      });
+      setLoading(false);
+    } else if (open && !data && directStakers === undefined) {
+      setLoading(true);
+    }
+  }, [data, directStakers, open, supporterCount]);
+
+  return (
+    <div className="w-full mt-4">
+      <button onClick={() => setOpen(v => !v)} className={`w-full flex items-center justify-between rounded-md px-3 py-2 border font-medium transition-colors ${open ? (isDarkMode ? 'bg-emerald-900/30 border-emerald-600 text-emerald-300' : 'bg-green-50 border-green-400 text-green-800') : (isDarkMode ? 'bg-gray-700 border-gray-700 text-gray-300' : 'bg-gray-100 border-gray-200 text-gray-700')}`}>
+        <span>{open ? 'Hide Participants' : 'Show Participants'}</span>
+        <svg className={`w-4 h-4 ml-2 transform transition-transform duration-150 ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+      </button>
+      {open && (
+        <div className={`mt-3 p-3 rounded border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+          {loading && <div className="text-sm text-gray-400">Loading...</div>}
+          {!loading && participants.stakers.length === 0 && participants.supporters.length === 0 && !participants.creator && <div className="text-sm text-gray-400">No participants found.</div>}
+          {!loading && (participants.stakers.length > 0 || participants.supporters.length > 0 || participants.creator) && (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-xs border rounded">
+                <thead>
+                  <tr>
+                    <th className="px-2 py-1 text-left">Address</th>
+                    <th className="px-2 py-1 text-left">Role</th>
+                    <th className="px-2 py-1 text-left">Option</th>
+                    <th className="px-2 py-1 text-left">Amount ({participants.tokenSymbol || 'Token'})</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {participants.creator && (
+                    <ParticipantRow
+                      key={`creator-${participants.creator}`}
+                      marketId={marketId}
+                      userAddress={participants.creator}
+                      paymentToken={participants.paymentToken || '0x0000000000000000000000000000000000000000' as `0x${string}`}
+                      isDarkMode={isDarkMode}
+                      isSupporter={false}
+                      isCreator={true}
+                      marketData={data?.[0]}
+                      marketOptions={getMarketOptions()}
+                    />
+                  )}
+                  {participants.stakers.map((addr) => (
+                    <ParticipantRow
+                      key={`staker-${addr}`}
+                      marketId={marketId}
+                      userAddress={addr}
+                      paymentToken={participants.paymentToken || '0x0000000000000000000000000000000000000000' as `0x${string}`}
+                      isDarkMode={isDarkMode}
+                      isSupporter={false}
+                      isCreator={false}
+                      marketOptions={getMarketOptions()}
+                    />
+                  ))}
+                  {participants.supporters.map((addr) => (
+                    <ParticipantRow
+                      key={`supporter-${addr}`}
+                      marketId={marketId}
+                      userAddress={addr}
+                      paymentToken={participants.paymentToken || '0x0000000000000000000000000000000000000000' as `0x${string}`}
+                      isDarkMode={isDarkMode}
+                      isSupporter={true}
+                      isCreator={false}
+                      marketOptions={getMarketOptions()}
+                    />
+                  ))}
+                </tbody>
+              </table>
                   </div>
                 )}
-                {activeTab === 'verifiers' && (
-                  <VerifierManagement isDarkMode={isDarkMode} />
-                )}
               </div>
-            </>
           )}
-        </div>
-      </div>
     </div>
+  );
+}
+
+// Responsible for showing address/option/amount for a single address
+function ParticipantRow({ marketId, userAddress, paymentToken, isDarkMode, isSupporter = false, isCreator = false, marketData, marketOptions = ['Yes', 'No'] }: { marketId: number, userAddress: `0x${string}`, paymentToken: `0x${string}`, isDarkMode: boolean, isSupporter?: boolean, isCreator?: boolean, marketData?: any, marketOptions?: string[] }) {
+  const MARKET_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS as `0x${string}`;
+  const TREASURY_ADDRESS = process.env.NEXT_PUBLIC_P2P_TREASURY_ADDRESS as `0x${string}`;
+  
+  const { data: option, isLoading: loadingOption } = useReadContract({
+    address: MARKET_MANAGER_ADDRESS,
+    abi: [
+      {
+        inputs: [ { name: 'marketId', type: 'uint256' }, { name: 'user', type: 'address' } ],
+        name: 'userStakeOptions',
+        outputs: [ { name: '', type: 'uint256' } ],
+        stateMutability: 'view',
+        type: 'function',
+      },
+    ],
+    functionName: 'userStakeOptions',
+    args: [BigInt(marketId), userAddress],
+    query: { enabled: !isSupporter && !!userAddress && !!marketId }
+  });
+
+  const { data: stakeAmount, isLoading: loadingStake } = useReadContract({
+    address: TREASURY_ADDRESS,
+    abi: [
+      {
+        inputs: [ { name: 'marketId', type: 'uint256' }, { name: 'user', type: 'address' }, { name: 'token', type: 'address' } ],
+        name: 'getUserStake',
+        outputs: [ { name: '', type: 'uint256' } ],
+        stateMutability: 'view',
+        type: 'function',
+      },
+    ],
+    functionName: 'getUserStake',
+    args: [BigInt(marketId), userAddress, paymentToken],
+    query: { enabled: !isSupporter && !!userAddress && !!marketId && !!paymentToken }
+  });
+
+  const { data: supportAmount, isLoading: loadingSupport } = useReadContract({
+    address: TREASURY_ADDRESS,
+    abi: [
+      {
+        inputs: [ { name: 'marketId', type: 'uint256' }, { name: 'user', type: 'address' }, { name: 'token', type: 'address' } ],
+        name: 'getUserSupport',
+        outputs: [ { name: '', type: 'uint256' } ],
+        stateMutability: 'view',
+        type: 'function',
+      },
+    ],
+    functionName: 'getUserSupport',
+    args: [BigInt(marketId), userAddress, paymentToken],
+    query: { enabled: isSupporter && !!userAddress && !!marketId && !!paymentToken }
+  });
+
+  const amount = isSupporter ? supportAmount : stakeAmount;
+  const loadingAmount = isSupporter ? loadingSupport : loadingStake;
+
+
+  return (
+    <tr>
+      <td className="font-mono px-2 py-1 flex items-center gap-2">
+        {userAddress.slice(0, 6)}...{userAddress.slice(-4)}
+        <button 
+          onClick={() => navigator.clipboard.writeText(userAddress)} 
+          className="ml-1 px-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
+        >
+          Copy
+        </button>
+      </td>
+      <td className="px-2 py-1">
+        {isCreator ? (
+          <span className={`text-xs px-1.5 py-0.5 rounded ${isDarkMode ? 'bg-purple-900/30 text-purple-300' : 'bg-purple-100 text-purple-700'}`}>Creator</span>
+        ) : isSupporter ? (
+          <span className={`text-xs px-1.5 py-0.5 rounded ${isDarkMode ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-100 text-blue-700'}`}>Supporter</span>
+        ) : (
+          <span className={`text-xs px-1.5 py-0.5 rounded ${isDarkMode ? 'bg-green-900/30 text-green-300' : 'bg-green-100 text-green-700'}`}>Staker</span>
+        )}
+      </td>
+      <td className="px-2 py-1">
+        {isCreator ? (
+          marketData?.creatorOutcome ? (() => {
+            const optionIndex = Number(marketData.creatorOutcome) - 1;
+            return marketOptions[optionIndex] || `Option ${marketData.creatorOutcome}`;
+          })() : '-'
+        ) : isSupporter ? (
+          <span className="text-gray-400">-</span>
+        ) : loadingOption ? (
+          <span className="text-gray-400 text-xs">Loading...</span>
+        ) : option !== undefined && option !== null && Number(option) > 0 ? (
+          (() => {
+            const optionIndex = Number(option) - 1;
+            return marketOptions[optionIndex] || `Option ${option}`;
+          })()
+        ) : (
+          '-'
+        )}
+      </td>
+      <td className="px-2 py-1">
+        {isCreator ? (
+          marketData?.creatorDeposit ? formatEther(marketData.creatorDeposit) : '0'
+        ) : loadingAmount ? (
+          <span className="text-gray-400 text-xs">Loading...</span>
+        ) : amount !== undefined && amount !== null && amount > BigInt(0) ? (
+          formatEther(amount)
+        ) : (
+          '0'
+        )}
+      </td>
+    </tr>
   );
 }

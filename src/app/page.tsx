@@ -807,63 +807,6 @@ export default function HomePage() {
             </div>
           )}
 
-           <div className={`flex items-center justify-between p-2 lg:p-3 rounded-lg border mb-4 lg:mb-6 ${
-             isDarkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50 border-gray-200'
-           }`}>
-            <div className="flex items-center gap-3 lg:gap-6">
-              <div className="flex items-center gap-1 lg:gap-2">
-                <div className={`w-1.5 h-1.5 lg:w-2 lg:h-2 rounded-full ${isDarkMode ? 'bg-green-400' : 'bg-green-500'}`}></div>
-                <span className={`text-xs lg:text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  {availableActiveMarkets.length} Available
-                </span>
-              </div>
-              
-              <ClientOnly>
-                {isConnected && address && userStakedMarkets.size > 0 && (
-                  <>
-                    <div className={`w-px h-3 lg:h-4 ${isDarkMode ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
-                    <div className="flex items-center gap-1 lg:gap-2">
-                      <Target size={12} className={`lg:w-3.5 lg:h-3.5 ${isDarkMode ? 'text-blue-400' : 'text-blue-500'}`} />
-                      <span className={`text-xs lg:text-sm ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>
-                        {userStakedMarkets.size} Staked
-                      </span>
-                    </div>
-                  </>
-                )}
-              </ClientOnly>
-              
-              <ClientOnly>
-                {isConnected && address && (
-                  <>
-                    <div className={`w-px h-3 lg:h-4 ${isDarkMode ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
-                    <div className="flex items-center gap-1 lg:gap-2">
-                      <Users size={12} className={`lg:w-3.5 lg:h-3.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
-                      <span className={`text-xs lg:text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                        {totalParticipants || 0} Participants
-                      </span>
-                    </div>
-                    
-                    <div className={`w-px h-3 lg:h-4 ${isDarkMode ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
-                    <div className="flex items-center gap-1 lg:gap-2">
-                      <TrendingUp size={12} className={`lg:w-3.5 lg:h-3.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
-                      <span className={`text-xs lg:text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                        {totalVolume || '0'} PEPU Volume
-                      </span>
-                    </div>
-                  </>
-                )}
-              </ClientOnly>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <div className={`px-1.5 lg:px-2 py-0.5 lg:py-1 rounded text-xs font-medium ${
-                isDarkMode ? 'bg-emerald-900/30 text-emerald-400' : 'bg-emerald-100 text-emerald-700'
-              }`}>
-                Live
-              </div>
-            </div>
-          </div>
-
           {loadingMarkets ? (
             <div className="text-center py-16">
               <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${

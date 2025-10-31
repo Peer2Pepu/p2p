@@ -382,6 +382,56 @@ function MarketResolutionCard({ marketId, isDarkMode, onVote }: {
         </div>
       </div>
 
+      {/* Description and Vanity Info Section */}
+      {(marketMetadata?.description || marketMetadata?.vanityInfo) && (
+        <div className={`p-4 border-b ${isDarkMode ? 'border-gray-700 bg-gray-800/50' : 'border-gray-200 bg-gray-50'}`}>
+          {marketMetadata?.description && (
+            <div className="mb-3">
+              <h4 className={`text-xs font-semibold mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                Description
+              </h4>
+              <p className={`text-xs leading-relaxed ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                {marketMetadata.description}
+              </p>
+            </div>
+          )}
+          {marketMetadata?.vanityInfo && (
+            <div>
+              <h4 className={`text-xs font-semibold mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                Resources & Links
+              </h4>
+              <div className={`text-xs leading-relaxed whitespace-pre-wrap ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                {marketMetadata.vanityInfo.split('\n').map((line: string, idx: number) => {
+                  // Check if line is a URL
+                  const urlPattern = /(https?:\/\/[^\s]+)/g;
+                  const parts = line.split(urlPattern);
+                  return (
+                    <div key={idx}>
+                      {parts.map((part, partIdx) => {
+                        if (urlPattern.test(part)) {
+                          return (
+                            <a
+                              key={partIdx}
+                              href={part}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={`underline hover:opacity-80 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}
+                            >
+                              {part}
+                            </a>
+                          );
+                        }
+                        return <span key={partIdx}>{part}</span>;
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Voting Section */}
       <div className="p-4">
         <div className="grid gap-2">

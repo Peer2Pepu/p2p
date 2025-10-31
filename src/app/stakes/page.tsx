@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Receipt,
   Clock,
@@ -89,6 +89,13 @@ const MARKET_MANAGER_ABI = [
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
+  },
+  {
+    "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "user", "type": "address"}],
+    "name": "calculateWinnings",
+    "outputs": [{"name": "", "type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
   }
 ];
 
@@ -127,11 +134,12 @@ const TREASURY_ABI = [
 ];
 
 // Stakes Card Component
-function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate }: {
+function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate, onStatusUpdate }: {
   marketId: number;
   userAddress: `0x${string}`;
   isDarkMode: boolean;
   onClaimableUpdate: (marketId: number, canClaim: boolean) => void;
+  onStatusUpdate?: (marketId: number, marketData: any, hasClaimed: boolean, userStakeOption: number, isWinningStake: boolean) => void;
 }) {
   const MARKET_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS as `0x${string}`;
   const TREASURY_ADDRESS = process.env.NEXT_PUBLIC_P2P_TREASURY_ADDRESS as `0x${string}`;
@@ -166,6 +174,17 @@ function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate }: {
     functionName: 'hasUserClaimed',
     args: [BigInt(marketId), userAddress],
   });
+
+  // Calculate user winnings for resolved markets (only works if user staked and hasn't claimed)
+  const { data: userWinnings } = useReadContract({
+    address: MARKET_MANAGER_ADDRESS,
+    abi: MARKET_MANAGER_ABI,
+    functionName: 'calculateWinnings',
+    args: [BigInt(marketId), userAddress],
+    query: {
+      enabled: !!market && !!userStakeAmount && userStakeAmount !== BigInt(0) && (market as any)?.state === 2 && (market as any)?.isResolved && hasClaimed === false
+    }
+  }) as { data: bigint | undefined };
 
   // Get user's stake option
   const { data: userStakeOption } = useReadContract({
@@ -239,13 +258,29 @@ function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate }: {
 
   const isWinningStake = userStakeOption && marketData?.winningOption ? Number(userStakeOption) === Number(marketData.winningOption) : false;
   const canClaim = isWinningStake && !hasClaimed;
+  
+  // Track previous canClaim value to avoid unnecessary updates
+  const prevCanClaimRef = useRef<boolean | null>(null);
 
   // Update claimable count when canClaim changes
   useEffect(() => {
     if (market && userStakeAmount && userStakeAmount !== BigInt(0) && onClaimableUpdate) {
-      onClaimableUpdate(marketId, canClaim);
+      // Only update if canClaim value actually changed
+      if (prevCanClaimRef.current !== canClaim) {
+        prevCanClaimRef.current = canClaim;
+        onClaimableUpdate(marketId, canClaim);
+      }
     }
-  }, [market, userStakeAmount, userStakeOption, hasClaimed, canClaim, onClaimableUpdate, marketId]);
+  }, [market, userStakeAmount, userStakeOption, hasClaimed, canClaim, marketId, onClaimableUpdate]);
+
+  // Update category when market data changes
+  useEffect(() => {
+    // Only update when we have both marketData and hasClaimed value (not undefined) and userStakeOption
+    if (marketData && hasClaimed !== undefined && userStakeOption !== undefined && onStatusUpdate) {
+      const isWinningStake = marketData?.winningOption ? Number(userStakeOption) === Number(marketData.winningOption) : false;
+      onStatusUpdate(marketId, marketData, hasClaimed as boolean, Number(userStakeOption), isWinningStake);
+    }
+  }, [marketData, hasClaimed, userStakeOption, marketId, onStatusUpdate]);
 
   // Early return after all hooks have been called
   if (!market || !userStakeAmount || userStakeAmount === BigInt(0)) {
@@ -262,6 +297,14 @@ function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate }: {
     if (loadingMetadata) return 'Loading...';
     if (marketMetadata?.title) return marketMetadata.title;
     return `Market #${marketId}`;
+  };
+
+  const getMarketImage = () => {
+    if (loadingMetadata) return null;
+    if (marketMetadata?.imageUrl) {
+      return marketMetadata.imageUrl;
+    }
+    return null;
   };
 
   const getMarketOptions = () => {
@@ -326,128 +369,129 @@ function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate }: {
   };
 
   return (
-    <div className={`border rounded-lg p-4 transition-all duration-200 hover:shadow-md ${
+    <div className={`border rounded-lg p-2.5 transition-all duration-200 hover:shadow-md ${
       isDarkMode ? 'bg-gray-800 border-gray-700 hover:shadow-gray-900/20' : 'bg-white border-gray-200 hover:shadow-gray-900/10'
     }`}>
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex-1 min-w-0 pr-4">
-          <h3 className={`font-semibold text-base ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-            {getMarketTitle()}
-          </h3>
-          <div className="flex items-center gap-2 mt-1">
-            <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+      <div className="flex items-start justify-between mb-2">
+        <div className="flex-1 min-w-0 pr-2">
+          <div className="flex items-center gap-2 mb-0.5">
+            {getMarketImage() && (
+              <div className="flex-shrink-0">
+                <img
+                  src={getMarketImage()!}
+                  alt=""
+                  className="w-10 h-10 rounded-lg object-cover border"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <h3 className={`font-semibold text-sm truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  {getMarketTitle()}
+                </h3>
+                <span className={`px-1.5 py-0.5 rounded text-xs flex-shrink-0 ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
+                  #{marketId}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className={`px-1.5 py-0.5 rounded text-xs ${
               marketData.isMultiOption 
-                ? (isDarkMode ? 'bg-purple-900/50 text-purple-300' : 'bg-purple-100 text-purple-800')
-                : (isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-800')
+                ? (isDarkMode ? 'bg-purple-900/40 text-purple-300' : 'bg-purple-100 text-purple-700')
+                : (isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600')
             }`}>
-              {marketData.isMultiOption ? 'Multiple' : 'Yes/No'}
-            </div>
-            
-            {/* Market State Badge */}
-            <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-              marketData.state === 0 // Active
-                ? (isDarkMode ? 'bg-green-900/50 text-green-300' : 'bg-green-100 text-green-800')
-                : marketData.state === 1 // Ended
-                ? (isDarkMode ? 'bg-yellow-900/50 text-yellow-300' : 'bg-yellow-100 text-yellow-800')
-                : marketData.state === 2 && marketData.isResolved // Resolved
-                ? (isDarkMode ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-800')
-                : marketData.state === 3 // Cancelled
-                ? (isDarkMode ? 'bg-red-900/50 text-red-300' : 'bg-red-100 text-red-800')
-                : (isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-800')
-            }`}>
-              {marketData.state === 0 ? 'Active' : 
-               marketData.state === 1 ? 'Ended' : 
-               marketData.state === 2 && marketData.isResolved ? 'Resolved' : 
-               marketData.state === 2 ? 'Ended' :
-               marketData.state === 3 ? 'Cancelled' : 'Unknown'}
-            </div>
-            
-            {/* Claim Status Badge - Only show for resolved markets */}
+              {marketData.isMultiOption ? 'Multi' : 'Y/N'}
+            </span>
             {marketData.state === 2 && marketData.isResolved && (
-            <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-              canClaim 
-                  ? (isDarkMode ? 'bg-emerald-900/50 text-emerald-300' : 'bg-emerald-100 text-emerald-800')
-                : hasClaimed
-                  ? (isDarkMode ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-800')
-                  : (isDarkMode ? 'bg-red-900/50 text-red-300' : 'bg-red-100 text-red-800')
-            }`}>
-              {canClaim ? 'Won - Claim Available' : hasClaimed ? 'Claimed' : 'Lost'}
-            </div>
+              <span className={`px-1.5 py-0.5 rounded text-xs ${
+                canClaim 
+                  ? (isDarkMode ? 'bg-emerald-900/40 text-emerald-300' : 'bg-emerald-100 text-emerald-700')
+                  : hasClaimed
+                  ? (isDarkMode ? 'bg-blue-900/40 text-blue-300' : 'bg-blue-100 text-blue-700')
+                  : (isDarkMode ? 'bg-red-900/40 text-red-300' : 'bg-red-100 text-red-700')
+              }`}>
+                {canClaim ? 'Won' : hasClaimed ? 'Claimed' : 'Lost'}
+              </span>
             )}
           </div>
         </div>
-        
-        <div className="text-right">
-          <div className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-            {userStakeAmount ? formatEther(userStakeAmount as bigint) : '0'} {tokenSymbol ? String(tokenSymbol) : 'P2P'}
+        <div className={`text-right ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+          <div className="text-base font-bold">
+            {userStakeAmount ? formatEther(userStakeAmount as bigint) : '0'}
           </div>
           <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-            Your Stake
+            {tokenSymbol ? String(tokenSymbol) : 'P2P'}
           </div>
         </div>
       </div>
-
-      <div className="space-y-2 text-sm">
-        <div className="flex justify-between">
-          <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Your Option:</span>
-          <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-            {getUserOptionText()}
-          </span>
-        </div>
-        <div className="flex justify-between">
-          <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Winning Option:</span>
-          <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-            {getWinningOptionText()}
-          </span>
-        </div>
-        <div className="flex justify-between">
-          <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Status:</span>
-          <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-            {marketData.state === 0 ? 'Active' : 
-             marketData.state === 1 ? 'Ended' : 
-             marketData.state === 2 && marketData.isResolved ? 'Resolved' : 
-             marketData.state === 2 ? 'Ended' :
-             marketData.state === 3 ? 'Cancelled' : 'Unknown'}
-          </span>
-        </div>
+      <div className="flex justify-between text-xs mb-1.5">
+        <span className={isDarkMode ? 'text-gray-400' : 'text-gray-500'}>Option: </span>
+        <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{getUserOptionText()}</span>
       </div>
-
+      <div className="flex justify-between text-xs mb-1.5">
+        <span className={isDarkMode ? 'text-gray-400' : 'text-gray-500'}>Winning: </span>
+        <span className={`font-medium ${
+          marketData.isResolved && Number(marketData.winningOption) > 0
+            ? (canClaim ? (isDarkMode ? 'text-emerald-400' : 'text-emerald-600') : (isDarkMode ? 'text-red-400' : 'text-red-600'))
+            : (isDarkMode ? 'text-gray-400' : 'text-gray-500')
+        }`}>{getWinningOptionText()}</span>
+      </div>
+      {marketData.state === 2 && marketData.isResolved && !hasClaimed && userWinnings !== undefined && (
+        <div className={`flex justify-between text-xs mb-1.5 p-1.5 rounded ${
+          canClaim 
+            ? (isDarkMode ? 'bg-emerald-900/20 border border-emerald-800/50' : 'bg-emerald-50 border border-emerald-200')
+            : (isDarkMode ? 'bg-gray-800/50 border border-gray-700' : 'bg-gray-50 border border-gray-200')
+        }`}>
+          <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Claimable: </span>
+          <span className={`font-semibold ${
+            canClaim 
+              ? (isDarkMode ? 'text-emerald-400' : 'text-emerald-600')
+              : (isDarkMode ? 'text-gray-400' : 'text-gray-600')
+          }`}>
+            {formatEther(userWinnings)} {tokenSymbol ? String(tokenSymbol) : 'P2P'}
+          </span>
+        </div>
+      )}
       {canClaim && marketData.state === 2 && marketData.isResolved && (
-        <div className="mt-4 pt-3 border-t border-gray-600 dark:border-gray-700">
+        <div className="mt-2 pt-2 border-t border-gray-700 dark:border-gray-600">
           {claimError && (
-            <div className={`mb-3 p-2 rounded text-sm ${
-              isDarkMode ? 'bg-red-900/50 text-red-300' : 'bg-red-100 text-red-800'
+            <div className={`mb-1.5 p-1.5 rounded text-xs ${
+              isDarkMode ? 'bg-red-900/40 text-red-300' : 'bg-red-50 text-red-800'
             }`}>
               {claimError}
             </div>
           )}
           {claimSuccess && (
-            <div className={`mb-3 p-2 rounded text-sm ${
-              isDarkMode ? 'bg-green-900/50 text-green-300' : 'bg-green-100 text-green-800'
+            <div className={`mb-1.5 p-1.5 rounded text-xs ${
+              isDarkMode ? 'bg-green-900/40 text-green-300' : 'bg-green-50 text-green-800'
             }`}>
-              ✅ Winnings claimed successfully!
+              ✅ Claimed!
             </div>
           )}
           <button
-            className={`w-full py-2 px-3 rounded text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+            className={`w-full py-1.5 px-2 rounded text-xs font-medium transition-colors flex items-center justify-center gap-1 ${
               isClaiming || isConfirming
-                ? (isDarkMode ? 'bg-gray-600 text-gray-400' : 'bg-gray-400 text-gray-600')
+                ? (isDarkMode ? 'bg-gray-600 text-gray-400' : 'bg-gray-300 text-gray-600')
                 : (isDarkMode 
-                    ? 'bg-green-600 hover:bg-green-700 text-white' 
-                    : 'bg-green-500 hover:bg-green-600 text-white')
+                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white' 
+                    : 'bg-emerald-500 hover:bg-emerald-600 text-white')
             }`}
             onClick={handleClaimWinnings}
             disabled={isClaiming || isConfirming}
           >
             {isClaiming || isConfirming ? (
               <>
-                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
                 {isClaiming ? 'Claiming...' : 'Confirming...'}
               </>
             ) : (
               <>
-                <Award size={16} />
-                Claim Winnings
+                <Award size={12} />
+                Claim
               </>
             )}
           </button>
@@ -457,13 +501,19 @@ function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate }: {
   );
 }
 
+
 // Main Stakes Page Component
 export default function StakesPage() {
   const { isDarkMode, toggleTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [sortBy, setSortBy] = useState<'newest' | 'oldest'>('newest');
-  const [showAll, setShowAll] = useState(false);
+  const [activeTab, setActiveTab] = useState<'pending' | 'claimed' | 'resolved' | 'lost'>('pending');
+  const [marketCategories, setMarketCategories] = useState<{
+    pending: Set<number>;
+    claimed: Set<number>;
+    resolved: Set<number>;
+    lost: Set<number>;
+  }>({ pending: new Set(), claimed: new Set(), resolved: new Set(), lost: new Set() });
 
   const { address, isConnected } = useAccount();
 
@@ -483,22 +533,99 @@ export default function StakesPage() {
     if (!Array.isArray(userMarketIds)) return [];
     
     const markets = [...userMarketIds].map(id => Number(id));
-    
-    if (sortBy === 'newest') {
-      return markets.sort((a, b) => b - a); // Higher market ID = newer
-    } else {
-      return markets.sort((a, b) => a - b); // Lower market ID = older
-    }
-  }, [userMarketIds, sortBy]);
+    return markets.sort((a, b) => b - a); // Higher market ID = newer
+  }, [userMarketIds]);
 
-  // Show limited or all markets
-  const displayedMarkets = showAll ? sortedMarkets : sortedMarkets.slice(0, 5);
+  // Initialize all markets as pending when they first load
+  useEffect(() => {
+    if (sortedMarkets.length > 0) {
+      setMarketCategories(prev => {
+        const newCats = {
+          pending: new Set(prev.pending),
+          claimed: new Set(prev.claimed),
+          resolved: new Set(prev.resolved),
+          lost: new Set(prev.lost),
+        };
+        
+        // Add all markets to pending initially (they'll be recategorized as data loads)
+        sortedMarkets.forEach(id => {
+          if (!newCats.pending.has(id) && !newCats.claimed.has(id) && !newCats.resolved.has(id) && !newCats.lost.has(id)) {
+            newCats.pending.add(id);
+          }
+        });
+        
+        // Remove markets that are no longer in the user's list
+        [newCats.pending, newCats.claimed, newCats.resolved, newCats.lost].forEach(category => {
+          category.forEach(id => {
+            if (!sortedMarkets.includes(id)) {
+              category.delete(id);
+            }
+          });
+        });
+        
+        return newCats;
+      });
+    }
+  }, [sortedMarkets]);
+
+  // Filter markets by active tab
+  const displayedMarkets = React.useMemo(() => {
+    const categorySet = marketCategories[activeTab];
+    return sortedMarkets.filter(id => categorySet.has(id));
+  }, [sortedMarkets, marketCategories, activeTab]);
+
+  // Get counts for each category
+  const tabCounts = {
+    pending: marketCategories.pending.size,
+    claimed: marketCategories.claimed.size,
+    resolved: marketCategories.resolved.size,
+    lost: marketCategories.lost.size,
+  };
+
+  // Update market category when StakesCard reports status
+  const handleMarketStatusUpdate = useCallback((marketId: number, marketData: any, hasClaimed: boolean, userStakeOption: number, isWinningStake: boolean) => {
+    setMarketCategories(prev => {
+      const newCats = {
+        pending: new Set(prev.pending),
+        claimed: new Set(prev.claimed),
+        resolved: new Set(prev.resolved),
+        lost: new Set(prev.lost),
+      };
+
+      // Remove from all categories first
+      newCats.pending.delete(marketId);
+      newCats.claimed.delete(marketId);
+      newCats.resolved.delete(marketId);
+      newCats.lost.delete(marketId);
+
+      // Categorize: 
+      // Pending = not resolved
+      // Claimed = resolved and claimed
+      // Resolved = resolved, user won, but not claimed yet
+      // Lost = resolved, user lost (not the winning option)
+      if (marketData?.state === 2 && marketData?.isResolved) {
+        if (hasClaimed) {
+          newCats.claimed.add(marketId);
+        } else if (isWinningStake) {
+          newCats.resolved.add(marketId); // Resolved, won, but not claimed yet
+        } else {
+          newCats.lost.add(marketId); // Resolved but user lost
+        }
+      } else {
+        // Market is not resolved (state 0 = Active, state 1 = Ended)
+        newCats.pending.add(marketId);
+      }
+
+      return newCats;
+    });
+  }, []);
 
   // Calculate claimable markets count
   const [claimableCount, setClaimableCount] = useState(0);
   const [claimableMarkets, setClaimableMarkets] = useState<Set<number>>(new Set());
   
-  const handleClaimableUpdate = (marketId: number, canClaim: boolean) => {
+  // Memoize the callback to prevent infinite loops
+  const handleClaimableUpdate = useCallback((marketId: number, canClaim: boolean) => {
     setClaimableMarkets(prev => {
       const newSet = new Set(prev);
       if (canClaim) {
@@ -509,7 +636,7 @@ export default function StakesPage() {
       setClaimableCount(newSet.size);
       return newSet;
     });
-  };
+  }, []); // Empty deps array since we don't depend on any props/state
 
   const onSidebarClose = () => setSidebarOpen(false);
   const onToggleCollapse = () => setSidebarCollapsed(!sidebarCollapsed);
@@ -559,20 +686,6 @@ export default function StakesPage() {
               </div>
 
               <div className="flex items-center gap-2 lg:gap-4">
-                {/* Sort Options */}
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as 'newest' | 'oldest')}
-                  className={`px-2 py-1.5 border rounded text-xs lg:text-sm ${
-                    isDarkMode 
-                      ? 'bg-gray-800 border-gray-700 text-white' 
-                      : 'bg-white border-gray-300 text-gray-900'
-                  }`}
-                >
-                  <option value="newest">Newest First</option>
-                  <option value="oldest">Oldest First</option>
-                </select>
-                
                 <button
                   onClick={toggleTheme}
                   className={`p-1.5 lg:p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
@@ -602,44 +715,54 @@ export default function StakesPage() {
 
         {/* Main Content */}
         <main className="p-4 lg:p-6">
-          {/* Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4 mb-4 lg:mb-6">
-            <div className={`rounded-lg border p-3 lg:p-4 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className={`text-xs lg:text-sm font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>All Markets</p>
-                  <p className={`text-lg lg:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                    {sortedMarkets.length}
-                  </p>
-                </div>
-                <Receipt className={`w-6 h-6 lg:w-8 lg:h-8 ${isDarkMode ? 'text-blue-400' : 'text-blue-500'}`} />
-              </div>
+          {/* Tabs */}
+          {isConnected && Array.isArray(userMarketIds) && userMarketIds.length > 0 && (
+            <div className={`flex gap-3 mb-4 p-1.5 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
+              <button
+                onClick={() => setActiveTab('pending')}
+                className={`flex-1 px-4 py-2.5 rounded-md text-sm font-semibold transition-colors relative ${
+                  activeTab === 'pending'
+                    ? (isDarkMode ? 'bg-blue-600 text-white' : 'bg-white text-blue-600 shadow-sm')
+                    : (isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900')
+                }`}
+              >
+                Pending ({tabCounts.pending})
+              </button>
+              <button
+                onClick={() => setActiveTab('claimed')}
+                className={`flex-1 px-4 py-2.5 rounded-md text-sm font-semibold transition-colors relative ${
+                  activeTab === 'claimed'
+                    ? (isDarkMode ? 'bg-blue-600 text-white' : 'bg-white text-blue-600 shadow-sm')
+                    : (isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900')
+                }`}
+              >
+                Claimed ({tabCounts.claimed})
+              </button>
+              <button
+                onClick={() => setActiveTab('resolved')}
+                className={`flex-1 px-4 py-2.5 rounded-md text-sm font-semibold transition-colors relative ${
+                  activeTab === 'resolved'
+                    ? (isDarkMode ? 'bg-blue-600 text-white' : 'bg-white text-blue-600 shadow-sm')
+                    : (isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900')
+                }`}
+              >
+                Resolved ({tabCounts.resolved})
+                {tabCounts.resolved > 0 && Array.from(marketCategories.resolved).some(id => claimableMarkets.has(id)) && (
+                  <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full"></span>
+                )}
+              </button>
+              <button
+                onClick={() => setActiveTab('lost')}
+                className={`flex-1 px-4 py-2.5 rounded-md text-sm font-semibold transition-colors relative ${
+                  activeTab === 'lost'
+                    ? (isDarkMode ? 'bg-blue-600 text-white' : 'bg-white text-blue-600 shadow-sm')
+                    : (isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900')
+                }`}
+              >
+                Lost ({tabCounts.lost})
+              </button>
             </div>
-
-            <div className={`rounded-lg border p-3 lg:p-4 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className={`text-xs lg:text-sm font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Can Claim</p>
-                  <p className={`text-lg lg:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                    {claimableCount}
-                  </p>
-                </div>
-                <Award className={`w-6 h-6 lg:w-8 lg:h-8 ${isDarkMode ? 'text-green-400' : 'text-green-500'}`} />
-              </div>
-            </div>
-
-            <div className={`rounded-lg border p-3 lg:p-4 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className={`text-xs lg:text-sm font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Status</p>
-                  <p className={`text-lg lg:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                    {isConnected ? 'Connected' : 'Disconnected'}
-                  </p>
-                </div>
-                <Activity className={`w-6 h-6 lg:w-8 lg:h-8 ${isDarkMode ? 'text-purple-400' : 'text-purple-500'}`} />
-              </div>
-            </div>
-          </div>
+          )}
 
           {/* Markets List */}
           {!isConnected ? (
@@ -670,45 +793,24 @@ export default function StakesPage() {
                 You haven't staked in any markets yet. Start betting to see your markets here!
               </p>
             </div>
+          ) : displayedMarkets.length === 0 ? (
+            <div className="text-center py-12">
+              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                No {activeTab} markets
+              </p>
+            </div>
           ) : (
-            <div className="space-y-4">
-              <div className="grid gap-3 lg:gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
-                {displayedMarkets.map((marketId: number) => (
-                  <StakesCard
-                    key={marketId}
-                    marketId={marketId}
-                    userAddress={address!}
-                    isDarkMode={isDarkMode}
-                    onClaimableUpdate={handleClaimableUpdate}
-                  />
-                ))}
-              </div>
-
-              {/* View More Button */}
-              {sortedMarkets.length > 5 && (
-                <div className="text-center pt-4">
-                  <button
-                    onClick={() => setShowAll(!showAll)}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 mx-auto ${
-                      isDarkMode 
-                        ? 'bg-gray-700 hover:bg-gray-600 text-white' 
-                        : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
-                    }`}
-                  >
-                    {showAll ? (
-                      <>
-                        <ChevronUp size={16} />
-                        Show Less
-                      </>
-                    ) : (
-                      <>
-                        <ChevronDown size={16} />
-                        View More ({sortedMarkets.length - 5} more)
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {displayedMarkets.map((marketId: number) => (
+                <StakesCard
+                  key={marketId}
+                  marketId={marketId}
+                  userAddress={address!}
+                  isDarkMode={isDarkMode}
+                  onClaimableUpdate={handleClaimableUpdate}
+                  onStatusUpdate={handleMarketStatusUpdate}
+                />
+              ))}
             </div>
           )}
         </main>

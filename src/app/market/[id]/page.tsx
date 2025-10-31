@@ -476,6 +476,56 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
                 )}
               </div>
             </div>
+            
+            {/* Description and Vanity Info Section */}
+            {(marketMetadata?.description || marketMetadata?.vanityInfo) && (
+              <div className={`mt-4 sm:mt-6 pt-4 sm:pt-6 border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                {marketMetadata?.description && (
+                  <div className="mb-4 sm:mb-6">
+                    <h3 className={`text-sm sm:text-base font-semibold mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                      Description
+                    </h3>
+                    <p className={`text-sm sm:text-base leading-relaxed ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      {marketMetadata.description}
+                    </p>
+                  </div>
+                )}
+                {marketMetadata?.vanityInfo && (
+                  <div>
+                    <h3 className={`text-sm sm:text-base font-semibold mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                      Resources & Links
+                    </h3>
+                    <div className={`text-sm sm:text-base leading-relaxed whitespace-pre-wrap ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      {marketMetadata.vanityInfo.split('\n').map((line: string, idx: number) => {
+                        // Check if line is a URL
+                        const urlPattern = /(https?:\/\/[^\s]+)/g;
+                        const parts = line.split(urlPattern);
+                        return (
+                          <div key={idx}>
+                            {parts.map((part, partIdx) => {
+                              if (urlPattern.test(part)) {
+                                return (
+                                  <a
+                                    key={partIdx}
+                                    href={part}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={`underline hover:opacity-80 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}
+                                  >
+                                    {part}
+                                  </a>
+                                );
+                              }
+                              return <span key={partIdx}>{part}</span>;
+                            })}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Verification Section */}

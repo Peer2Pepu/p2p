@@ -54,6 +54,8 @@ export default function CreateMarketPage() {
   
   // Form state
   const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [vanityInfo, setVanityInfo] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [minimumStake, setMinimumStake] = useState('');
@@ -606,6 +608,8 @@ export default function CreateMarketPage() {
       // Step 2: Create market data with image link
       const marketData = {
         title,
+        description: description || '',
+        vanityInfo: vanityInfo || '',
         imageUrl,
         categories: selectedCategories || [],
         outcomeType,
@@ -719,6 +723,8 @@ export default function CreateMarketPage() {
       
       // Reset form
       setTitle('');
+      setDescription('');
+      setVanityInfo('');
       setImageFile(null);
       setImagePreview(null);
       setSelectedCategories([]);
@@ -798,6 +804,8 @@ export default function CreateMarketPage() {
       }, 15000);
       // Reset form
       setTitle('');
+      setDescription('');
+      setVanityInfo('');
       setImageFile(null);
       setImagePreview(null);
       setMinimumStake('');
@@ -1080,6 +1088,39 @@ export default function CreateMarketPage() {
                             : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500'
                         }`}
                         />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium mb-2">Description</label>
+                        <textarea
+                          value={description}
+                          onChange={(e) => setDescription(e.target.value)}
+                          placeholder="Provide a detailed description of the market..."
+                          rows={4}
+                        className={`w-full px-3 py-2.5 border rounded-lg focus:border-emerald-500 focus:outline-none text-sm resize-y ${
+                          isDarkMode 
+                            ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                            : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500'
+                        }`}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium mb-2">Vanity Info (Links & Resources)</label>
+                        <textarea
+                          value={vanityInfo}
+                          onChange={(e) => setVanityInfo(e.target.value)}
+                          placeholder="Add links or information to help verifiers determine the correct result (e.g., official sources, news articles, data URLs)"
+                          rows={3}
+                        className={`w-full px-3 py-2.5 border rounded-lg focus:border-emerald-500 focus:outline-none text-sm resize-y ${
+                          isDarkMode 
+                            ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                            : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500'
+                        }`}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          This information will be visible to verifiers to help them make accurate decisions
+                        </p>
                       </div>
 
                       <div>

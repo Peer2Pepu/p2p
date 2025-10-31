@@ -680,8 +680,8 @@
       ]
     },
     "C:\\Users\\User\\p2p\\contracts\\P2PAnalytics.sol": {
-      "lastModificationDate": 1760096462875,
-      "contentHash": "f8dd94dded14bcfd8b7fe9416ee6c79a",
+      "lastModificationDate": 1760432648128,
+      "contentHash": "d7aa2f603e0ebf30c059e486e45a3539",
       "sourceName": "contracts/P2PAnalytics.sol",
       "solcConfig": {
         "version": "0.8.20",
