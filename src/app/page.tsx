@@ -788,7 +788,7 @@ export default function HomePage() {
                           </label>
                           <select
                             value={sortBy}
-                            onChange={(e) => setSortBy(e.target.value)}
+                            onChange={(e) => setSortBy(e.target.value as 'newest' | 'oldest' | 'ending_soon')}
                             className={`w-full px-2 py-1.5 border rounded text-xs ${
                               isDarkMode 
                                 ? 'bg-gray-700 border-gray-600 text-white' 
