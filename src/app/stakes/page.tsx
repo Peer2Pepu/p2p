@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import Image from 'next/image';
 import { 
   Receipt,
   Clock,
@@ -370,7 +371,7 @@ function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate, onSt
 
   return (
     <div className={`border rounded-lg p-2.5 transition-all duration-200 hover:shadow-md ${
-      isDarkMode ? 'bg-gray-800 border-gray-700 hover:shadow-gray-900/20' : 'bg-white border-gray-200 hover:shadow-gray-900/10'
+      isDarkMode ? 'bg-black border-gray-800 hover:shadow-gray-900/20' : 'bg-[#F5F3F0] border-gray-300 hover:shadow-gray-900/10'
     }`}>
       <div className="flex items-start justify-between mb-2">
         <div className="flex-1 min-w-0 pr-2">
@@ -380,7 +381,7 @@ function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate, onSt
                 <img
                   src={getMarketImage()!}
                   alt=""
-                  className="w-10 h-10 rounded-lg object-cover border"
+                  className={`w-10 h-10 rounded-lg object-cover border ${isDarkMode ? 'border-gray-800' : 'border-gray-400'}`}
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
                   }}
@@ -392,7 +393,7 @@ function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate, onSt
                 <h3 className={`font-semibold text-sm truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                   {getMarketTitle()}
                 </h3>
-                <span className={`px-1.5 py-0.5 rounded text-xs flex-shrink-0 ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
+                <span className={`px-1.5 py-0.5 rounded text-xs flex-shrink-0 ${isDarkMode ? 'bg-gray-900 text-gray-300' : 'bg-gray-200 text-gray-600'}`}>
                   #{marketId}
                 </span>
               </div>
@@ -402,14 +403,14 @@ function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate, onSt
             <span className={`px-1.5 py-0.5 rounded text-xs ${
               marketData.isMultiOption 
                 ? (isDarkMode ? 'bg-purple-900/40 text-purple-300' : 'bg-purple-100 text-purple-700')
-                : (isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600')
+                : (isDarkMode ? 'bg-gray-800 text-gray-300' : 'bg-gray-200 text-gray-600')
             }`}>
               {marketData.isMultiOption ? 'Multi' : 'Y/N'}
             </span>
             {marketData.state === 2 && marketData.isResolved && (
               <span className={`px-1.5 py-0.5 rounded text-xs ${
                 canClaim 
-                  ? (isDarkMode ? 'bg-emerald-900/40 text-emerald-300' : 'bg-emerald-100 text-emerald-700')
+                  ? (isDarkMode ? 'bg-[#39FF14]/20 text-[#39FF14]' : 'bg-[#39FF14]/20 text-emerald-700 border border-black')
                   : hasClaimed
                   ? (isDarkMode ? 'bg-blue-900/40 text-blue-300' : 'bg-blue-100 text-blue-700')
                   : (isDarkMode ? 'bg-red-900/40 text-red-300' : 'bg-red-100 text-red-700')
@@ -419,45 +420,45 @@ function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate, onSt
             )}
           </div>
         </div>
-        <div className={`text-right ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-          <div className="text-base font-bold">
-            {userStakeAmount ? formatEther(userStakeAmount as bigint) : '0'}
+          <div className={`text-right ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            <div className="text-base font-bold">
+              {userStakeAmount ? formatEther(userStakeAmount as bigint) : '0'}
+            </div>
+            <div className={`text-xs ${isDarkMode ? 'text-white/60' : 'text-gray-500'}`}>
+              {tokenSymbol ? String(tokenSymbol) : 'P2P'}
+            </div>
           </div>
-          <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-            {tokenSymbol ? String(tokenSymbol) : 'P2P'}
-          </div>
-        </div>
       </div>
       <div className="flex justify-between text-xs mb-1.5">
-        <span className={isDarkMode ? 'text-gray-400' : 'text-gray-500'}>Option: </span>
+        <span className={isDarkMode ? 'text-white/60' : 'text-gray-500'}>Option: </span>
         <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{getUserOptionText()}</span>
       </div>
       <div className="flex justify-between text-xs mb-1.5">
-        <span className={isDarkMode ? 'text-gray-400' : 'text-gray-500'}>Winning: </span>
+        <span className={isDarkMode ? 'text-white/60' : 'text-gray-500'}>Winning: </span>
         <span className={`font-medium ${
           marketData.isResolved && Number(marketData.winningOption) > 0
-            ? (canClaim ? (isDarkMode ? 'text-emerald-400' : 'text-emerald-600') : (isDarkMode ? 'text-red-400' : 'text-red-600'))
-            : (isDarkMode ? 'text-gray-400' : 'text-gray-500')
+            ? (canClaim ? (isDarkMode ? 'text-[#39FF14]' : 'text-emerald-600') : (isDarkMode ? 'text-red-400' : 'text-red-600'))
+            : (isDarkMode ? 'text-white/60' : 'text-gray-500')
         }`}>{getWinningOptionText()}</span>
       </div>
       {marketData.state === 2 && marketData.isResolved && !hasClaimed && userWinnings !== undefined && (
         <div className={`flex justify-between text-xs mb-1.5 p-1.5 rounded ${
           canClaim 
-            ? (isDarkMode ? 'bg-emerald-900/20 border border-emerald-800/50' : 'bg-emerald-50 border border-emerald-200')
-            : (isDarkMode ? 'bg-gray-800/50 border border-gray-700' : 'bg-gray-50 border border-gray-200')
+            ? (isDarkMode ? 'bg-[#39FF14]/10 border border-[#39FF14]/30' : 'bg-[#39FF14]/10 border border-black')
+            : (isDarkMode ? 'bg-gray-900/50 border border-gray-800' : 'bg-gray-200 border border-gray-300')
         }`}>
-          <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Claimable: </span>
+          <span className={isDarkMode ? 'text-white/60' : 'text-gray-600'}>Claimable: </span>
           <span className={`font-semibold ${
             canClaim 
-              ? (isDarkMode ? 'text-emerald-400' : 'text-emerald-600')
-              : (isDarkMode ? 'text-gray-400' : 'text-gray-600')
+              ? (isDarkMode ? 'text-[#39FF14]' : 'text-emerald-600')
+              : (isDarkMode ? 'text-white/60' : 'text-gray-600')
           }`}>
             {formatEther(userWinnings)} {tokenSymbol ? String(tokenSymbol) : 'P2P'}
           </span>
         </div>
       )}
       {canClaim && marketData.state === 2 && marketData.isResolved && (
-        <div className="mt-2 pt-2 border-t border-gray-700 dark:border-gray-600">
+        <div className={`mt-2 pt-2 border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-300'}`}>
           {claimError && (
             <div className={`mb-1.5 p-1.5 rounded text-xs ${
               isDarkMode ? 'bg-red-900/40 text-red-300' : 'bg-red-50 text-red-800'
@@ -477,8 +478,8 @@ function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate, onSt
               isClaiming || isConfirming
                 ? (isDarkMode ? 'bg-gray-600 text-gray-400' : 'bg-gray-300 text-gray-600')
                 : (isDarkMode 
-                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white' 
-                    : 'bg-emerald-500 hover:bg-emerald-600 text-white')
+                    ? 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black' 
+                    : 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black border border-black')
             }`}
             onClick={handleClaimWinnings}
             disabled={isClaiming || isConfirming}
@@ -642,7 +643,7 @@ export default function StakesPage() {
   const onToggleCollapse = () => setSidebarCollapsed(!sidebarCollapsed);
 
   return (
-    <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
+    <div className={`min-h-screen ${isDarkMode ? 'bg-black' : 'bg-[#F5F3F0]'}`}>
       {/* Sidebar */}
       <Sidebar 
         isOpen={sidebarOpen} 
@@ -655,31 +656,36 @@ export default function StakesPage() {
       {/* Main Content */}
       <div className={`transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'}`}>
         {/* Header */}
-        <header className={`border-b ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-          <div className="px-4 lg:px-6 py-3 lg:py-4">
+        <header className={`border-b ${isDarkMode ? 'bg-black border-[#39FF14]/20' : 'bg-[#F5F3F0] border-gray-200'}`}>
+          <div className="px-4 lg:px-6 py-1.5 lg:py-2">
             <div className="flex items-center justify-between">
               {/* Mobile: Hamburger + P2P, Desktop: Full title */}
               <div className="flex items-center gap-3">
                 {/* Mobile Hamburger Button */}
                 <button
                   onClick={() => setSidebarOpen(true)}
-                  className={`lg:hidden p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
+                  className={`lg:hidden p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-[#39FF14]/10 text-white' : 'hover:bg-gray-200'}`}
                 >
                   <Menu size={20} className={isDarkMode ? 'text-white' : 'text-gray-900'} />
                 </button>
                 
                 {/* Mobile: Just P2P, Desktop: Full title */}
                 <div className="lg:hidden">
-                  <h1 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                    P2P
-                  </h1>
+                  <Image
+                    src="/P2PFINAL-removebg-preview-removebg-preview.png"
+                    alt="P2P"
+                    width={60}
+                    height={30}
+                    className="object-contain"
+                    priority
+                  />
                 </div>
                 
                 <div className="hidden lg:block">
                   <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                     Stakes
                   </h1>
-                  <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                     View all your staked markets and claim winnings
                   </p>
                 </div>
@@ -688,16 +694,16 @@ export default function StakesPage() {
               <div className="flex items-center gap-2 lg:gap-4">
                 <button
                   onClick={toggleTheme}
-                  className={`p-1.5 lg:p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
+                  className={`p-1.5 lg:p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-[#39FF14]/10 text-white' : 'hover:bg-gray-200'}`}
                 >
-                  {isDarkMode ? <Sun className="w-4 h-4 lg:w-5 lg:h-5 text-yellow-400" /> : <Moon className="w-4 h-4 lg:w-5 lg:h-5 text-gray-600" />}
+                  {isDarkMode ? <Sun className="w-4 h-4 lg:w-5 lg:h-5 text-white" /> : <Moon className="w-4 h-4 lg:w-5 lg:h-5 text-gray-600" />}
                 </button>
                 
                 {/* Wallet Connection */}
                 {isConnected ? (
                   <div className={`flex items-center gap-1 lg:gap-2 px-2 lg:px-3 py-1.5 rounded text-xs lg:text-sm font-medium ${
                     isDarkMode 
-                      ? 'bg-emerald-600/10 text-emerald-400 border border-emerald-600/20' 
+                      ? 'bg-[#39FF14]/10 text-white border border-[#39FF14]/30' 
                       : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                   }`}>
                     <Wallet size={12} className="lg:w-3.5 lg:h-3.5" />
@@ -717,12 +723,12 @@ export default function StakesPage() {
         <main className="p-4 lg:p-6">
           {/* Tabs */}
           {isConnected && Array.isArray(userMarketIds) && userMarketIds.length > 0 && (
-            <div className={`flex gap-3 mb-4 p-1.5 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
+            <div className={`flex gap-3 mb-4 p-1.5 rounded-lg ${isDarkMode ? 'bg-gray-900' : 'bg-gray-200'}`}>
               <button
                 onClick={() => setActiveTab('pending')}
                 className={`flex-1 px-4 py-2.5 rounded-md text-sm font-semibold transition-colors relative ${
                   activeTab === 'pending'
-                    ? (isDarkMode ? 'bg-blue-600 text-white' : 'bg-white text-blue-600 shadow-sm')
+                    ? (isDarkMode ? 'bg-[#39FF14] text-black' : 'bg-[#39FF14] text-black border border-black shadow-sm')
                     : (isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900')
                 }`}
               >
@@ -732,7 +738,7 @@ export default function StakesPage() {
                 onClick={() => setActiveTab('claimed')}
                 className={`flex-1 px-4 py-2.5 rounded-md text-sm font-semibold transition-colors relative ${
                   activeTab === 'claimed'
-                    ? (isDarkMode ? 'bg-blue-600 text-white' : 'bg-white text-blue-600 shadow-sm')
+                    ? (isDarkMode ? 'bg-[#39FF14] text-black' : 'bg-[#39FF14] text-black border border-black shadow-sm')
                     : (isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900')
                 }`}
               >
@@ -742,7 +748,7 @@ export default function StakesPage() {
                 onClick={() => setActiveTab('resolved')}
                 className={`flex-1 px-4 py-2.5 rounded-md text-sm font-semibold transition-colors relative ${
                   activeTab === 'resolved'
-                    ? (isDarkMode ? 'bg-blue-600 text-white' : 'bg-white text-blue-600 shadow-sm')
+                    ? (isDarkMode ? 'bg-[#39FF14] text-black' : 'bg-[#39FF14] text-black border border-black shadow-sm')
                     : (isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900')
                 }`}
               >
@@ -755,7 +761,7 @@ export default function StakesPage() {
                 onClick={() => setActiveTab('lost')}
                 className={`flex-1 px-4 py-2.5 rounded-md text-sm font-semibold transition-colors relative ${
                   activeTab === 'lost'
-                    ? (isDarkMode ? 'bg-blue-600 text-white' : 'bg-white text-blue-600 shadow-sm')
+                    ? (isDarkMode ? 'bg-[#39FF14] text-black' : 'bg-[#39FF14] text-black border border-black shadow-sm')
                     : (isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900')
                 }`}
               >
@@ -768,34 +774,34 @@ export default function StakesPage() {
           {!isConnected ? (
             <div className="text-center py-16">
               <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
-                isDarkMode ? 'bg-gray-800' : 'bg-gray-100'
+                isDarkMode ? 'bg-gray-900' : 'bg-gray-200'
               }`}>
-                <Wallet className={`w-8 h-8 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
+                <Wallet className={`w-8 h-8 ${isDarkMode ? 'text-white' : 'text-gray-500'}`} />
               </div>
               <h3 className={`text-lg font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 Connect Your Wallet
               </h3>
-              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                 Connect your wallet to view all your staked markets
               </p>
             </div>
           ) : !Array.isArray(userMarketIds) || userMarketIds.length === 0 ? (
             <div className="text-center py-16">
               <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
-                isDarkMode ? 'bg-gray-800' : 'bg-gray-100'
+                isDarkMode ? 'bg-gray-900' : 'bg-gray-200'
               }`}>
-                <Receipt className={`w-8 h-8 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
+                <Receipt className={`w-8 h-8 ${isDarkMode ? 'text-white' : 'text-gray-500'}`} />
               </div>
               <h3 className={`text-lg font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 No Staked Markets
               </h3>
-              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                 You haven't staked in any markets yet. Start betting to see your markets here!
               </p>
             </div>
           ) : displayedMarkets.length === 0 ? (
             <div className="text-center py-12">
-              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                 No {activeTab} markets
               </p>
             </div>

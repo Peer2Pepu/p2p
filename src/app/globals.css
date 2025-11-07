@@ -67,9 +67,9 @@ button[data-testid="connect-button"]:not([data-testid*="modal"]):not([class*="mo
 button[class*="connect"]:not([data-testid*="modal"]):not([class*="modal"]),
 button[data-testid*="connect"]:not([data-testid*="modal"]):not([class*="modal"]),
 button[data-testid*="Connect"]:not([data-testid*="modal"]):not([class*="modal"]) {
-  background-color: #059669 !important; /* emerald-600 */
-  color: white !important;
-  border: none !important;
+  background-color: #39FF14 !important; /* bright lime green */
+  color: black !important;
+  border: 1px solid black !important;
 }
 
 /* Override connected state to be grey and compact - exclude modals */
@@ -101,7 +101,8 @@ button[data-testid="connect-button"]:not([data-testid*="modal"]):not([class*="mo
 button[class*="connect"]:not([data-testid*="modal"]):not([class*="modal"]):hover,
 button[data-testid*="connect"]:not([data-testid*="modal"]):not([class*="modal"]):hover,
 button[data-testid*="Connect"]:not([data-testid*="modal"]):not([class*="modal"]):hover {
-  background-color: #047857 !important; /* emerald-700 */
+  background-color: #2EE614 !important; /* slightly brighter lime green on hover */
+  opacity: 0.9 !important;
 }
 
 /* Comprehensive RainbowKit modal fixes */

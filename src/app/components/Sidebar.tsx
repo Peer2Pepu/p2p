@@ -2,19 +2,16 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { 
   ChevronRight,
   ChevronLeft,
   X,
-  Zap,
   Home,
   PieChart,
   Plus,
-  History,
   TrendingUp,
   Lock,
-  MessageCircle,
-  Settings,
   Wallet,
   Target,
   Receipt,
@@ -46,10 +43,7 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse, isDarkMo
     { icon: Receipt, label: "Stakes", href: "/stakes", active: pathname === "/stakes" },
     { icon: Plus, label: "Create Market", href: "/create-market", active: pathname === "/create-market" },
     { icon: User, label: "Profile", href: "/profile", active: pathname === "/profile" },
-    { icon: History, label: "History", href: "/history", active: pathname === "/history" },
     { icon: TrendingUp, label: "Analytics", href: "/analytics", active: pathname === "/analytics" },
-    { icon: MessageCircle, label: "Community", href: "/community", active: pathname === "/community" },
-    { icon: Settings, label: "Settings", href: "/settings", active: pathname === "/settings" },
     { icon: Shield, label: "Admin", href: "/admin", active: pathname === "/admin" }
   ];
 
@@ -69,8 +63,8 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse, isDarkMo
         ${collapsed ? 'w-16' : 'w-64'}
         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         ${isDarkMode 
-          ? 'bg-gray-900 border-gray-800' 
-          : 'bg-white border-gray-200'
+          ? 'bg-black border-[#39FF14]/20' 
+          : 'bg-[#F5F3F0] border-gray-200'
         } border-r
       `}>
         
@@ -80,8 +74,8 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse, isDarkMo
           className={`
             hidden lg:flex absolute -right-3 top-6 w-6 h-6 rounded-full items-center justify-center transition-colors
             ${isDarkMode
-              ? 'bg-gray-800 border-gray-700 hover:bg-gray-700'
-              : 'bg-gray-100 border-gray-300 hover:bg-gray-200'
+              ? 'bg-black border-[#39FF14]/30 hover:bg-[#39FF14]/10 text-[#39FF14]'
+              : 'bg-[#F5F3F0] border-2 border-gray-800 hover:bg-gray-50 text-gray-900 shadow-md'
             } border
           `}
         >
@@ -90,32 +84,28 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse, isDarkMo
         
         <div className="h-full flex flex-col">
           {/* Logo */}
-          <div className={`p-4 border-b ${
-            isDarkMode ? 'border-gray-800' : 'border-gray-200'
+          <div className={`p-4 border-b bg-black ${
+            isDarkMode ? 'border-[#39FF14]/20' : 'border-gray-200'
           }`}>
             <div className="flex items-center justify-between">
-              {collapsed ? (
-                <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center">
-                  <Zap size={18} className="text-white" />
-                </div>
-              ) : (
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center">
-                    <Zap size={18} className="text-white" />
-                  </div>
-                  <span className={`font-bold text-xl ${
-                    isDarkMode ? 'text-emerald-500' : 'text-emerald-600'
-                  }`}>Peer2Pepu</span>
-                </div>
-              )}
+              <div className={`flex items-center ${collapsed ? 'justify-center w-full' : 'w-full'}`}>
+                <Image
+                  src={collapsed ? "/lOGOgreen.svg" : "/logo.jpg"}
+                  alt="Peer2Pepu Logo"
+                  width={collapsed ? 48 : 180}
+                  height={collapsed ? 48 : 60}
+                  className="object-contain"
+                  priority
+                />
+              </div>
               
               {/* Mobile Close Button */}
               <button 
                 onClick={onClose}
                 className={`lg:hidden p-1 rounded transition-colors ${
                   isDarkMode 
-                    ? 'hover:bg-gray-800' 
-                    : 'hover:bg-gray-100'
+                    ? 'hover:bg-[#39FF14]/10 text-white' 
+                    : 'hover:bg-gray-100 text-gray-900'
                 }`}
               >
                 <X size={20} />
@@ -133,9 +123,9 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse, isDarkMo
                 className={`
                   w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
                   ${item.active
-                    ? 'bg-emerald-600 text-white'
+                    ? `bg-[#39FF14] text-black ${isDarkMode ? '' : 'border border-black'}`
                     : isDarkMode
-                      ? 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                      ? 'text-white hover:bg-[#39FF14]/10 hover:text-white'
                       : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
                   }
                 `}
@@ -150,23 +140,23 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse, isDarkMo
           {/* Wallet Status */}
           {!collapsed && (
             <div className={`p-4 border-t ${
-              isDarkMode ? 'border-gray-800' : 'border-gray-200'
+              isDarkMode ? 'border-[#39FF14]/20' : 'border-gray-200'
             }`}>
               <div className={`p-3 rounded-lg ${
-                isDarkMode ? 'bg-gray-800' : 'bg-gray-50'
+                isDarkMode ? 'bg-black border border-[#39FF14]/20' : 'bg-gray-50'
               }`}>
                 {isConnected ? (
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-xs text-emerald-500">
-                      <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                    <div className="flex items-center gap-2 text-xs text-[#39FF14]">
+                      <div className="w-2 h-2 bg-[#39FF14] rounded-full"></div>
                       Connected
                     </div>
                     <div className="flex items-center gap-2">
-                      <Wallet size={16} className="text-emerald-500" />
+                      <Wallet size={16} className="text-[#39FF14]" />
                       <button
                         className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2 ${
                           isDarkMode 
-                            ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' 
+                            ? 'bg-[#39FF14]/10 hover:bg-[#39FF14]/20 text-white border border-[#39FF14]/30' 
                             : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
                         }`}
                         onClick={() => setShowDisconnectModal(true)}
@@ -177,12 +167,16 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse, isDarkMo
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                      <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                    <div className={`flex items-center gap-2 text-xs ${
+                      isDarkMode ? 'text-white/60' : 'text-gray-500'
+                    }`}>
+                      <div className={`w-2 h-2 rounded-full ${
+                        isDarkMode ? 'bg-[#F5F3F0]/40' : 'bg-gray-400'
+                      }`}></div>
                       Not Connected
                     </div>
                     <div className="flex items-center gap-2">
-                      <Wallet size={16} className="text-emerald-500" />
+                      <Wallet size={16} className={isDarkMode ? 'text-white' : 'text-emerald-500'} />
                       <ConnectButton />
                     </div>
                   </div>
@@ -194,24 +188,26 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse, isDarkMo
           {/* Collapsed Wallet Status */}
           {collapsed && (
             <div className={`p-4 border-t ${
-              isDarkMode ? 'border-gray-800' : 'border-gray-200'
+              isDarkMode ? 'border-[#39FF14]/20' : 'border-gray-200'
             }`}>
               <div className="flex justify-center">
                 {isConnected ? (
                   <button
                     className={`w-8 h-8 rounded-lg transition-colors flex items-center justify-center ${
                       isDarkMode 
-                        ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' 
+                        ? 'bg-[#39FF14]/10 hover:bg-[#39FF14]/20 text-[#39FF14] border border-[#39FF14]/30' 
                         : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
                     }`}
                     onClick={() => setShowDisconnectModal(true)}
                     title={`${address?.slice(0, 6)}...${address?.slice(-4)}`}
                   >
-                    <Wallet size={16} className="text-emerald-500" />
+                    <Wallet size={16} className={isDarkMode ? 'text-[#39FF14]' : 'text-emerald-500'} />
                   </button>
                 ) : (
-                  <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                    <Wallet size={16} className="text-gray-400" />
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                    isDarkMode ? 'bg-black border border-[#39FF14]/20' : 'bg-gray-100'
+                  }`}>
+                    <Wallet size={16} className={isDarkMode ? 'text-[#39FF14]/40' : 'text-gray-400'} />
                   </div>
                 )}
               </div>
@@ -231,15 +227,15 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse, isDarkMo
           }}
         >
           <div className={`p-6 rounded-lg max-w-sm w-full shadow-2xl transform transition-all duration-200 ${
-            isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'
+            isDarkMode ? 'bg-black border border-[#39FF14]/30' : 'bg-[#F5F3F0] border border-gray-200'
           }`}>
             <h3 className={`text-lg font-semibold mb-4 ${
-              isDarkMode ? 'text-gray-200' : 'text-gray-800'
+              isDarkMode ? 'text-white' : 'text-gray-800'
             }`}>
               Disconnect Wallet
             </h3>
             <p className={`text-sm mb-6 ${
-              isDarkMode ? 'text-gray-400' : 'text-gray-600'
+              isDarkMode ? 'text-white/70' : 'text-gray-600'
             }`}>
               Are you sure you want to disconnect your wallet?
             </p>
@@ -248,7 +244,7 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse, isDarkMo
                 onClick={() => setShowDisconnectModal(false)}
                 className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   isDarkMode 
-                    ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' 
+                    ? 'bg-[#39FF14]/10 hover:bg-[#39FF14]/20 text-white border border-[#39FF14]/30' 
                     : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
                 }`}
               >

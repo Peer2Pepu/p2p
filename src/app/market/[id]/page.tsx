@@ -5,6 +5,7 @@ import { useReadContract, useAccount, useWriteContract } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { Sidebar } from '../../components/Sidebar';
 import { useTheme } from '../../context/ThemeContext';
+import Image from 'next/image';
 import { 
   Menu, 
   Sun, 
@@ -295,10 +296,10 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
   // Show loading state
   if (marketLoading || loading || marketId === null) {
     return (
-      <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'} flex items-center justify-center`}>
+      <div className={`min-h-screen ${isDarkMode ? 'bg-black' : 'bg-[#F5F3F0]'} flex items-center justify-center`}>
         <div className="text-center">
-          <div className={`animate-spin rounded-full h-12 w-12 border-b-2 ${isDarkMode ? 'border-emerald-500' : 'border-emerald-600'} mx-auto mb-4`}></div>
-          <p className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Loading market data...</p>
+          <div className={`animate-spin rounded-full h-12 w-12 border-b-2 ${isDarkMode ? 'border-[#39FF14]' : 'border-emerald-600'} mx-auto mb-4`}></div>
+          <p className={isDarkMode ? 'text-white/70' : 'text-gray-600'}>Loading market data...</p>
         </div>
       </div>
     );
@@ -307,16 +308,16 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
   // Show error if market doesn't exist
   if (marketError || !market) {
     return (
-      <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'} flex items-center justify-center`}>
+      <div className={`min-h-screen ${isDarkMode ? 'bg-black' : 'bg-[#F5F3F0]'} flex items-center justify-center`}>
         <div className="text-center">
-          <h1 className={`text-2xl font-bold mb-4 ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>Market Not Found</h1>
-          <p className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Market #{marketId} does not exist.</p>
+          <h1 className={`text-2xl font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Market Not Found</h1>
+          <p className={isDarkMode ? 'text-white/70' : 'text-gray-600'}>Market #{marketId} does not exist.</p>
           <Link 
             href="/"
             className={`mt-4 inline-block px-4 py-2 rounded-lg transition-colors ${
               isDarkMode 
-                ? 'bg-emerald-600 hover:bg-emerald-700 text-white' 
-                : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                ? 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black' 
+                : 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black border border-black'
             }`}
           >
             Back to Markets
@@ -331,7 +332,7 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
   const options = getMarketOptions();
 
   return (
-    <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
+      <div className={`min-h-screen ${isDarkMode ? 'bg-black' : 'bg-[#F5F3F0]'}`}>
       {/* Sidebar */}
       <Sidebar 
         isOpen={sidebarOpen}
@@ -348,30 +349,41 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
         {/* Header */}
         <div className={`sticky top-0 z-30 border-b ${
           isDarkMode 
-            ? 'bg-gray-900 border-gray-800' 
-            : 'bg-white border-gray-200'
+            ? 'bg-black border-[#39FF14]/20' 
+            : 'bg-[#F5F3F0] border-gray-200'
         }`}>
-          <div className="px-3 sm:px-4 lg:px-8">
-            <div className="flex items-center justify-between h-14 sm:h-16">
+          <div className="px-3 sm:px-4 lg:px-8 py-1.5 lg:py-2">
+            <div className="flex items-center justify-between">
               {/* Left side */}
               <div className="flex items-center gap-2 sm:gap-4">
                 <button
                   onClick={() => setSidebarOpen(true)}
                   className={`lg:hidden p-2 rounded-lg transition-colors ${
                     isDarkMode 
-                      ? 'hover:bg-gray-800 text-gray-300' 
-                      : 'hover:bg-gray-100 text-gray-700'
+                      ? 'hover:bg-[#39FF14]/10 text-white' 
+                      : 'hover:bg-gray-200 text-gray-700'
                   }`}
                 >
-                  <Menu size={20} />
+                  <Menu size={20} className={isDarkMode ? 'text-white' : 'text-gray-900'} />
                 </button>
+                
+                <div className="lg:hidden">
+                  <Image
+                    src="/P2PFINAL-removebg-preview-removebg-preview.png"
+                    alt="P2P"
+                    width={60}
+                    height={30}
+                    className="object-contain"
+                    priority
+                  />
+                </div>
                 
                 <Link 
                   href="/"
                   className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 rounded-lg transition-colors ${
                     isDarkMode 
-                      ? 'hover:bg-gray-800 text-gray-300' 
-                      : 'hover:bg-gray-100 text-gray-700'
+                      ? 'hover:bg-[#39FF14]/10 text-white' 
+                      : 'hover:bg-gray-200 text-gray-700'
                   }`}
                 >
                   <ArrowLeft size={18} />
@@ -382,34 +394,38 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
 
               {/* Right side */}
               <div className="flex items-center gap-2 sm:gap-3">
+                <button
+                  onClick={toggleTheme}
+                  className={`p-1.5 lg:p-2 rounded-lg transition-colors ${
+                    isDarkMode 
+                      ? 'hover:bg-[#39FF14]/10 text-white' 
+                      : 'hover:bg-gray-200 text-gray-700'
+                  }`}
+                >
+                  {isDarkMode ? <Sun size={20} className="text-white" /> : <Moon size={20} className="text-gray-600" />}
+                </button>
                 {isConnected ? (
-                  <div className="flex items-center gap-1 sm:gap-2">
-                    <Wallet size={16} className="text-emerald-500" />
-                    <span className={`font-mono text-xs sm:text-sm hidden sm:inline ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
+                  <div className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 rounded text-xs sm:text-sm font-medium ${
+                    isDarkMode 
+                      ? 'bg-[#39FF14]/10 text-white border border-[#39FF14]/30' 
+                      : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  }`}>
+                    <Wallet size={16} />
+                    <span className="font-mono hidden sm:inline">
                       {address?.slice(0, 6)}...{address?.slice(-4)}
                     </span>
-                    <span className={`font-mono text-xs sm:hidden ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
+                    <span className="font-mono sm:hidden">
                       {address?.slice(0, 4)}...{address?.slice(-2)}
                     </span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-1 sm:gap-2">
-                    <Wallet size={16} className="text-gray-400" />
+                    <Wallet size={16} className={isDarkMode ? 'text-white/60' : 'text-gray-400'} />
                     <div className="scale-90 sm:scale-100">
                       <ConnectButton />
                     </div>
                   </div>
                 )}
-                <button
-                  onClick={toggleTheme}
-                  className={`p-2 rounded-lg transition-colors ${
-                    isDarkMode 
-                      ? 'hover:bg-gray-800 text-gray-300' 
-                      : 'hover:bg-gray-100 text-gray-700'
-                  }`}
-                >
-                  {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
-                </button>
               </div>
             </div>
           </div>
@@ -418,35 +434,37 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
         {/* Content */}
         <div className="max-w-4xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8">
           {/* Market Header */}
-          <div className={`rounded-xl shadow-sm p-4 sm:p-6 mb-4 sm:mb-6 ${
-            isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-          } border`}>
+          <div className={`rounded-xl shadow-sm p-4 sm:p-6 mb-4 sm:mb-6 border ${
+            isDarkMode ? 'bg-black border-gray-800' : 'bg-[#F5F3F0] border-gray-300'
+          }`}>
             <div className="flex items-center gap-3 sm:gap-4 mb-3 sm:mb-4">
               {getMarketImage() && (
                 <img
                   src={getMarketImage()!}
                   alt=""
-                  className="w-12 h-12 sm:w-16 sm:h-16 rounded-lg object-cover"
+                  className={`w-12 h-12 sm:w-16 sm:h-16 rounded-lg object-cover border ${
+                    isDarkMode ? 'border-gray-800' : 'border-gray-300'
+                  }`}
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
                   }}
                 />
               )}
               <div className="flex-1 min-w-0">
-                <h1 className={`text-lg sm:text-2xl font-bold ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>
+                <h1 className={`text-lg sm:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                   {getMarketTitle()}
                 </h1>
-                <p className={`text-xs sm:text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                <p className={`text-xs sm:text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
                   Market ID: #{marketId}
                 </p>
               </div>
               <div className="flex items-center gap-2 sm:gap-3">
                 <div className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm ${
                   isMarketResolved
-                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                    ? isDarkMode ? 'bg-blue-900/40 text-blue-300' : 'bg-blue-100 text-blue-800'
                     : isMarketEnded 
-                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200' 
-                      : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                      ? isDarkMode ? 'bg-[#39FF14]/20 text-[#39FF14]' : 'bg-[#39FF14]/20 text-green-700 border border-black'
+                      : isDarkMode ? 'bg-yellow-900/40 text-yellow-300' : 'bg-yellow-100 text-yellow-800'
                 }`}>
                   {isMarketResolved ? <CheckCircle size={16} /> : (isMarketEnded ? <CheckCircle size={16} /> : <Clock size={16} />)}
                   <span className="hidden sm:inline">
@@ -457,7 +475,7 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
                   </span>
                 </div>
                 <div className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm ${
-                  isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
+                  isDarkMode ? 'bg-gray-900 text-white/70' : 'bg-gray-200 text-gray-700'
                 }`}>
                   <Users size={16} />
                   <span className="hidden sm:inline">{totalVerifications} Verifications</span>
@@ -466,8 +484,8 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
                 {isConnected && (
                   <div className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm ${
                     isUserVerifier 
-                      ? isDarkMode ? 'bg-green-900 text-green-300' : 'bg-green-100 text-green-800'
-                      : isDarkMode ? 'bg-red-900 text-red-300' : 'bg-red-100 text-red-800'
+                      ? isDarkMode ? 'bg-[#39FF14]/20 text-[#39FF14] border border-[#39FF14]/30' : 'bg-[#39FF14]/20 text-green-700 border border-black'
+                      : isDarkMode ? 'bg-red-900/50 text-red-300' : 'bg-red-100 text-red-800'
                   }`}>
                     <Shield size={16} />
                     <span className="hidden sm:inline">{isUserVerifier ? 'Verifier' : 'Not Verifier'}</span>
@@ -479,23 +497,23 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
             
             {/* Description and Vanity Info Section */}
             {(marketMetadata?.description || marketMetadata?.vanityInfo) && (
-              <div className={`mt-4 sm:mt-6 pt-4 sm:pt-6 border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+              <div className={`mt-4 sm:mt-6 pt-4 sm:pt-6 border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-300'}`}>
                 {marketMetadata?.description && (
                   <div className="mb-4 sm:mb-6">
-                    <h3 className={`text-sm sm:text-base font-semibold mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    <h3 className={`text-sm sm:text-base font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-700'}`}>
                       Description
                     </h3>
-                    <p className={`text-sm sm:text-base leading-relaxed ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    <p className={`text-sm sm:text-base leading-relaxed ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                       {marketMetadata.description}
                     </p>
                   </div>
                 )}
                 {marketMetadata?.vanityInfo && (
                   <div>
-                    <h3 className={`text-sm sm:text-base font-semibold mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    <h3 className={`text-sm sm:text-base font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-700'}`}>
                       Resources & Links
                     </h3>
-                    <div className={`text-sm sm:text-base leading-relaxed whitespace-pre-wrap ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    <div className={`text-sm sm:text-base leading-relaxed whitespace-pre-wrap ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                       {marketMetadata.vanityInfo.split('\n').map((line: string, idx: number) => {
                         // Check if line is a URL
                         const urlPattern = /(https?:\/\/[^\s]+)/g;
@@ -529,12 +547,12 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
           </div>
 
           {/* Verification Section */}
-          <div className={`rounded-xl shadow-sm p-4 sm:p-6 ${
-            isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-          } border`}>
+          <div className={`rounded-xl shadow-sm p-4 sm:p-6 border ${
+            isDarkMode ? 'bg-black border-gray-800' : 'bg-[#F5F3F0] border-gray-300'
+          }`}>
             <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
-              <Shield className={`${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`} size={24} />
-              <h2 className={`text-lg sm:text-xl font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>
+              <Shield className={`${isDarkMode ? 'text-[#39FF14]' : 'text-emerald-600'}`} size={24} />
+              <h2 className={`text-lg sm:text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 Verify Market Outcome
               </h2>
             </div>
@@ -542,11 +560,11 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
             {!isConnected ? (
               <div className="text-center py-6 sm:py-8">
                 <div className={`w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 rounded-full flex items-center justify-center ${
-                  isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
+                  isDarkMode ? 'bg-gray-900' : 'bg-gray-200'
                 }`}>
-                  <Target className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} size={32} />
+                  <Target className={`${isDarkMode ? 'text-white' : 'text-gray-600'}`} size={32} />
                 </div>
-                <p className={`mb-4 text-sm sm:text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                <p className={`mb-4 text-sm sm:text-base ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                   Please connect your wallet to verify this market
                 </p>
                 <div className="scale-90 sm:scale-100">
@@ -556,48 +574,48 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
             ) : !isUserVerifier ? (
               <div className="text-center py-6 sm:py-8">
                 <div className={`w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 rounded-full flex items-center justify-center ${
-                  isDarkMode ? 'bg-red-900' : 'bg-red-100'
+                  isDarkMode ? 'bg-red-900/50' : 'bg-red-100'
                 }`}>
-                  <Lock className={`${isDarkMode ? 'text-red-400' : 'text-red-600'}`} size={32} />
+                  <Lock className={`${isDarkMode ? 'text-red-300' : 'text-red-600'}`} size={32} />
                 </div>
                 <h3 className={`text-lg font-semibold mb-2 ${isDarkMode ? 'text-red-300' : 'text-red-800'}`}>
                   Access Denied
                 </h3>
-                <p className={`mb-4 text-sm sm:text-base ${isDarkMode ? 'text-red-400' : 'text-red-600'}`}>
+                <p className={`mb-4 text-sm sm:text-base ${isDarkMode ? 'text-red-300' : 'text-red-600'}`}>
                   Only verified verifiers can vote on market outcomes
                 </p>
-                <p className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-600'}`}>
+                <p className={`text-xs ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
                   Your address: {address?.slice(0, 6)}...{address?.slice(-4)}
                 </p>
               </div>
             ) : isMarketResolved ? (
               <div className="text-center py-6 sm:py-8">
                 <div className={`w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 rounded-full flex items-center justify-center ${
-                  isDarkMode ? 'bg-blue-900' : 'bg-blue-100'
+                  isDarkMode ? 'bg-blue-900/50' : 'bg-blue-100'
                 }`}>
                   <CheckCircle className={`${isDarkMode ? 'text-blue-300' : 'text-blue-700'}`} size={32} />
                 </div>
                 <h3 className={`text-lg font-semibold mb-2 ${isDarkMode ? 'text-blue-200' : 'text-blue-800'}`}>
                   Market Resolved
                 </h3>
-                <p className={`mb-4 text-sm sm:text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                <p className={`mb-4 text-sm sm:text-base ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                   This market has been resolved. Verifications are closed.
                 </p>
               </div>
             ) : !isMarketEnded ? (
               <div className="text-center py-6 sm:py-8">
                 <div className={`w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 rounded-full flex items-center justify-center ${
-                  isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
+                  isDarkMode ? 'bg-gray-900' : 'bg-gray-200'
                 }`}>
-                  <Clock className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} size={32} />
+                  <Clock className={`${isDarkMode ? 'text-white' : 'text-gray-600'}`} size={32} />
                 </div>
-                <p className={`mb-4 text-sm sm:text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                <p className={`mb-4 text-sm sm:text-base ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                   This market is still active and cannot be verified yet.
                 </p>
               </div>
             ) : (
               <div>
-                <p className={`mb-4 sm:mb-6 text-sm sm:text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                <p className={`mb-4 sm:mb-6 text-sm sm:text-base ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                   Select the winning option for this market:
                 </p>
                 
@@ -617,11 +635,11 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
                         } ${
                           selectedOption === index + 1
                             ? isDarkMode 
-                              ? 'border-emerald-500 bg-emerald-900/20' 
-                              : 'border-emerald-500 bg-emerald-50'
+                              ? 'border-[#39FF14] bg-[#39FF14]/10' 
+                              : 'border-[#39FF14] bg-[#39FF14]/10 border-2 border-black'
                             : isDarkMode
-                              ? 'border-gray-700 hover:bg-gray-700'
-                              : 'border-gray-200 hover:bg-gray-50'
+                              ? 'border-gray-800 hover:bg-gray-900'
+                              : 'border-gray-400 hover:bg-gray-200'
                         }`}
                       >
                         <div className="flex items-center">
@@ -632,19 +650,21 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
                             checked={selectedOption === index + 1}
                             onChange={() => !hasUserVoted && setSelectedOption(index + 1)}
                             disabled={hasUserVoted}
-                            className="mr-2 sm:mr-3 text-emerald-600"
+                            className="mr-2 sm:mr-3"
                           />
-                          <span className={`font-medium text-sm sm:text-base ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>
+                          <span className={`font-medium text-sm sm:text-base ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             {option}
                           </span>
                           {userVotedForThis && (
-                            <span className="ml-2 text-xs px-2 py-1 rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                            <span className={`ml-2 text-xs px-2 py-1 rounded-full ${
+                              isDarkMode ? 'bg-[#39FF14]/20 text-[#39FF14]' : 'bg-green-100 text-green-800'
+                            }`}>
                               ✓ Voted
                             </span>
                           )}
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                          <span className={`text-sm font-medium ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
                             {currentVoteCount} votes
                           </span>
                         </div>
@@ -658,9 +678,11 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
                   className={`w-full py-2 sm:py-3 px-4 sm:px-6 rounded-lg font-medium text-sm sm:text-base transition-colors flex items-center justify-center gap-2 ${
                     !selectedOption || isVerifying || hasUserVoted
                       ? isDarkMode 
-                        ? 'bg-gray-700 text-gray-500 cursor-not-allowed' 
+                        ? 'bg-gray-800 text-gray-500 cursor-not-allowed' 
                         : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                      : isDarkMode
+                        ? 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black'
+                        : 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black border border-black'
                   }`}
                   disabled={!selectedOption || isVerifying || hasUserVoted}
                 >
@@ -674,22 +696,22 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
           </div>
 
           {/* Market Details */}
-          <div className={`rounded-xl shadow-sm p-4 sm:p-6 mt-4 sm:mt-6 ${
-            isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-          } border`}>
-            <h3 className={`text-base sm:text-lg font-semibold mb-3 sm:mb-4 ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>
+          <div className={`rounded-xl shadow-sm p-4 sm:p-6 mt-4 sm:mt-6 border ${
+            isDarkMode ? 'bg-black border-gray-800' : 'bg-[#F5F3F0] border-gray-300'
+          }`}>
+            <h3 className={`text-base sm:text-lg font-semibold mb-3 sm:mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
               Market Details
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
               <div>
-                <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>End Time:</span>
-                <p className={`font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>
+                <span className={isDarkMode ? 'text-white/60' : 'text-gray-600'}>End Time:</span>
+                <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                   {new Date(Number(market.endTime) * 1000).toLocaleString()}
                 </p>
               </div>
               <div>
-                <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>State:</span>
-                <p className={`font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>
+                <span className={isDarkMode ? 'text-white/60' : 'text-gray-600'}>State:</span>
+                <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                   {Number(market.state) === 0 ? 'Active' : Number(market.state) === 1 ? 'Ended' : 'Resolved'}
                 </p>
               </div>

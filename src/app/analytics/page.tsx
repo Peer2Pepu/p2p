@@ -38,6 +38,7 @@ import {
   AreaChart,
   Area
 } from 'recharts';
+import Image from 'next/image';
 
 // Real Contract ABIs
 const ANALYTICS_ABI = [
@@ -170,10 +171,10 @@ function PEPUPoolData({ isDarkMode }: { isDarkMode: boolean }) {
   if (isLoading) {
     return (
       <div className={`p-6 rounded-lg border ${
-        isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+        isDarkMode ? 'bg-black border-gray-800' : 'bg-[#F5F3F0] border-gray-300'
       }`}>
         <div className="flex items-center justify-center h-32">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-500"></div>
+          <div className={`animate-spin rounded-full h-6 w-6 border-b-2 ${isDarkMode ? 'border-[#39FF14]' : 'border-emerald-500'}`}></div>
         </div>
       </div>
     );
@@ -181,7 +182,7 @@ function PEPUPoolData({ isDarkMode }: { isDarkMode: boolean }) {
 
   return (
     <div className={`p-6 rounded-lg border ${
-      isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+      isDarkMode ? 'bg-black border-gray-800' : 'bg-[#F5F3F0] border-gray-300'
     }`}>
       <div className="flex items-center justify-between mb-4">
         <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
@@ -191,7 +192,7 @@ function PEPUPoolData({ isDarkMode }: { isDarkMode: boolean }) {
           href="https://www.geckoterminal.com/pepe-unchained/pools/0xb1ff9a6a353e7ada85a6a100b7992fde9de566f3"
           target="_blank"
           rel="noopener noreferrer"
-          className={`flex items-center gap-1 text-sm ${isDarkMode ? 'text-emerald-400 hover:text-emerald-300' : 'text-emerald-600 hover:text-emerald-700'}`}
+          className={`flex items-center gap-1 text-sm ${isDarkMode ? 'text-[#39FF14] hover:text-[#39FF14]/80' : 'text-emerald-600 hover:text-emerald-700'}`}
         >
           View Pool
           <ExternalLink size={14} />
@@ -201,27 +202,27 @@ function PEPUPoolData({ isDarkMode }: { isDarkMode: boolean }) {
       {poolData ? (
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Price</p>
+            <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>Price</p>
             <p className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
               ${poolData.attributes.price_usd ? parseFloat(poolData.attributes.price_usd).toFixed(6) : 'N/A'}
             </p>
           </div>
           <div>
-            <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Market Cap</p>
+            <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>Market Cap</p>
             <p className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
               ${poolData.attributes.fdv_usd ? (parseFloat(poolData.attributes.fdv_usd) / 1000000).toFixed(2) + 'M' : 'N/A'}
             </p>
           </div>
           <div>
-            <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>24h Volume</p>
+            <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>24h Volume</p>
             <p className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
               ${poolData.attributes.volume_usd ? (parseFloat(poolData.attributes.volume_usd) / 1000000).toFixed(2) + 'M' : 'N/A'}
             </p>
           </div>
           <div>
-            <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>24h Change</p>
+            <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>24h Change</p>
             <p className={`text-lg font-semibold ${
-              poolData.attributes.price_change_percentage?.h24 >= 0 ? 'text-emerald-500' : 'text-red-500'
+              poolData.attributes.price_change_percentage?.h24 >= 0 ? (isDarkMode ? 'text-[#39FF14]' : 'text-emerald-600') : 'text-red-500'
             }`}>
               {poolData.attributes.price_change_percentage?.h24 ? 
                 `${poolData.attributes.price_change_percentage.h24 >= 0 ? '+' : ''}${poolData.attributes.price_change_percentage.h24.toFixed(2)}%` : 
@@ -231,7 +232,7 @@ function PEPUPoolData({ isDarkMode }: { isDarkMode: boolean }) {
           </div>
         </div>
       ) : (
-        <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+        <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
           Failed to load pool data
         </p>
       )}
@@ -330,7 +331,7 @@ function ContractAnalytics({ isDarkMode }: { isDarkMode: boolean }) {
     <div className="space-y-6">
       {/* Global Stats */}
       <div className={`p-6 rounded-lg border ${
-        isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+        isDarkMode ? 'bg-black border-gray-800' : 'bg-[#F5F3F0] border-gray-300'
       }`}>
         <h3 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
           Platform Statistics
@@ -338,38 +339,38 @@ function ContractAnalytics({ isDarkMode }: { isDarkMode: boolean }) {
         
         {globalStats ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Markets</p>
+            <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-900' : 'bg-gray-200'}`}>
+              <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>Total Markets</p>
               <p className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 {nextMarketId ? (Number(nextMarketId) - 1).toString() : '0'}
               </p>
             </div>
-            <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Volume</p>
+            <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-900' : 'bg-gray-200'}`}>
+              <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>Total Volume</p>
               <p className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 {formatEther(globalStats.totalVolume)} PEPU
               </p>
             </div>
-            <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Stakes</p>
+            <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-900' : 'bg-gray-200'}`}>
+              <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>Total Stakes</p>
               <p className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 {globalStats.totalStakes.toString()}
               </p>
             </div>
-            <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Users</p>
+            <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-900' : 'bg-gray-200'}`}>
+              <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>Total Users</p>
               <p className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 {globalStats.totalUsers.toString()}
               </p>
             </div>
-            <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Revenue</p>
+            <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-900' : 'bg-gray-200'}`}>
+              <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>Total Revenue</p>
               <p className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 {formatEther(globalStats.totalRevenue)} PEPU
               </p>
             </div>
-            <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Supports</p>
+            <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-900' : 'bg-gray-200'}`}>
+              <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>Total Supports</p>
               <p className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 {globalStats.totalSupports.toString()}
               </p>
@@ -377,7 +378,7 @@ function ContractAnalytics({ isDarkMode }: { isDarkMode: boolean }) {
           </div>
         ) : (
           <div className="flex items-center justify-center h-32">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-500"></div>
+            <div className={`animate-spin rounded-full h-6 w-6 border-b-2 ${isDarkMode ? 'border-[#39FF14]' : 'border-emerald-500'}`}></div>
           </div>
         )}
       </div>
@@ -385,7 +386,7 @@ function ContractAnalytics({ isDarkMode }: { isDarkMode: boolean }) {
       {/* Top Markets by Volume */}
       {topMarketsData && topMarketsData[0] && topMarketsData[0].length > 0 && (
         <div className={`p-6 rounded-lg border ${
-          isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+          isDarkMode ? 'bg-black border-gray-800' : 'bg-[#F5F3F0] border-gray-300'
         }`}>
           <h3 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
             Top Markets by Volume
@@ -394,10 +395,10 @@ function ContractAnalytics({ isDarkMode }: { isDarkMode: boolean }) {
           <div className="space-y-3">
             {topMarketsData[0].slice(0, 5).map((marketId: bigint, index: number) => (
               <div key={index} className={`p-3 rounded-lg border ${
-                isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'
+                isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-200 border-gray-300'
               }`}>
                 <div className="flex items-center justify-between">
-                  <span className={`font-mono text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  <span className={`font-mono text-sm ${isDarkMode ? 'text-white' : 'text-gray-700'}`}>
                     Market #{marketId.toString()}
                   </span>
                   <span className={`text-sm font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
@@ -413,7 +414,7 @@ function ContractAnalytics({ isDarkMode }: { isDarkMode: boolean }) {
       {/* Top Stakers */}
       {topStakersData && topStakersData[0] && topStakersData[0].length > 0 && (
         <div className={`p-6 rounded-lg border ${
-          isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+          isDarkMode ? 'bg-black border-gray-800' : 'bg-[#F5F3F0] border-gray-300'
         }`}>
           <h3 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
             Top Stakers
@@ -422,10 +423,10 @@ function ContractAnalytics({ isDarkMode }: { isDarkMode: boolean }) {
           <div className="space-y-3">
             {topStakersData[0].slice(0, 5).map((staker: string, index: number) => (
               <div key={index} className={`p-3 rounded-lg border ${
-                isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'
+                isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-200 border-gray-300'
               }`}>
                 <div className="flex items-center justify-between">
-                  <span className={`font-mono text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  <span className={`font-mono text-sm ${isDarkMode ? 'text-white' : 'text-gray-700'}`}>
                     {formatAddress(staker)}
                   </span>
                   <span className={`text-sm font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
@@ -441,7 +442,7 @@ function ContractAnalytics({ isDarkMode }: { isDarkMode: boolean }) {
       {/* Today's Activity */}
       {todayMarketsData && todayMarketsData[0] && todayMarketsData[0].length > 0 && (
         <div className={`p-6 rounded-lg border ${
-          isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+          isDarkMode ? 'bg-black border-gray-800' : 'bg-[#F5F3F0] border-gray-300'
         }`}>
           <h3 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
             Today's Markets ({todayMarketsData[0].length})
@@ -450,20 +451,20 @@ function ContractAnalytics({ isDarkMode }: { isDarkMode: boolean }) {
           <div className="space-y-2">
             {todayMarketsData[0].slice(0, 3).map((marketId: bigint, index: number) => (
               <div key={index} className={`p-2 rounded border ${
-                isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'
+                isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-200 border-gray-300'
               }`}>
                 <div className="flex items-center justify-between">
-                  <span className={`font-mono text-xs ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  <span className={`font-mono text-xs ${isDarkMode ? 'text-white' : 'text-gray-700'}`}>
                     Market #{marketId.toString()}
                   </span>
-                  <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  <span className={`text-xs ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                     {formatEther(todayMarketsData[1][index])} PEPU
                   </span>
                 </div>
               </div>
             ))}
             {todayMarketsData[0].length > 3 && (
-              <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              <p className={`text-xs ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                 +{todayMarketsData[0].length - 3} more markets today
               </p>
             )}
@@ -483,7 +484,7 @@ export default function AnalyticsPage() {
   const { address, isConnected } = useAccount();
 
   return (
-    <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
+    <div className={`min-h-screen ${isDarkMode ? 'bg-black' : 'bg-[#F5F3F0]'}`}>
       {/* Sidebar */}
       <Sidebar
         isOpen={sidebarOpen}
@@ -499,48 +500,66 @@ export default function AnalyticsPage() {
       }`}>
         {/* Header */}
         <header className={`sticky top-0 z-30 border-b ${
-          isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'
+          isDarkMode ? 'bg-black border-[#39FF14]/20' : 'bg-[#F5F3F0] border-gray-200'
         }`}>
-          <div className="px-4 lg:px-6 py-4">
+          <div className="px-4 sm:px-6 py-1.5 lg:py-2">
             <div className="flex items-center justify-between">
-              {/* Mobile Menu Button */}
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className={`lg:hidden p-2 rounded-lg transition-colors ${
-                  isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'
-                }`}
-              >
-                <Menu size={20} />
-              </button>
-
-              {/* Desktop: Empty space for balance */}
-              <div className="hidden lg:block"></div>
+              {/* Left side - Mobile menu and logo */}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setSidebarOpen(true)}
+                  className={`lg:hidden p-2 rounded-lg transition-colors ${
+                    isDarkMode ? 'hover:bg-[#39FF14]/10 text-white' : 'hover:bg-gray-200 text-gray-700'
+                  }`}
+                >
+                  <Menu size={20} className={isDarkMode ? 'text-white' : 'text-gray-900'} />
+                </button>
+                <div className="lg:hidden">
+                  <Image
+                    src="/P2PFINAL-removebg-preview-removebg-preview.png"
+                    alt="P2P"
+                    width={60}
+                    height={30}
+                    className="object-contain"
+                    priority
+                  />
+                </div>
+                <h1 className={`text-xl sm:text-2xl font-bold hidden lg:block ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Analytics</h1>
+              </div>
 
               {/* Right side controls */}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3">
                 {/* Theme Toggle */}
                 <button
                   onClick={toggleTheme}
-                  className={`p-2 rounded-lg transition-colors ${
-                    isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'
+                  className={`p-1.5 lg:p-2 rounded-lg transition-colors ${
+                    isDarkMode ? 'hover:bg-[#39FF14]/10 text-white' : 'hover:bg-gray-200 text-gray-700'
                   }`}
                 >
-                  {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+                  {isDarkMode ? <Sun size={20} className="text-white" /> : <Moon size={20} className="text-gray-600" />}
                 </button>
 
                 {/* Wallet Connection */}
                 {isConnected ? (
-                  <div className={`flex items-center gap-1 lg:gap-2 px-2 lg:px-3 py-1.5 rounded text-xs lg:text-sm font-medium ${
+                  <div className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 rounded text-xs sm:text-sm font-medium ${
                     isDarkMode 
-                      ? 'bg-emerald-600/10 text-emerald-400 border border-emerald-600/20' 
+                      ? 'bg-[#39FF14]/10 text-white border border-[#39FF14]/30' 
                       : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                   }`}>
-                    <Wallet size={12} className="lg:w-3.5 lg:h-3.5" />
-                    <span className="font-mono text-xs lg:text-sm">{address?.slice(0, 6)}...{address?.slice(-4)}</span>
+                    <Wallet size={16} />
+                    <span className="font-mono hidden sm:inline">
+                      {address?.slice(0, 6)}...{address?.slice(-4)}
+                    </span>
+                    <span className="font-mono sm:hidden">
+                      {address?.slice(0, 4)}...{address?.slice(-2)}
+                    </span>
                   </div>
                 ) : (
-                  <div className="scale-90 lg:scale-100">
-                    <ConnectButton />
+                  <div className="flex items-center gap-1 sm:gap-2">
+                    <Wallet size={16} className={isDarkMode ? 'text-white/60' : 'text-gray-400'} />
+                    <div className="scale-90 sm:scale-100">
+                      <ConnectButton />
+                    </div>
                   </div>
                 )}
               </div>
@@ -555,15 +574,15 @@ export default function AnalyticsPage() {
             <div className="mb-8">
               <div className="flex items-center gap-3 mb-2">
                 <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                  isDarkMode ? 'bg-emerald-900/20' : 'bg-emerald-50'
+                  isDarkMode ? 'bg-[#39FF14]/20' : 'bg-emerald-50'
                 }`}>
-                  <BarChart3 className={`w-5 h-5 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-500'}`} />
+                  <BarChart3 className={`w-5 h-5 ${isDarkMode ? 'text-[#39FF14]' : 'text-emerald-500'}`} />
                 </div>
                 <div>
                   <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                     Analytics Dashboard
                   </h1>
-                  <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                     Real platform data and PEPU pool information
                   </p>
                 </div>

@@ -227,8 +227,7 @@ export async function POST(request: NextRequest) {
           resolutionEndTime: Number(market.resolutionEndTime)
         },
         resolutionData,
-        voteCounts,
-        timestamp: Date.now()
+        voteCounts
       }
     });
 

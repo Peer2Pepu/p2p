@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { 
   Target, 
   Clock, 
@@ -292,13 +293,13 @@ function MarketResolutionCard({ marketId, isDarkMode, onVote }: {
 
   if (!market || !marketInfo) {
     return (
-      <div className={`rounded-lg border p-4 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+      <div className={`rounded-lg border p-4 ${isDarkMode ? 'bg-black border-gray-800' : 'bg-[#F5F3F0] border-gray-300'}`}>
         <div className="animate-pulse">
-          <div className={`h-4 rounded mb-2 ${isDarkMode ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
-          <div className={`h-3 rounded mb-3 ${isDarkMode ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
+          <div className={`h-4 rounded mb-2 ${isDarkMode ? 'bg-gray-800' : 'bg-gray-300'}`}></div>
+          <div className={`h-3 rounded mb-3 ${isDarkMode ? 'bg-gray-800' : 'bg-gray-300'}`}></div>
           <div className="flex justify-between">
-            <div className={`h-6 w-20 rounded ${isDarkMode ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
-            <div className={`h-6 w-16 rounded ${isDarkMode ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
+            <div className={`h-6 w-20 rounded ${isDarkMode ? 'bg-gray-800' : 'bg-gray-300'}`}></div>
+            <div className={`h-6 w-16 rounded ${isDarkMode ? 'bg-gray-800' : 'bg-gray-300'}`}></div>
           </div>
         </div>
       </div>
@@ -351,19 +352,19 @@ function MarketResolutionCard({ marketId, isDarkMode, onVote }: {
 
   return (
     <div className={`border rounded-lg overflow-hidden transition-all duration-200 hover:shadow-md ${
-      isDarkMode ? 'bg-gray-800 border-gray-700 hover:shadow-gray-900/20' : 'bg-white border-gray-200 hover:shadow-gray-900/10'
+      isDarkMode ? 'bg-black border-gray-800 hover:shadow-gray-900/20' : 'bg-[#F5F3F0] border-gray-300 hover:shadow-gray-900/10'
     }`}>
       {/* Header */}
-      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+      <div className={`p-4 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-300'}`}>
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0 pr-4">
             <div className="flex items-center gap-2 mb-1">
               <h3 className={`font-semibold text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 {getMarketTitle()}
               </h3>
-              {hasVotedInMarket && <Check size={14} className="text-green-500 flex-shrink-0" />}
+              {hasVotedInMarket && <Check size={14} className={`flex-shrink-0 ${isDarkMode ? 'text-[#39FF14]' : 'text-green-500'}`} />}
             </div>
-            <p className={`text-xs leading-tight ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+            <p className={`text-xs leading-tight ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
               {getMarketDescription()}
             </p>
           </div>
@@ -384,23 +385,23 @@ function MarketResolutionCard({ marketId, isDarkMode, onVote }: {
 
       {/* Description and Vanity Info Section */}
       {(marketMetadata?.description || marketMetadata?.vanityInfo) && (
-        <div className={`p-4 border-b ${isDarkMode ? 'border-gray-700 bg-gray-800/50' : 'border-gray-200 bg-gray-50'}`}>
+        <div className={`p-4 border-b ${isDarkMode ? 'border-gray-800 bg-gray-900/50' : 'border-gray-300 bg-gray-200'}`}>
           {marketMetadata?.description && (
             <div className="mb-3">
-              <h4 className={`text-xs font-semibold mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+              <h4 className={`text-xs font-semibold mb-1 ${isDarkMode ? 'text-white' : 'text-gray-700'}`}>
                 Description
               </h4>
-              <p className={`text-xs leading-relaxed ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              <p className={`text-xs leading-relaxed ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                 {marketMetadata.description}
               </p>
             </div>
           )}
           {marketMetadata?.vanityInfo && (
             <div>
-              <h4 className={`text-xs font-semibold mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+              <h4 className={`text-xs font-semibold mb-1 ${isDarkMode ? 'text-white' : 'text-gray-700'}`}>
                 Resources & Links
               </h4>
-              <div className={`text-xs leading-relaxed whitespace-pre-wrap ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              <div className={`text-xs leading-relaxed whitespace-pre-wrap ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                 {marketMetadata.vanityInfo.split('\n').map((line: string, idx: number) => {
                   // Check if line is a URL
                   const urlPattern = /(https?:\/\/[^\s]+)/g;
@@ -446,8 +447,8 @@ function MarketResolutionCard({ marketId, isDarkMode, onVote }: {
                 key={index}
                 className={`flex items-center justify-between p-2 rounded border text-sm transition-colors cursor-pointer hover:bg-opacity-50 ${
                   isSelected
-                    ? (isDarkMode ? 'border-blue-500 bg-blue-500/10' : 'border-blue-500 bg-blue-50')
-                    : (isDarkMode ? 'border-gray-600 hover:bg-gray-700' : 'border-gray-200 hover:bg-gray-50')
+                    ? (isDarkMode ? 'border-[#39FF14] bg-[#39FF14]/10' : 'border-[#39FF14] bg-[#39FF14]/10 border-2 border-black')
+                    : (isDarkMode ? 'border-gray-800 hover:bg-gray-900' : 'border-gray-400 hover:bg-gray-200')
                 }`}
                 onClick={() => !hasVotedInMarket && setSelectedOption(index + 1)}
               >
@@ -464,14 +465,14 @@ function MarketResolutionCard({ marketId, isDarkMode, onVote }: {
                   <span className={`font-medium truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                     {option}
                   </span>
-                  {hasVoted && <Check size={12} className="text-green-500 flex-shrink-0" />}
+                  {hasVoted && <Check size={12} className={`flex-shrink-0 ${isDarkMode ? 'text-[#39FF14]' : 'text-green-500'}`} />}
                 </div>
                 
                 <div className="flex items-center gap-2 text-xs">
-                  <span className={`font-medium ${isQuorumReached ? 'text-green-500' : (isDarkMode ? 'text-gray-400' : 'text-gray-600')}`}>
+                  <span className={`font-medium ${isQuorumReached ? (isDarkMode ? 'text-[#39FF14]' : 'text-green-500') : (isDarkMode ? 'text-white/60' : 'text-gray-600')}`}>
                     {voteCount}
                   </span>
-                  {isQuorumReached && <CheckCircle size={12} className="text-green-500" />}
+                  {isQuorumReached && <CheckCircle size={12} className={isDarkMode ? 'text-[#39FF14]' : 'text-green-500'} />}
                 </div>
               </div>
             );
@@ -485,10 +486,10 @@ function MarketResolutionCard({ marketId, isDarkMode, onVote }: {
             disabled={selectedOption === 0 || hasVotedInMarket}
             className={`flex-1 py-1.5 px-3 rounded text-sm font-medium transition-colors ${
               selectedOption === 0 || hasVotedInMarket
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                ? (isDarkMode ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-gray-300 text-gray-500 cursor-not-allowed')
                 : isDarkMode 
-                  ? 'bg-blue-600 hover:bg-blue-700 text-white' 
-                  : 'bg-blue-500 hover:bg-blue-600 text-white'
+                  ? 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black' 
+                  : 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black border border-black'
             }`}
           >
             {hasVotedInMarket ? 'Voted' : 'Vote'}
@@ -506,23 +507,23 @@ function MarketResolutionCard({ marketId, isDarkMode, onVote }: {
 
         {/* Expanded Details */}
         {isExpanded && (
-          <div className={`mt-3 pt-3 border-t text-xs space-y-2 ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+          <div className={`mt-3 pt-3 border-t text-xs space-y-2 ${isDarkMode ? 'border-gray-800' : 'border-gray-300'}`}>
             <div className="flex justify-between">
-              <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Market ID</span>
+              <span className={isDarkMode ? 'text-white/60' : 'text-gray-600'}>Market ID</span>
               <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>#{marketId}</span>
             </div>
             <div className="flex justify-between">
-              <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Verifier Votes</span>
+              <span className={isDarkMode ? 'text-white/60' : 'text-gray-600'}>Verifier Votes</span>
               <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>{totalVotes} / {requiredQuorum} required</span>
             </div>
             <div className="flex justify-between">
-              <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Creator</span>
+              <span className={isDarkMode ? 'text-white/60' : 'text-gray-600'}>Creator</span>
               <span className={`font-mono ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 {marketData.creator.slice(0, 6)}...{marketData.creator.slice(-4)}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>End Time</span>
+              <span className={isDarkMode ? 'text-white/60' : 'text-gray-600'}>End Time</span>
               <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>
                 {new Date(Number(marketData.endTime) * 1000).toLocaleDateString()}
               </span>
@@ -607,7 +608,7 @@ export default function ResolvePage() {
   }, [success, error]);
 
   return (
-    <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
+    <div className={`min-h-screen ${isDarkMode ? 'bg-black' : 'bg-[#F5F3F0]'}`}>
       {/* Sidebar */}
       <Sidebar 
         isOpen={sidebarOpen} 
@@ -620,31 +621,36 @@ export default function ResolvePage() {
       {/* Main Content */}
       <div className={`transition-all duration-300 lg:${sidebarCollapsed ? 'ml-16' : 'ml-64'}`}>
         {/* Header */}
-        <header className={`border-b ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-          <div className="px-4 lg:px-6 py-3 lg:py-4">
+        <header className={`border-b ${isDarkMode ? 'bg-black border-[#39FF14]/20' : 'bg-[#F5F3F0] border-gray-200'}`}>
+          <div className="px-4 lg:px-6 py-1.5 lg:py-2">
             <div className="flex items-center justify-between">
               {/* Mobile: Hamburger + P2P, Desktop: Full title */}
               <div className="flex items-center gap-3">
                 {/* Mobile Hamburger Button */}
                 <button
                   onClick={() => setSidebarOpen(true)}
-                  className={`lg:hidden p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
+                  className={`lg:hidden p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-[#39FF14]/10 text-white' : 'hover:bg-gray-200'}`}
                 >
                   <Menu size={20} className={isDarkMode ? 'text-white' : 'text-gray-900'} />
                 </button>
                 
                 {/* Mobile: Just P2P, Desktop: Full title */}
                 <div className="lg:hidden">
-                  <h1 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                    P2P
-                  </h1>
+                  <Image
+                    src="/P2PFINAL-removebg-preview-removebg-preview.png"
+                    alt="P2P"
+                    width={60}
+                    height={30}
+                    className="object-contain"
+                    priority
+                  />
                 </div>
                 
                 <div className="hidden lg:block">
                   <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                     Market Resolution
                   </h1>
-                  <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                     Vote to resolve ended prediction markets
                   </p>
                 </div>
@@ -657,14 +663,14 @@ export default function ResolvePage() {
                     <div className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                       {Array.isArray(endedMarketIds) ? endedMarketIds.length : 0}
                     </div>
-                    <div className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Markets</div>
+                    <div className={isDarkMode ? 'text-white/60' : 'text-gray-600'}>Markets</div>
                   </div>
                 </div>
 
                 {/* Verifier Status */}
                 <div className={`px-2 lg:px-3 py-1 rounded-full text-xs lg:text-sm font-medium ${
                   isVerifier 
-                    ? (isDarkMode ? 'bg-green-900/50 text-green-300 border border-green-700' : 'bg-green-50 text-green-700 border border-green-200')
+                    ? (isDarkMode ? 'bg-[#39FF14]/20 text-[#39FF14] border border-[#39FF14]/30' : 'bg-[#39FF14]/20 text-green-700 border border-black')
                     : (isDarkMode ? 'bg-red-900/50 text-red-300 border border-red-700' : 'bg-red-50 text-red-700 border border-red-200')
                 }`}>
                   <div className="flex items-center gap-1 lg:gap-2">
@@ -676,16 +682,16 @@ export default function ResolvePage() {
                 
                 <button
                   onClick={toggleTheme}
-                  className={`p-1.5 lg:p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
+                  className={`p-1.5 lg:p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-[#39FF14]/10 text-white' : 'hover:bg-gray-200'}`}
                 >
-                  {isDarkMode ? <Sun className="w-4 h-4 lg:w-5 lg:h-5 text-yellow-400" /> : <Moon className="w-4 h-4 lg:w-5 lg:h-5 text-gray-600" />}
+                  {isDarkMode ? <Sun className="w-4 h-4 lg:w-5 lg:h-5 text-white" /> : <Moon className="w-4 h-4 lg:w-5 lg:h-5 text-gray-600" />}
                 </button>
                 
                 {/* Wallet Connection */}
                 {isConnected ? (
                   <div className={`flex items-center gap-1 lg:gap-2 px-2 lg:px-3 py-1.5 rounded text-xs lg:text-sm font-medium ${
                     isDarkMode 
-                      ? 'bg-emerald-600/10 text-emerald-400 border border-emerald-600/20' 
+                      ? 'bg-[#39FF14]/10 text-white border border-[#39FF14]/30' 
                       : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                   }`}>
                     <Wallet size={12} className="lg:w-3.5 lg:h-3.5" />
@@ -741,14 +747,14 @@ export default function ResolvePage() {
           {!Array.isArray(endedMarketIds) || endedMarketIds.length === 0 ? (
             <div className="text-center py-16">
               <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
-                isDarkMode ? 'bg-gray-800' : 'bg-gray-100'
+                isDarkMode ? 'bg-gray-900' : 'bg-gray-200'
               }`}>
-                <Target className={`w-8 h-8 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
+                <Target className={`w-8 h-8 ${isDarkMode ? 'text-white' : 'text-gray-500'}`} />
               </div>
               <h3 className={`text-lg font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 No Markets Available
               </h3>
-              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                 All markets are either still active or have already been resolved.
               </p>
             </div>
@@ -767,7 +773,7 @@ export default function ResolvePage() {
                   </div>
                   
                   <div className={`text-sm px-3 py-1 rounded-full ${
-                    isDarkMode ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-100 text-blue-800'
+                    isDarkMode ? 'bg-[#39FF14]/20 text-[#39FF14] border border-[#39FF14]/30' : 'bg-[#39FF14]/20 text-green-700 border border-black'
                   }`}>
                     3 votes required for resolution
                   </div>
@@ -788,7 +794,7 @@ export default function ResolvePage() {
 
               {/* Footer Info */}
               <div className={`mt-8 p-4 rounded-lg border ${
-                isDarkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50 border-gray-200'
+                isDarkMode ? 'bg-gray-900/50 border-gray-800' : 'bg-gray-200 border-gray-300'
               }`}>
                 <div className="flex items-start gap-3">
                   <Activity size={20} className={`flex-shrink-0 mt-0.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} />

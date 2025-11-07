@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
+import Image from 'next/image';
 import { 
   User, 
   Edit3, 
@@ -303,7 +304,7 @@ export default function ProfilePage() {
   if (!isConnected) {
     return (
       <ClientOnly>
-        <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
+        <div className={`min-h-screen ${isDarkMode ? 'bg-black text-white' : 'bg-[#F5F3F0] text-gray-900'}`}>
           {/* Sidebar */}
           <Sidebar
             isOpen={sidebarOpen}
@@ -317,22 +318,32 @@ export default function ProfilePage() {
           <div className={`transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'}`}>
             {/* Header */}
             <header className={`sticky top-0 z-30 border-b backdrop-blur-sm ${
-              isDarkMode ? 'bg-gray-900/95 border-gray-800' : 'bg-white/95 border-gray-200'
+              isDarkMode ? 'bg-black border-[#39FF14]/20' : 'bg-[#F5F3F0] border-gray-200'
             }`}>
-              <div className="px-4 py-3">
+              <div className="px-4 lg:px-6 py-1.5 lg:py-2">
                 <div className="flex items-center justify-between">
                   {/* Left: Menu + Title */}
                   <div className="flex items-center gap-3">
                     <button
                       onClick={onMenuClick}
                       className={`lg:hidden p-2 rounded-lg transition-colors ${
-                        isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'
+                        isDarkMode ? 'hover:bg-[#39FF14]/10 text-white' : 'hover:bg-gray-200'
                       }`}
                     >
-                      <Menu size={20} />
+                      <Menu size={20} className={isDarkMode ? 'text-white' : 'text-gray-900'} />
                     </button>
-                    <div className="flex flex-col">
-                      <h1 className="text-sm lg:text-xl font-semibold">Profile</h1>
+                    <div className="lg:hidden">
+                      <Image
+                        src="/P2PFINAL-removebg-preview-removebg-preview.png"
+                        alt="P2P"
+                        width={60}
+                        height={30}
+                        className="object-contain"
+                        priority
+                      />
+                    </div>
+                    <div className="hidden lg:flex flex-col">
+                      <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Profile</h1>
                     </div>
                   </div>
 
@@ -340,18 +351,18 @@ export default function ProfilePage() {
                   <div className="flex items-center gap-3">
                     <button
                       onClick={toggleTheme}
-                      className={`p-2 rounded-lg transition-colors ${
-                        isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'
+                      className={`p-1.5 lg:p-2 rounded-lg transition-colors ${
+                        isDarkMode ? 'hover:bg-[#39FF14]/10 text-white' : 'hover:bg-gray-200'
                       }`}
                     >
-                      {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+                      {isDarkMode ? <Sun size={20} className="text-white" /> : <Moon size={20} className="text-gray-600" />}
                     </button>
                     
                     {/* Wallet Connection */}
                     {isConnected ? (
                       <div className={`flex items-center gap-1 lg:gap-2 px-2 lg:px-3 py-1.5 rounded text-xs lg:text-sm font-medium ${
                         isDarkMode 
-                          ? 'bg-emerald-600/10 text-emerald-400 border border-emerald-600/20' 
+                          ? 'bg-[#39FF14]/10 text-white border border-[#39FF14]/30' 
                           : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                       }`}>
                         <Wallet size={12} className="lg:w-3.5 lg:h-3.5" />
@@ -371,9 +382,13 @@ export default function ProfilePage() {
             <div className="p-6">
               <div className="max-w-4xl mx-auto">
                 <div className="text-center py-12">
-                  <User className="h-16 w-16 mx-auto mb-4 text-gray-400" />
-                  <h1 className="text-2xl font-bold mb-2">Connect Your Wallet</h1>
-                  <p className="text-gray-600 dark:text-gray-400 mb-6">
+                  <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
+                    isDarkMode ? 'bg-gray-900' : 'bg-gray-200'
+                  }`}>
+                    <User className={`h-8 w-8 ${isDarkMode ? 'text-white' : 'text-gray-500'}`} />
+                  </div>
+                  <h1 className={`text-2xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Connect Your Wallet</h1>
+                  <p className={`mb-6 ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                     Please connect your wallet to view and manage your profile.
                   </p>
                 </div>
@@ -387,7 +402,7 @@ export default function ProfilePage() {
 
   return (
     <ClientOnly>
-      <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
+      <div className={`min-h-screen ${isDarkMode ? 'bg-black text-white' : 'bg-[#F5F3F0] text-gray-900'}`}>
         {/* Sidebar */}
         <Sidebar
           isOpen={sidebarOpen}
@@ -401,7 +416,7 @@ export default function ProfilePage() {
         <div className={`transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'}`}>
           {/* Header */}
           <header className={`sticky top-0 z-30 border-b backdrop-blur-sm ${
-            isDarkMode ? 'bg-gray-900/95 border-gray-800' : 'bg-white/95 border-gray-200'
+            isDarkMode ? 'bg-black border-[#39FF14]/20' : 'bg-[#F5F3F0] border-gray-200'
           }`}>
             <div className="px-4 py-3">
               <div className="flex items-center justify-between">
@@ -456,32 +471,36 @@ export default function ProfilePage() {
             <div className="max-w-4xl mx-auto">
               {/* Error/Success Messages */}
               {error && (
-                <div className="mb-6 p-4 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-700 rounded-lg flex items-center gap-2">
-                  <AlertCircle className="h-5 w-5 text-red-500" />
-                  <span className="text-red-700 dark:text-red-300">{error}</span>
+                <div className={`mb-6 p-4 rounded-lg flex items-center gap-2 ${
+                  isDarkMode ? 'bg-red-900/40 border border-red-700' : 'bg-red-50 border border-red-200'
+                }`}>
+                  <AlertCircle className={`h-5 w-5 ${isDarkMode ? 'text-red-300' : 'text-red-500'}`} />
+                  <span className={isDarkMode ? 'text-red-300' : 'text-red-700'}>{error}</span>
                 </div>
               )}
 
               {success && (
-                <div className="mb-6 p-4 bg-green-100 dark:bg-green-900/20 border border-green-300 dark:border-green-700 rounded-lg flex items-center gap-2">
-                  <CheckCircle className="h-5 w-5 text-green-500" />
-                  <span className="text-green-700 dark:text-green-300">{success}</span>
+                <div className={`mb-6 p-4 rounded-lg flex items-center gap-2 ${
+                  isDarkMode ? 'bg-green-900/40 border border-green-700' : 'bg-green-50 border border-green-200'
+                }`}>
+                  <CheckCircle className={`h-5 w-5 ${isDarkMode ? 'text-green-300' : 'text-green-500'}`} />
+                  <span className={isDarkMode ? 'text-green-300' : 'text-green-700'}>{success}</span>
                 </div>
               )}
 
               {isLoading ? (
                 <div className="text-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-                  <p>Loading profile...</p>
+                  <Loader2 className={`h-8 w-8 animate-spin mx-auto mb-4 ${isDarkMode ? 'text-white' : 'text-gray-600'}`} />
+                  <p className={isDarkMode ? 'text-white' : 'text-gray-900'}>Loading profile...</p>
                 </div>
               ) : (
                 <div className="space-y-6">
                   {/* Profile Header */}
-                  <div className={`p-6 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
+                  <div className={`p-6 rounded-lg border ${isDarkMode ? 'bg-black border-gray-800' : 'bg-[#F5F3F0] border-gray-300'} shadow-sm`}>
                     <div className="flex items-start gap-6">
                       {/* Profile Image */}
                       <div className="relative">
-                        <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700">
+                        <div className={`w-24 h-24 rounded-full overflow-hidden border ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-200 border-gray-300'}`}>
                           {profile?.image ? (
                             <img 
                               src={profile.image} 
@@ -490,7 +509,7 @@ export default function ProfilePage() {
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
-                              <User className="h-8 w-8 text-gray-400" />
+                              <User className={`h-8 w-8 ${isDarkMode ? 'text-white/60' : 'text-gray-400'}`} />
                             </div>
                           )}
                         </div>
@@ -498,7 +517,11 @@ export default function ProfilePage() {
                         <button
                           onClick={() => fileInputRef.current?.click()}
                           disabled={isUploading}
-                          className="absolute -bottom-2 -right-2 p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 disabled:opacity-50"
+                          className={`absolute -bottom-2 -right-2 p-2 rounded-full disabled:opacity-50 ${
+                            isDarkMode 
+                              ? 'bg-[#39FF14] text-black hover:bg-[#39FF14]/80' 
+                              : 'bg-[#39FF14] text-black border border-black hover:bg-[#39FF14]/80'
+                          }`}
                         >
                           {isUploading ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
@@ -520,20 +543,24 @@ export default function ProfilePage() {
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-4">
                           <div>
-                            <h1 className="text-2xl font-bold">
+                            <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                               {profile?.display_name || 'Anonymous User'}
                             </h1>
-                            <p className="text-gray-600 dark:text-gray-400">
+                            <p className={isDarkMode ? 'text-white/70' : 'text-gray-600'}>
                               @{profile?.username || 'no-username'}
                             </p>
-                            <p className="text-sm text-gray-500 dark:text-gray-500">
+                            <p className={`text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-500'}`}>
                               {formatAddress(address || '')}
                             </p>
                           </div>
                           
                           <button
                             onClick={() => setIsEditing(!isEditing)}
-                            className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+                              isDarkMode 
+                                ? 'bg-[#39FF14] text-black hover:bg-[#39FF14]/80' 
+                                : 'bg-[#39FF14] text-black border border-black hover:bg-[#39FF14]/80'
+                            }`}
                           >
                             <Edit3 className="h-4 w-4" />
                             {isEditing ? 'Cancel' : 'Edit Profile'}
@@ -541,7 +568,7 @@ export default function ProfilePage() {
                         </div>
 
                         {profile?.bio && (
-                          <p className="text-gray-700 dark:text-gray-300 mb-4">
+                          <p className={`mb-4 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
                             {profile.bio}
                           </p>
                         )}
@@ -550,44 +577,56 @@ export default function ProfilePage() {
 
                     {/* Edit Form */}
                     {isEditing && (
-                      <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                      <div className={`mt-6 pt-6 border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-300'}`}>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
-                            <label className="block text-sm font-medium mb-2">
+                            <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                               Username
                             </label>
                             <input
                               type="text"
                               value={formData.username}
                               onChange={(e) => setFormData({...formData, username: e.target.value})}
-                              className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                              className={`w-full p-3 border rounded-lg focus:border-[#39FF14] focus:outline-none ${
+                                isDarkMode 
+                                  ? 'bg-gray-900 border-gray-700 text-white placeholder-gray-500' 
+                                  : 'bg-[#F5F3F0] border-gray-400 text-gray-900 placeholder-gray-500'
+                              }`}
                               placeholder="Enter username"
                             />
                           </div>
                           
                           <div>
-                            <label className="block text-sm font-medium mb-2">
+                            <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                               Display Name
                             </label>
                             <input
                               type="text"
                               value={formData.display_name}
                               onChange={(e) => setFormData({...formData, display_name: e.target.value})}
-                              className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                              className={`w-full p-3 border rounded-lg focus:border-[#39FF14] focus:outline-none ${
+                                isDarkMode 
+                                  ? 'bg-gray-900 border-gray-700 text-white placeholder-gray-500' 
+                                  : 'bg-[#F5F3F0] border-gray-400 text-gray-900 placeholder-gray-500'
+                              }`}
                               placeholder="Enter display name"
                             />
                           </div>
                         </div>
                         
                         <div className="mt-4">
-                          <label className="block text-sm font-medium mb-2">
+                          <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             Bio
                           </label>
                           <textarea
                             value={formData.bio}
                             onChange={(e) => setFormData({...formData, bio: e.target.value})}
                             rows={3}
-                            className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                            className={`w-full p-3 border rounded-lg focus:border-[#39FF14] focus:outline-none resize-y ${
+                              isDarkMode 
+                                ? 'bg-gray-900 border-gray-700 text-white placeholder-gray-500' 
+                                : 'bg-[#F5F3F0] border-gray-400 text-gray-900 placeholder-gray-500'
+                            }`}
                             placeholder="Tell us about yourself..."
                           />
                         </div>
@@ -596,7 +635,11 @@ export default function ProfilePage() {
                           <button
                             onClick={handleSave}
                             disabled={isSaving}
-                            className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50"
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg disabled:opacity-50 ${
+                              isDarkMode 
+                                ? 'bg-[#39FF14] text-black hover:bg-[#39FF14]/80' 
+                                : 'bg-[#39FF14] text-black border border-black hover:bg-[#39FF14]/80'
+                            }`}
                           >
                             {isSaving ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
@@ -608,7 +651,11 @@ export default function ProfilePage() {
                           
                           <button
                             onClick={() => setIsEditing(false)}
-                            className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+                              isDarkMode 
+                                ? 'bg-gray-800 text-white hover:bg-gray-700' 
+                                : 'bg-gray-300 text-gray-900 hover:bg-gray-400'
+                            }`}
                           >
                             <X className="h-4 w-4" />
                             Cancel
@@ -620,49 +667,49 @@ export default function ProfilePage() {
 
                   {/* Analytics Section */}
                   {analytics && (
-                    <div className={`p-6 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
-                      <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-                        <BarChart3 className="h-5 w-5" />
+                    <div className={`p-6 rounded-lg border ${isDarkMode ? 'bg-black border-gray-800' : 'bg-[#F5F3F0] border-gray-300'} shadow-sm`}>
+                      <h2 className={`text-xl font-bold mb-6 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        <BarChart3 className={`h-5 w-5 ${isDarkMode ? 'text-[#39FF14]' : 'text-gray-900'}`} />
                         Trading Analytics
                       </h2>
                       
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                          <Trophy className="h-8 w-8 mx-auto mb-2 text-yellow-500" />
-                          <div className="text-2xl font-bold">
+                        <div className={`text-center p-4 rounded-lg border ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-200 border-gray-300'}`}>
+                          <Trophy className={`h-8 w-8 mx-auto mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-yellow-500'}`} />
+                          <div className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             {calculateWinRate()}%
                           </div>
-                          <div className="text-sm text-gray-600 dark:text-gray-400">
+                          <div className={`text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
                             Win Rate
                           </div>
                         </div>
                         
-                        <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                          <Target className="h-8 w-8 mx-auto mb-2 text-blue-500" />
-                          <div className="text-2xl font-bold">
+                        <div className={`text-center p-4 rounded-lg border ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-200 border-gray-300'}`}>
+                          <Target className={`h-8 w-8 mx-auto mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-blue-500'}`} />
+                          <div className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             {analytics.totalStakesPlaced.toString()}
                           </div>
-                          <div className="text-sm text-gray-600 dark:text-gray-400">
+                          <div className={`text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
                             Total Stakes
                           </div>
                         </div>
                         
-                        <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                          <DollarSign className="h-8 w-8 mx-auto mb-2 text-green-500" />
-                          <div className="text-2xl font-bold">
+                        <div className={`text-center p-4 rounded-lg border ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-200 border-gray-300'}`}>
+                          <DollarSign className={`h-8 w-8 mx-auto mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-green-500'}`} />
+                          <div className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             {formatEther(analytics.totalWinnings)} ETH
                           </div>
-                          <div className="text-sm text-gray-600 dark:text-gray-400">
+                          <div className={`text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
                             Total Winnings
                           </div>
                         </div>
                         
-                        <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                          <Users className="h-8 w-8 mx-auto mb-2 text-purple-500" />
-                          <div className="text-2xl font-bold">
+                        <div className={`text-center p-4 rounded-lg border ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-200 border-gray-300'}`}>
+                          <Users className={`h-8 w-8 mx-auto mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-purple-500'}`} />
+                          <div className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             {analytics.marketsCreated.toString()}
                           </div>
-                          <div className="text-sm text-gray-600 dark:text-gray-400">
+                          <div className={`text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
                             Markets Created
                           </div>
                         </div>
@@ -671,35 +718,39 @@ export default function ProfilePage() {
                   )}
 
                   {/* User Markets Section */}
-                  <div className={`p-6 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
-                    <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-                      <TrendingUp className="h-5 w-5" />
+                  <div className={`p-6 rounded-lg border ${isDarkMode ? 'bg-black border-gray-800' : 'bg-[#F5F3F0] border-gray-300'} shadow-sm`}>
+                    <h2 className={`text-xl font-bold mb-6 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                      <TrendingUp className={`h-5 w-5 ${isDarkMode ? 'text-[#39FF14]' : 'text-gray-900'}`} />
                       Your Markets
                     </h2>
                     
                     {userMarkets.length === 0 ? (
                       <div className="text-center py-8">
-                        <Target className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                        <p className="text-gray-600 dark:text-gray-400">
+                        <Target className={`h-12 w-12 mx-auto mb-4 ${isDarkMode ? 'text-white/60' : 'text-gray-400'}`} />
+                        <p className={isDarkMode ? 'text-white/70' : 'text-gray-600'}>
                           You haven't created any markets yet.
                         </p>
                       </div>
                     ) : (
                       <div className="space-y-4">
                         {userMarkets.map((market) => (
-                          <div key={market.marketId} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                          <div key={market.marketId} className={`p-4 border rounded-lg ${
+                            isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-200 border-gray-300'
+                          }`}>
                             <div className="flex items-center gap-4">
                               <img 
                                 src={market.image} 
                                 alt="Market" 
-                                className="w-16 h-16 rounded-lg object-cover"
+                                className={`w-16 h-16 rounded-lg object-cover border ${
+                                  isDarkMode ? 'border-gray-800' : 'border-gray-300'
+                                }`}
                               />
                               <div className="flex-1">
-                                <h3 className="font-semibold">{market.title}</h3>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                <h3 className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{market.title}</h3>
+                                <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                                   {market.description}
                                 </p>
-                                <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
+                                <div className={`flex items-center gap-4 mt-2 text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-500'}`}>
                                   <span>Type: {market.type}</span>
                                   <span>State: {market.state}</span>
                                 </div>

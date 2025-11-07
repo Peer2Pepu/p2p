@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import Image from 'next/image';
 import { 
   Search,
   ChevronDown,
@@ -652,7 +653,7 @@ export default function HomePage() {
   }, [showFilters]);
 
   return (
-    <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
+    <div className={`min-h-screen ${isDarkMode ? 'bg-black' : 'bg-[#F5F3F0]'}`}>
       <Sidebar 
         isOpen={sidebarOpen} 
         onClose={onSidebarClose} 
@@ -662,28 +663,33 @@ export default function HomePage() {
       />
 
       <div className={`transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'}`}>
-        <header className={`border-b ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-          <div className="px-4 lg:px-6 py-3 lg:py-4">
+        <header className={`border-b ${isDarkMode ? 'bg-black border-[#39FF14]/20' : 'bg-[#F5F3F0] border-gray-200'}`}>
+          <div className="px-4 lg:px-6 py-1.5 lg:py-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setSidebarOpen(true)}
-                  className={`lg:hidden p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
+                  className={`lg:hidden p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-[#39FF14]/10 text-white' : 'hover:bg-gray-100'}`}
                 >
                   <Menu size={20} className={isDarkMode ? 'text-white' : 'text-gray-900'} />
                 </button>
                 
                 <div className="lg:hidden">
-                  <h1 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                    P2P
-                  </h1>
+                  <Image
+                    src="/P2PFINAL-removebg-preview-removebg-preview.png"
+                    alt="P2P"
+                    width={60}
+                    height={30}
+                    className="object-contain"
+                    priority
+                  />
                 </div>
                 
                 <div className="hidden lg:block">
                 <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                   Active Markets
                 </h1>
-                <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                   Add stake to live prediction markets
                 </p>
                 </div>
@@ -694,24 +700,24 @@ export default function HomePage() {
                   <button
                     className={`flex items-center gap-1 px-2 py-1.5 border rounded text-xs lg:text-sm transition-colors ${
                       isDarkMode 
-                        ? 'bg-gray-800 border-gray-700 text-white hover:bg-gray-700' 
-                        : 'bg-white border-gray-300 text-gray-900 hover:bg-gray-50'
+                        ? 'bg-black border-[#39FF14]/30 text-white hover:bg-[#39FF14]/10' 
+                        : 'bg-[#F5F3F0] border-gray-300 text-gray-900 hover:bg-gray-50'
                     }`}
                     onClick={() => setShowFilters(!showFilters)}
                   >
-                    <Filter size={14} />
+                    <Filter size={14} className={isDarkMode ? 'text-white' : ''} />
                     <span className="hidden sm:inline">Filters</span>
-                    <ChevronDown size={12} />
+                    <ChevronDown size={12} className={isDarkMode ? 'text-white' : ''} />
                   </button>
                   
                   {showFilters && (
                     <div className={`absolute top-full right-0 mt-1 w-48 rounded-lg border shadow-lg z-50 ${
-                      isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+                      isDarkMode ? 'bg-black border-[#39FF14]/30' : 'bg-[#F5F3F0] border-gray-200'
                     }`}>
                       <div className="p-3 space-y-3">
                         <div>
                           <label className={`block text-xs font-medium mb-1 ${
-                            isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                            isDarkMode ? 'text-[#39FF14]' : 'text-gray-700'
                           }`}>
                             Market Type
                           </label>
@@ -720,8 +726,8 @@ export default function HomePage() {
                             onChange={(e) => setFilterMarketType(e.target.value)}
                             className={`w-full px-2 py-1.5 border rounded text-xs ${
                               isDarkMode 
-                                ? 'bg-gray-700 border-gray-600 text-white' 
-                                : 'bg-white border-gray-300 text-gray-900'
+                                ? 'bg-black border-[#39FF14]/30 text-[#39FF14]' 
+                                : 'bg-[#F5F3F0] border-gray-300 text-gray-900'
                             }`}
                           >
                             <option value="all">All Types</option>
@@ -732,7 +738,7 @@ export default function HomePage() {
                         
                         <div>
                           <label className={`block text-xs font-medium mb-1 ${
-                            isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                            isDarkMode ? 'text-[#39FF14]' : 'text-gray-700'
                           }`}>
                             Token
                           </label>
@@ -741,8 +747,8 @@ export default function HomePage() {
                             onChange={(e) => setFilterToken(e.target.value)}
                             className={`w-full px-2 py-1.5 border rounded text-xs ${
                               isDarkMode 
-                                ? 'bg-gray-700 border-gray-600 text-white' 
-                                : 'bg-white border-gray-300 text-gray-900'
+                                ? 'bg-black border-[#39FF14]/30 text-[#39FF14]' 
+                                : 'bg-[#F5F3F0] border-gray-300 text-gray-900'
                             }`}
                           >
                             <option value="all">All Tokens</option>
@@ -755,7 +761,7 @@ export default function HomePage() {
                         
                         <div>
                           <label className={`block text-xs font-medium mb-1 ${
-                            isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                            isDarkMode ? 'text-[#39FF14]' : 'text-gray-700'
                           }`}>
                             Category
                           </label>
@@ -764,8 +770,8 @@ export default function HomePage() {
                             onChange={(e) => setFilterCategory(e.target.value)}
                             className={`w-full px-2 py-1.5 border rounded text-xs ${
                               isDarkMode 
-                                ? 'bg-gray-700 border-gray-600 text-white' 
-                                : 'bg-white border-gray-300 text-gray-900'
+                                ? 'bg-black border-[#39FF14]/30 text-[#39FF14]' 
+                                : 'bg-[#F5F3F0] border-gray-300 text-gray-900'
                             }`}
                           >
                             <option value="all">All Categories</option>
@@ -782,7 +788,7 @@ export default function HomePage() {
                         
                         <div>
                           <label className={`block text-xs font-medium mb-1 ${
-                            isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                            isDarkMode ? 'text-[#39FF14]' : 'text-gray-700'
                           }`}>
                             Sort By
                           </label>
@@ -791,8 +797,8 @@ export default function HomePage() {
                             onChange={(e) => setSortBy(e.target.value as 'newest' | 'oldest' | 'ending_soon')}
                             className={`w-full px-2 py-1.5 border rounded text-xs ${
                               isDarkMode 
-                                ? 'bg-gray-700 border-gray-600 text-white' 
-                                : 'bg-white border-gray-300 text-gray-900'
+                                ? 'bg-black border-[#39FF14]/30 text-[#39FF14]' 
+                                : 'bg-[#F5F3F0] border-gray-300 text-gray-900'
                             }`}
                           >
                             <option value="newest">Newest</option>
@@ -807,16 +813,16 @@ export default function HomePage() {
 
                 <button
                   onClick={toggleTheme}
-                  className={`p-1.5 lg:p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
+                  className={`p-1.5 lg:p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-[#39FF14]/10 text-white' : 'hover:bg-gray-100'}`}
                 >
-                  {isDarkMode ? <Sun className="w-4 h-4 lg:w-5 lg:h-5 text-yellow-400" /> : <Moon className="w-4 h-4 lg:w-5 lg:h-5 text-gray-600" />}
+                  {isDarkMode ? <Sun className="w-4 h-4 lg:w-5 lg:h-5 text-white" /> : <Moon className="w-4 h-4 lg:w-5 lg:h-5 text-gray-600" />}
                 </button>
                 
                 <ClientOnly>
                   {isConnected ? (
                     <div className={`flex items-center gap-1 lg:gap-2 px-2 lg:px-3 py-1.5 rounded text-xs lg:text-sm font-medium ${
                       isDarkMode 
-                        ? 'bg-emerald-600/10 text-emerald-400 border border-emerald-600/20' 
+                        ? 'bg-[#39FF14]/10 text-white border border-[#39FF14]/30' 
                         : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                     }`}>
                       <Wallet size={12} className="lg:w-3.5 lg:h-3.5" />
@@ -848,7 +854,7 @@ export default function HomePage() {
               isDarkMode ? 'bg-green-900/20 border-green-800 text-green-300' : 'bg-green-50 border-green-200 text-green-800'
             }`}>
               <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
-                <div className="w-2 h-2 bg-white rounded-full"></div>
+                <div className="w-2 h-2 bg-[#F5F3F0] rounded-full"></div>
               </div>
               <span>{success}</span>
             </div>
@@ -857,30 +863,30 @@ export default function HomePage() {
           {loadingMarkets ? (
             <div className="text-center py-16">
               <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
-                isDarkMode ? 'bg-gray-800' : 'bg-gray-100'
+                isDarkMode ? 'bg-black' : 'bg-gray-100'
               }`}>
                 <div className={`animate-spin rounded-full h-8 w-8 border-b-2 ${
-                  isDarkMode ? 'border-emerald-400' : 'border-emerald-600'
+                  isDarkMode ? 'border-[#39FF14]' : 'border-emerald-600'
                 }`}></div>
               </div>
               <h3 className={`text-lg font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 Loading Markets...
               </h3>
-              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                 Fetching active prediction markets
               </p>
             </div>
           ) : availableActiveMarkets.length === 0 ? (
             <div className="text-center py-16">
               <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
-                isDarkMode ? 'bg-gray-800' : 'bg-gray-100'
+                isDarkMode ? 'bg-black' : 'bg-gray-100'
               }`}>
-                <BarChart3 className={`w-8 h-8 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
+                <BarChart3 className={`w-8 h-8 ${isDarkMode ? 'text-white' : 'text-gray-500'}`} />
               </div>
               <h3 className={`text-lg font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 No Active Markets
               </h3>
-              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                 Be the first to create a prediction market!
               </p>
             </div>
@@ -908,14 +914,14 @@ export default function HomePage() {
             ) : (
               <div className="text-center py-16">
                 <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
-                  isDarkMode ? 'bg-gray-800' : 'bg-gray-100'
+                  isDarkMode ? 'bg-black' : 'bg-gray-100'
                 }`}>
-                  <Target size={24} className={isDarkMode ? 'text-gray-400' : 'text-gray-500'} />
+                  <Target size={24} className={isDarkMode ? 'text-[#39FF14]' : 'text-gray-500'} />
                 </div>
-                <h3 className={`text-lg font-semibold mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                <h3 className={`text-lg font-semibold mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-gray-700'}`}>
                   No Available Markets
                 </h3>
-                <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} mb-4`}>
+                <p className={`text-sm ${isDarkMode ? 'text-[#39FF14]/70' : 'text-gray-500'} mb-4`}>
                   {isConnected && userStakedMarkets.size > 0 
                     ? `You've already staked in ${userStakedMarkets.size} market${userStakedMarkets.size > 1 ? 's' : ''}. Check your stakes page to view them.`
                     : 'No markets are currently available for staking.'
@@ -926,7 +932,7 @@ export default function HomePage() {
                     href="/stakes" 
                     className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                       isDarkMode 
-                        ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                        ? 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black' 
                         : 'bg-blue-500 hover:bg-blue-600 text-white'
                     }`}
                   >

@@ -112,7 +112,7 @@ function MultiSegmentCircle({ segments, size = 60, isDarkMode }: {
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke={isDarkMode ? '#374151' : '#E5E7EB'}
+          stroke={isDarkMode ? '#1F2937' : '#D1D5DB'}
           strokeWidth="5"
           fill="none"
         />
@@ -539,8 +539,8 @@ export function MarketCard({
     <div 
       className={`w-full max-w-sm border rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg flex flex-col ${
         isDarkMode 
-          ? 'bg-[#1a1d2e] border-gray-700 hover:shadow-gray-900/50' 
-          : 'bg-white border-gray-200 hover:shadow-gray-900/20'
+          ? 'bg-black border-gray-800 hover:shadow-gray-900/50' 
+          : 'bg-[#F5F3F0] border-gray-300 hover:shadow-gray-900/20'
       }`}
       style={{ height: '380px' }}
     >
@@ -553,7 +553,7 @@ export function MarketCard({
                 <img
                   src={getMarketImage()!}
                   alt=""
-                  className="w-12 h-12 rounded-lg object-cover border border-gray-700"
+                  className={`w-12 h-12 rounded-lg object-cover border ${isDarkMode ? 'border-gray-800' : 'border-gray-400'}`}
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
                   }}
@@ -603,12 +603,12 @@ export function MarketCard({
                 <div
                   key={index}
                   onClick={() => !canEndMarket && !isUserStake && setSelectedOption(index + 1)}
-                  className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-all ${
+                  className={`flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-all ${
                     isUserStake
-                      ? (isDarkMode ? 'border-green-500 bg-green-500/10' : 'border-green-500 bg-green-50')
+                      ? (isDarkMode ? 'border border-[#39FF14] bg-[#39FF14]/10' : 'border-2 border-black bg-[#39FF14]/10')
                       : isSelected 
-                        ? (isDarkMode ? 'border-blue-500 bg-blue-500/10' : 'border-blue-500 bg-blue-50')
-                        : (isDarkMode ? 'border-gray-600 hover:bg-gray-700/50' : 'border-gray-200 hover:bg-gray-50')
+                        ? (isDarkMode ? 'border border-[#39FF14] bg-[#39FF14]/10' : 'border-2 border-black bg-[#39FF14]/10')
+                        : (isDarkMode ? 'border border-gray-700 hover:bg-gray-800/50' : 'border border-gray-300 hover:bg-gray-200/50')
                   }`}
                 >
                   {/* Color indicator dot */}
@@ -647,7 +647,7 @@ export function MarketCard({
 
         {/* Volume & Stats */}
         <div className={`border-t pt-3 space-y-2 ${
-          isDarkMode ? 'border-gray-700' : 'border-gray-200'
+          isDarkMode ? 'border-gray-800' : 'border-gray-300'
         }`}>
           <div className="flex items-center justify-between">
             <div className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
@@ -714,8 +714,8 @@ export function MarketCard({
                 disabled={!canStake}
                 className={`flex-1 px-2 py-1.5 border rounded text-xs ${
                   isDarkMode 
-                    ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-500' 
-                    : 'bg-white border-gray-300 text-gray-900'
+                    ? 'bg-gray-900 border-gray-700 text-white placeholder-gray-500' 
+                    : 'bg-[#F5F3F0] border-gray-400 text-gray-900'
                 }`}
               />
               {needsTokenApproval ? (
@@ -725,7 +725,9 @@ export function MarketCard({
                   className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
                     !betAmount || !canStake || isApprovalPending || isApprovalConfirming
                       ? 'bg-gray-600 cursor-not-allowed text-gray-400'
-                      : 'bg-blue-600 hover:bg-blue-700 text-white'
+                      : isDarkMode 
+                        ? 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black'
+                        : 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black border border-black'
                   }`}
                 >
                   {isApprovalPending ? 'Approving...' : isApprovalConfirming ? 'Confirming...' : 'Approve'}
@@ -738,8 +740,8 @@ export function MarketCard({
                     !betAmount || !canStake || isStakePending || isStakeConfirming
                       ? 'bg-gray-600 cursor-not-allowed text-gray-400'
                       : isDarkMode 
-                        ? 'bg-blue-600 hover:bg-blue-700 text-white' 
-                        : 'bg-blue-500 hover:bg-blue-600 text-white'
+                        ? 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black' 
+                        : 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black border border-black'
                   }`}
                 >
                   {!canStake ? (userHasStaked ? 'Already Staked' : 'Staking Closed') : 
