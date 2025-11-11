@@ -2,6 +2,16 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export function middleware(request: NextRequest) {
+  // Fix: HTTP → HTTPS redirect (only in production)
+  const url = request.nextUrl.clone()
+  const isProduction = !request.url.includes('localhost')
+  const isHttp = url.protocol === 'http:'
+  
+  if (isProduction && isHttp) {
+    url.protocol = 'https:'
+    return NextResponse.redirect(url, 301) // Permanent redirect
+  }
+  
   const response = NextResponse.next()
   
   // Auto-detect dev or production
@@ -17,7 +27,7 @@ export function middleware(request: NextRequest) {
     "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:; frame-ancestors 'none';"
   )
   
-  // Fix #2: CORS (Cross-Origin Resource Sharing)
+  // Fix #2: CORS (Cross-Origin Resource Sharing) - Restricted to trusted domains
   // Handle preflight OPTIONS requests
   if (request.method === 'OPTIONS') {
     const origin = request.headers.get('origin')
@@ -34,7 +44,7 @@ export function middleware(request: NextRequest) {
     }
     return new NextResponse(null, { status: 403 })
   }
-  
+
   const origin = request.headers.get('origin')
   if (origin && allowedOrigins.includes(origin)) {
     response.headers.set('Access-Control-Allow-Origin', origin)
@@ -45,9 +55,9 @@ export function middleware(request: NextRequest) {
   // Fix #3: Anti-Clickjacking
   response.headers.set('X-Frame-Options', 'DENY')
   
-  // Fix #4: HSTS (only on production, not localhost)
-  if (!request.url.includes('localhost')) {
-    response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+  // Fix #4: HSTS (only on production, not localhost) - with preload
+  if (isProduction) {
+    response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload')
   }
   
   // Fix #6: Content Type Options
@@ -62,9 +72,24 @@ export function middleware(request: NextRequest) {
     response.headers.delete('Date')
   }
   
-  // Fix #8: Remove server information
+  // Fix: Prevent caching of sensitive pages (profile, admin, stakes)
+  const sensitivePages = ['/profile', '/admin', '/stakes']
+  if (sensitivePages.some(page => request.nextUrl.pathname.startsWith(page))) {
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, private')
+    response.headers.set('Pragma', 'no-cache')
+    response.headers.set('Expires', '0')
+  }
+  
+  // Fix #8: Remove server information and Vercel-specific headers
   response.headers.delete('X-Powered-By')
   response.headers.delete('Server')
+  response.headers.delete('X-Vercel-Id')
+  response.headers.delete('X-Vercel-Cache')
+  response.headers.delete('X-Vercel-Edge-Region')
+  
+  // Fix: Remove any deployment error headers
+  const headersToRemove = ['DEPLOYMENT_NOT_FOUND', 'X-Vercel-Error']
+  headersToRemove.forEach(header => response.headers.delete(header))
   
   return response
 }
