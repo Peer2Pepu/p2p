@@ -367,16 +367,16 @@ export default function MarketVerification({ params }: { params: Promise<{ id: s
                   <Menu size={20} className={isDarkMode ? 'text-white' : 'text-gray-900'} />
                 </button>
                 
-                <div className="lg:hidden">
+                <Link href="/" className="lg:hidden transition-opacity hover:opacity-80 cursor-pointer">
                   <Image
-                    src="/P2PFINAL-removebg-preview-removebg-preview.png"
+                    src="/mobile.png"
                     alt="P2P"
                     width={60}
                     height={30}
                     className="object-contain"
                     priority
                   />
-                </div>
+                </Link>
                 
                 <Link 
                   href="/"

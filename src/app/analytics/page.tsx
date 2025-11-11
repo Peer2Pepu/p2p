@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import Image from 'next/image';
 import { 
   BarChart3,
   TrendingUp,
@@ -38,7 +40,6 @@ import {
   AreaChart,
   Area
 } from 'recharts';
-import Image from 'next/image';
 
 // Real Contract ABIs
 const ANALYTICS_ABI = [
@@ -514,16 +515,16 @@ export default function AnalyticsPage() {
                 >
                   <Menu size={20} className={isDarkMode ? 'text-white' : 'text-gray-900'} />
                 </button>
-                <div className="lg:hidden">
+                <Link href="/" className="lg:hidden transition-opacity hover:opacity-80 cursor-pointer">
                   <Image
-                    src="/P2PFINAL-removebg-preview-removebg-preview.png"
+                    src="/mobile.png"
                     alt="P2P"
                     width={60}
                     height={30}
                     className="object-contain"
                     priority
                   />
-                </div>
+                </Link>
                 <h1 className={`text-xl sm:text-2xl font-bold hidden lg:block ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Analytics</h1>
               </div>
 

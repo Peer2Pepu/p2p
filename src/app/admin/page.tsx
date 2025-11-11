@@ -26,6 +26,7 @@ import { ethers } from 'ethers';
 import { Sidebar } from '../components/Sidebar';
 import { useTheme } from '../context/ThemeContext';
 import { createClient } from '@supabase/supabase-js';
+import Link from 'next/link';
 import Image from 'next/image';
 
 // Supabase client
@@ -1712,16 +1713,16 @@ export default function AdminPage() {
               >
                 <Menu size={20} className={isDarkMode ? 'text-white' : 'text-gray-900'} />
               </button>
-              <div className="lg:hidden">
+              <Link href="/" className="lg:hidden transition-opacity hover:opacity-80 cursor-pointer">
                 <Image
-                  src="/P2PFINAL-removebg-preview-removebg-preview.png"
+                  src="/mobile.png"
                   alt="P2P"
                   width={60}
                   height={30}
                   className="object-contain"
                   priority
                 />
-              </div>
+              </Link>
               <h1 className={`text-xl sm:text-2xl font-bold hidden lg:block ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Admin Panel</h1>
             </div>
             <div className="flex items-center gap-3">

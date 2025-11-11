@@ -88,16 +88,19 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse, isDarkMo
             isDarkMode ? 'border-[#39FF14]/20' : 'border-gray-200'
           }`}>
             <div className="flex items-center justify-between">
-              <div className={`flex items-center ${collapsed ? 'justify-center w-full' : 'w-full'}`}>
+              <Link 
+                href="/" 
+                className={`flex items-center ${collapsed ? 'justify-center w-full' : 'w-full'} transition-opacity hover:opacity-80 cursor-pointer`}
+              >
                 <Image
-                  src={collapsed ? "/lOGOgreen.svg" : "/logo.jpg"}
+                  src={collapsed ? "/lOGOgreen.svg" : "/logo.png"}
                   alt="Peer2Pepu Logo"
                   width={collapsed ? 48 : 180}
                   height={collapsed ? 48 : 60}
                   className="object-contain"
                   priority
                 />
-              </div>
+              </Link>
               
               {/* Mobile Close Button */}
               <button 

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import Image from 'next/image';
 import { 
   Target, 
@@ -635,16 +636,16 @@ export default function ResolvePage() {
                 </button>
                 
                 {/* Mobile: Just P2P, Desktop: Full title */}
-                <div className="lg:hidden">
+                <Link href="/" className="lg:hidden transition-opacity hover:opacity-80 cursor-pointer">
                   <Image
-                    src="/P2PFINAL-removebg-preview-removebg-preview.png"
+                    src="/mobile.png"
                     alt="P2P"
                     width={60}
                     height={30}
                     className="object-contain"
                     priority
                   />
-                </div>
+                </Link>
                 
                 <div className="hidden lg:block">
                   <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
