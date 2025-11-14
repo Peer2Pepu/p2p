@@ -27,8 +27,9 @@ async function main() {
 
     // 3. Deploy PoolVault (Treasury)
     console.log("\n3. Deploying PoolVault (Treasury)...");
+    const PARTNER_ADDRESS = "0x0a66fe87d80aa139b25d1b2f5f9961c09511a862";
     const PoolVault = await ethers.getContractFactory("PoolVault");
-    const vault = await PoolVault.deploy(deployer.address, deployer.address);
+    const vault = await PoolVault.deploy(deployer.address, PARTNER_ADDRESS);
     await vault.waitForDeployment();
     const vaultAddress = await vault.getAddress();
     console.log("✅ PoolVault deployed to:", vaultAddress);

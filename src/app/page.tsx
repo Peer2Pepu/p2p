@@ -679,8 +679,8 @@ export default function HomePage() {
                   <Image
                     src="/mobile.png"
                     alt="P2P"
-                    width={60}
-                    height={30}
+                    width={90}
+                    height={45}
                     className="object-contain"
                     priority
                   />

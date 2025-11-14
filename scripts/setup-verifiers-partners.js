@@ -10,7 +10,7 @@ async function main() {
     const PRIVATE_KEY = process.env.PRIVATE_KEY;
     const KEY_ONE = process.env.KEY_ONE;
     const KEY_TWO = process.env.KEY_TWO;
-    const PARTNER_ADDRESS = "0x7e217fa1Ce282653115bA04686aE73dd689Ee588";
+    const PARTNER_ADDRESS = "0x0a66fe87d80aa139b25d1b2f5f9961c09511a862";
 
     if (!TREASURY_ADDRESS || !VERIFICATION_ADDRESS || !PRIVATE_KEY || !KEY_ONE || !KEY_TWO) {
         throw new Error('Missing required addresses/keys in .env');
