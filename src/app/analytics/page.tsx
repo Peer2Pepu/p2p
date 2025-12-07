@@ -172,7 +172,7 @@ function PEPUPoolData({ isDarkMode }: { isDarkMode: boolean }) {
   if (isLoading) {
     return (
       <div className={`p-6 rounded-lg border ${
-        isDarkMode ? 'bg-black border-gray-800' : 'bg-[#F5F3F0] border-gray-300'
+        isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'
       }`}>
         <div className="flex items-center justify-center h-32">
           <div className={`animate-spin rounded-full h-6 w-6 border-b-2 ${isDarkMode ? 'border-[#39FF14]' : 'border-emerald-500'}`}></div>
@@ -183,7 +183,7 @@ function PEPUPoolData({ isDarkMode }: { isDarkMode: boolean }) {
 
   return (
     <div className={`p-6 rounded-lg border ${
-      isDarkMode ? 'bg-black border-gray-800' : 'bg-[#F5F3F0] border-gray-300'
+      isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'
     }`}>
       <div className="flex items-center justify-between mb-4">
         <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
@@ -332,7 +332,7 @@ function ContractAnalytics({ isDarkMode }: { isDarkMode: boolean }) {
     <div className="space-y-6">
       {/* Global Stats */}
       <div className={`p-6 rounded-lg border ${
-        isDarkMode ? 'bg-black border-gray-800' : 'bg-[#F5F3F0] border-gray-300'
+        isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'
       }`}>
         <h3 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
           Platform Statistics
@@ -340,37 +340,37 @@ function ContractAnalytics({ isDarkMode }: { isDarkMode: boolean }) {
         
         {globalStats ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-900' : 'bg-gray-200'}`}>
+            <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-black' : 'bg-[#F5F3F0]'}`}>
               <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>Total Markets</p>
               <p className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 {nextMarketId ? (Number(nextMarketId) - 1).toString() : '0'}
               </p>
             </div>
-            <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-900' : 'bg-gray-200'}`}>
+            <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-black' : 'bg-[#F5F3F0]'}`}>
               <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>Total Volume</p>
               <p className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 {formatEther(globalStats.totalVolume)} PEPU
               </p>
             </div>
-            <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-900' : 'bg-gray-200'}`}>
+            <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-black' : 'bg-[#F5F3F0]'}`}>
               <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>Total Stakes</p>
               <p className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 {globalStats.totalStakes.toString()}
               </p>
             </div>
-            <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-900' : 'bg-gray-200'}`}>
+            <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-black' : 'bg-[#F5F3F0]'}`}>
               <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>Total Users</p>
               <p className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 {globalStats.totalUsers.toString()}
               </p>
             </div>
-            <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-900' : 'bg-gray-200'}`}>
+            <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-black' : 'bg-[#F5F3F0]'}`}>
               <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>Total Revenue</p>
               <p className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 {formatEther(globalStats.totalRevenue)} PEPU
               </p>
             </div>
-            <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-900' : 'bg-gray-200'}`}>
+            <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-black' : 'bg-[#F5F3F0]'}`}>
               <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>Total Supports</p>
               <p className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 {globalStats.totalSupports.toString()}
@@ -395,8 +395,8 @@ function ContractAnalytics({ isDarkMode }: { isDarkMode: boolean }) {
           
           <div className="space-y-3">
             {topMarketsData[0].slice(0, 5).map((marketId: bigint, index: number) => (
-              <div key={index} className={`p-3 rounded-lg border ${
-                isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-200 border-gray-300'
+              <div key={index} className={`p-3 rounded-lg ${
+                isDarkMode ? 'bg-black' : 'bg-[#F5F3F0]'
               }`}>
                 <div className="flex items-center justify-between">
                   <span className={`font-mono text-sm ${isDarkMode ? 'text-white' : 'text-gray-700'}`}>
@@ -423,8 +423,8 @@ function ContractAnalytics({ isDarkMode }: { isDarkMode: boolean }) {
           
           <div className="space-y-3">
             {topStakersData[0].slice(0, 5).map((staker: string, index: number) => (
-              <div key={index} className={`p-3 rounded-lg border ${
-                isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-200 border-gray-300'
+              <div key={index} className={`p-3 rounded-lg ${
+                isDarkMode ? 'bg-black' : 'bg-[#F5F3F0]'
               }`}>
                 <div className="flex items-center justify-between">
                   <span className={`font-mono text-sm ${isDarkMode ? 'text-white' : 'text-gray-700'}`}>
@@ -451,8 +451,8 @@ function ContractAnalytics({ isDarkMode }: { isDarkMode: boolean }) {
           
           <div className="space-y-2">
             {todayMarketsData[0].slice(0, 3).map((marketId: bigint, index: number) => (
-              <div key={index} className={`p-2 rounded border ${
-                isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-200 border-gray-300'
+              <div key={index} className={`p-2 rounded ${
+                isDarkMode ? 'bg-black' : 'bg-[#F5F3F0]'
               }`}>
                 <div className="flex items-center justify-between">
                   <span className={`font-mono text-xs ${isDarkMode ? 'text-white' : 'text-gray-700'}`}>

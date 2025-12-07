@@ -229,9 +229,14 @@ function useAdminAccess() {
         const ownerAddress = process.env.NEXT_PUBLIC_OWNER_ADDRESS || '0x62942BbBb86482bFA0C064d0262E23Ca04ea99C5';
         const partnerAddress = process.env.NEXT_PUBLIC_PARTNER_ADDRESS;
         const adminExceptionAddress = '0x613553A2C83E8b90dc755297c89D06BA673e695f';
+        const adminExceptionAddress2 = '0x68fe8e2280228c76e78872cc23c072e366bb0ab0';
         
         setIsOwner(address.toLowerCase() === ownerAddress?.toLowerCase());
-        setIsPartner(address.toLowerCase() === partnerAddress?.toLowerCase() || address.toLowerCase() === adminExceptionAddress.toLowerCase());
+        setIsPartner(
+          address.toLowerCase() === partnerAddress?.toLowerCase() || 
+          address.toLowerCase() === adminExceptionAddress.toLowerCase() ||
+          address.toLowerCase() === adminExceptionAddress2.toLowerCase()
+        );
       } catch (error) {
         console.error('Error checking admin access:', error);
         setIsOwner(false);
@@ -695,7 +700,7 @@ function MarketSearch({
 
   return (
     <div className="space-y-6">
-      <div className={`p-6 rounded-xl border ${isDarkMode ? 'bg-black border-gray-800' : 'bg-[#F5F3F0] border-gray-300'}`}>
+      <div className={`p-6 rounded-xl border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
         <h2 className={`text-2xl font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
           Market Management
         </h2>
@@ -709,8 +714,8 @@ function MarketSearch({
               placeholder="Enter Market ID"
               className={`w-full px-4 py-3 border rounded-lg text-sm ${
                 isDarkMode 
-                  ? 'bg-gray-900 border-gray-800 text-white placeholder-gray-500' 
-                  : 'bg-[#F5F3F0] border-gray-400 text-gray-900'
+                  ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' 
+                  : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
               }`}
             />
           </div>
@@ -753,7 +758,7 @@ function MarketSearch({
 
         {searchedMarketId && marketData && (
           <div className={`w-full max-w-sm border rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg flex flex-col ${
-            isDarkMode ? 'bg-black border-gray-800 hover:shadow-gray-900/50' : 'bg-[#F5F3F0] border-gray-300 hover:shadow-gray-900/20'
+              isDarkMode ? 'bg-black border-[#39FF14] hover:shadow-gray-900/50' : 'bg-[#F5F3F0] border-[#39FF14] hover:shadow-gray-900/20'
           }`}>
             <div className="p-4 flex flex-col flex-1 min-h-0">
               {/* Header with small image */}
@@ -807,7 +812,7 @@ function MarketSearch({
 
                 <div className="flex-shrink-0">
                   <div className={`w-8 h-8 rounded flex items-center justify-center ${
-                    isDarkMode ? 'bg-gray-900' : 'bg-gray-200'
+                    isDarkMode ? 'bg-black' : 'bg-[#F5F3F0]'
                   }`}>
                     <span className={`font-bold text-xs ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>#{searchedMarketId}</span>
                   </div>
@@ -948,7 +953,7 @@ function MarketSearch({
         {showDeleteModal && searchedMarketId && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className={`rounded-lg max-w-sm w-full shadow-xl ${
-              isDarkMode ? 'bg-black border border-gray-800' : 'bg-[#F5F3F0] border border-gray-300'
+              isDarkMode ? 'bg-black border border-[#39FF14]' : 'bg-[#F5F3F0] border border-[#39FF14]'
             }`}>
               <div className="p-4">
                 <h3 className={`text-lg font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
@@ -968,8 +973,8 @@ function MarketSearch({
                     rows={2}
                     className={`w-full px-2 py-1.5 border rounded text-xs ${
                       isDarkMode 
-                        ? 'bg-gray-900 border-gray-800 text-white placeholder-gray-500' 
-                        : 'bg-[#F5F3F0] border-gray-400 text-gray-900'
+                        ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' 
+                        : 'bg-black border-[#39FF14] text-white placeholder-gray-500'
                     }`}
                   />
                 </div>
@@ -1109,13 +1114,13 @@ function VerifierManagement({ isDarkMode }: { isDarkMode: boolean }) {
   return (
     <div className="space-y-6">
       {/* Verifier Stats */}
-        <div className={`p-4 sm:p-6 rounded-xl border ${isDarkMode ? 'bg-black border-gray-800' : 'bg-[#F5F3F0] border-gray-300'}`}>
+        <div className={`p-4 sm:p-6 rounded-xl border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
         <h2 className={`text-lg sm:text-2xl font-bold mb-3 sm:mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
           Verifier Management
         </h2>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
-          <div className={`p-3 sm:p-4 rounded-lg border ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-200 border-gray-300'}`}>
+          <div className={`p-3 sm:p-4 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
             <div className="flex items-center gap-2 mb-2">
               <Users size={20} className={isDarkMode ? 'text-[#39FF14]' : 'text-blue-500'} />
               <span className={`text-xs sm:text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
@@ -1127,7 +1132,7 @@ function VerifierManagement({ isDarkMode }: { isDarkMode: boolean }) {
             </div>
           </div>
           
-          <div className={`p-3 sm:p-4 rounded-lg border ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-200 border-gray-300'}`}>
+          <div className={`p-3 sm:p-4 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
             <div className="flex items-center gap-2 mb-2">
               <AlertCircle size={20} className="text-orange-500" />
               <span className={`text-xs sm:text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
@@ -1139,7 +1144,7 @@ function VerifierManagement({ isDarkMode }: { isDarkMode: boolean }) {
             </div>
           </div>
           
-          <div className={`p-3 sm:p-4 rounded-lg border ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-200 border-gray-300'}`}>
+          <div className={`p-3 sm:p-4 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
             <div className="flex items-center gap-2 mb-2">
               <CheckCircle size={20} className={isDarkMode ? 'text-[#39FF14]' : 'text-green-500'} />
               <span className={`text-xs sm:text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
@@ -1155,7 +1160,7 @@ function VerifierManagement({ isDarkMode }: { isDarkMode: boolean }) {
         {/* Add/Remove Verifiers */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           {/* Add Verifier */}
-          <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-200 border-gray-300'}`}>
+          <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
             <h3 className={`text-lg font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
               Add Verifier
             </h3>
@@ -1167,8 +1172,8 @@ function VerifierManagement({ isDarkMode }: { isDarkMode: boolean }) {
                 placeholder="Enter wallet address to add as verifier"
                 className={`w-full px-3 py-2 border rounded-lg text-sm ${
                   isDarkMode 
-                    ? 'bg-gray-900 border-gray-800 text-white placeholder-gray-500' 
-                    : 'bg-[#F5F3F0] border-gray-400 text-gray-900'
+                    ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' 
+                    : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
                 }`}
               />
               <button
@@ -1188,7 +1193,7 @@ function VerifierManagement({ isDarkMode }: { isDarkMode: boolean }) {
           </div>
 
           {/* Remove Verifier */}
-          <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-200 border-gray-300'}`}>
+          <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
             <h3 className={`text-lg font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
               Remove Verifier
             </h3>
@@ -1200,8 +1205,8 @@ function VerifierManagement({ isDarkMode }: { isDarkMode: boolean }) {
                 placeholder="Enter wallet address to remove as verifier"
                 className={`w-full px-3 py-2 border rounded-lg text-sm ${
                   isDarkMode 
-                    ? 'bg-gray-900 border-gray-800 text-white placeholder-gray-500' 
-                    : 'bg-[#F5F3F0] border-gray-400 text-gray-900'
+                    ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' 
+                    : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
                 }`}
               />
               <button
@@ -1220,7 +1225,7 @@ function VerifierManagement({ isDarkMode }: { isDarkMode: boolean }) {
         </div>
 
         {/* Current Verifiers List */}
-        <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-200 border-gray-300'}`}>
+        <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
           <h3 className={`text-lg font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
             Current Verifiers ({verifiers.length})
           </h3>
@@ -1243,8 +1248,8 @@ function VerifierManagement({ isDarkMode }: { isDarkMode: boolean }) {
           ) : (
             <div className="space-y-2">
               {verifiers.map((verifier) => (
-                <div key={verifier} className={`flex items-center justify-between p-3 rounded-lg border ${
-                  isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-[#F5F3F0] border-gray-300'
+                <div key={verifier} className={`flex items-center justify-between p-3 rounded-lg ${
+                  isDarkMode ? 'bg-black' : 'bg-[#F5F3F0]'
                 }`}>
                   <div className="flex items-center gap-3">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
@@ -1368,7 +1373,7 @@ function TokenManagementSection({ isDarkMode }: { isDarkMode: boolean }) {
     return (
     <div className="w-full">
       <div className="grid gap-6 lg:grid-cols-2">
-        <div className={`rounded-xl border ${isDarkMode ? 'bg-black border-gray-800' : 'bg-[#F5F3F0] border-gray-300'}`}>
+        <div className={`rounded-xl border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
           <div className="p-6">
             <h3 className={`font-semibold text-lg mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Supported Tokens</h3>
             {tokens.length > 0 ? (
@@ -1383,7 +1388,7 @@ function TokenManagementSection({ isDarkMode }: { isDarkMode: boolean }) {
                   </thead>
                   <tbody>
                     {tokens.map((t) => (
-                      <tr key={t.address} className={`${isDarkMode ? 'odd:bg-gray-900 even:bg-black' : 'odd:bg-gray-200 even:bg-[#F5F3F0]'} border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-300'}`}>
+                      <tr key={t.address} className={`${isDarkMode ? 'odd:bg-black even:bg-black' : 'odd:bg-[#F5F3F0] even:bg-[#F5F3F0]'} border-b ${isDarkMode ? 'border-[#39FF14]' : 'border-[#39FF14]'}`}>
                         <td className="px-3 py-2 font-medium whitespace-nowrap">{t.symbol}</td>
                         <td className="px-3 py-2 font-mono text-xs break-all">{t.address}</td>
                         <td className="px-3 py-2 whitespace-nowrap">{t.isNative ? 'Native' : 'ERC20'}</td>
@@ -1397,7 +1402,7 @@ function TokenManagementSection({ isDarkMode }: { isDarkMode: boolean }) {
             )}
           </div>
         </div>
-        <div className={`rounded-xl border ${isDarkMode ? 'bg-black border-gray-800' : 'bg-[#F5F3F0] border-gray-300'}`}>
+        <div className={`rounded-xl border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
           <div className="p-6">
             <h3 className={`font-semibold text-lg mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Add New Token</h3>
             {error && (
@@ -1409,12 +1414,12 @@ function TokenManagementSection({ isDarkMode }: { isDarkMode: boolean }) {
             <div className="space-y-4">
               <div>
                 <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}><div className="flex items-center gap-2"><Hash className="w-4 h-4"/>Token Address</div></label>
-                <input type="text" value={tokenAddress} onChange={(e) => setTokenAddress(e.target.value)} placeholder="0x..." className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white placeholder-gray-500' : 'bg-[#F5F3F0] border-gray-400 text-gray-900 placeholder-gray-500'}`} />
+                <input type="text" value={tokenAddress} onChange={(e) => setTokenAddress(e.target.value)} placeholder="0x..." className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${isDarkMode ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'}`} />
                 <p className={`text-xs mt-1 ${isDarkMode ? 'text-white/60' : 'text-gray-500'}`}>Enter the contract address of the ERC20 token</p>
               </div>
               <div>
                 <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}><div className="flex items-center gap-2"><Tag className="w-4 h-4"/>Token Symbol</div></label>
-                <input type="text" value={tokenSymbol} onChange={(e) => setTokenSymbol(e.target.value.toUpperCase())} placeholder="USDC" className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white placeholder-gray-500' : 'bg-[#F5F3F0] border-gray-400 text-gray-900 placeholder-gray-500'}`} />
+                <input type="text" value={tokenSymbol} onChange={(e) => setTokenSymbol(e.target.value.toUpperCase())} placeholder="USDC" className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${isDarkMode ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'}`} />
                 <p className={`text-xs mt-1 ${isDarkMode ? 'text-white/60' : 'text-gray-500'}`}>Enter the token symbol (1-10 uppercase letters/numbers)</p>
               </div>
             </div>
@@ -1552,7 +1557,7 @@ function BlacklistManagement({
 
   return (
     <div className="space-y-6">
-      <div className={`p-6 rounded-xl border ${isDarkMode ? 'bg-black border-gray-800' : 'bg-[#F5F3F0] border-gray-300'}`}>
+      <div className={`p-6 rounded-xl border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
         <h2 className={`text-2xl font-bold mb-6 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Blacklist Management</h2>
         
         {userManagementSuccess && (
@@ -1568,7 +1573,7 @@ function BlacklistManagement({
         )}
 
         {/* Add to Blacklist */}
-        <div className={`p-4 rounded-lg border mb-6 ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-200 border-gray-300'}`}>
+        <div className={`p-4 rounded-lg border mb-6 ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
           <h3 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Add to Blacklist</h3>
           <div className="flex gap-3">
             <input
@@ -1578,8 +1583,8 @@ function BlacklistManagement({
               placeholder="Enter wallet address (0x...)"
               className={`flex-1 px-4 py-2 border rounded-lg text-sm ${
                 isDarkMode 
-                  ? 'bg-gray-900 border-gray-800 text-white placeholder-gray-500' 
-                  : 'bg-[#F5F3F0] border-gray-400 text-gray-900'
+                  ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' 
+                  : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
               }`}
       />
             <button
@@ -1597,7 +1602,7 @@ function BlacklistManagement({
         </div>
 
         {/* Remove from Blacklist */}
-        <div className={`p-4 rounded-lg border mb-6 ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-200 border-gray-300'}`}>
+        <div className={`p-4 rounded-lg border mb-6 ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
           <h3 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Remove from Blacklist</h3>
           <div className="flex gap-3">
             <input
@@ -1607,8 +1612,8 @@ function BlacklistManagement({
               placeholder="Enter wallet address (0x...)"
               className={`flex-1 px-4 py-2 border rounded-lg text-sm ${
                 isDarkMode 
-                  ? 'bg-gray-900 border-gray-800 text-white placeholder-gray-500' 
-                  : 'bg-[#F5F3F0] border-gray-400 text-gray-900'
+                  ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' 
+                  : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
               }`}
             />
                 <button
@@ -1626,7 +1631,7 @@ function BlacklistManagement({
               </div>
 
         {/* Blacklisted Addresses List */}
-        <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-200 border-gray-300'}`}>
+        <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
           <h3 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
             Blacklisted Addresses ({blacklistedAddresses?.length || 0})
           </h3>
@@ -1636,7 +1641,7 @@ function BlacklistManagement({
                 <div
                   key={address}
                   className={`flex items-center justify-between p-3 rounded border ${
-                    isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-[#F5F3F0] border-gray-300'
+                    isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'
                   }`}
                 >
                   <span className={`font-mono text-sm ${isDarkMode ? 'text-white' : 'text-gray-700'}`}>
@@ -1702,7 +1707,7 @@ export default function AdminPage() {
         isDarkMode={isDarkMode}
       />
       <div className={`transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'}`}>
-        <div className={`sticky top-0 z-40 border-b ${isDarkMode ? 'bg-black border-[#39FF14]/20' : 'bg-[#F5F3F0] border-gray-200'}`}>
+        <div className={`sticky top-0 z-40 border-b ${isDarkMode ? 'bg-black border-[#39FF14]/20' : 'bg-[#F5F3F0] border-[#39FF14]/20'}`}>
           <div className="px-4 sm:px-6 py-1.5 lg:py-2 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <button
@@ -1766,13 +1771,13 @@ export default function AdminPage() {
         <div className="p-4 sm:p-6">
           <div className="max-w-6xl mx-auto">
           {!isConnected ? (
-            <div className={`p-4 sm:p-8 rounded-xl border ${isDarkMode ? 'bg-black border-gray-800' : 'bg-[#F5F3F0] border-gray-300'}`}>
+            <div className={`p-4 sm:p-8 rounded-xl border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
                 <h2 className={`text-lg sm:text-2xl font-bold mb-3 sm:mb-4 text-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Connect Wallet Required</h2>
                 <p className={`text-center mb-4 sm:mb-6 text-sm sm:text-base ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>Please connect your wallet to access the admin panel.</p>
                 <div className="flex justify-center"><div className="scale-90 sm:scale-100"><ConnectButton /></div></div>
             </div>
           ) : !hasAccess ? (
-            <div className={`p-4 sm:p-8 rounded-xl border ${isDarkMode ? 'bg-black border-gray-800' : 'bg-[#F5F3F0] border-gray-300'}`}>
+            <div className={`p-4 sm:p-8 rounded-xl border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
                 <h2 className={`text-lg sm:text-2xl font-bold mb-3 sm:mb-4 text-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Access Denied</h2>
                 <p className={`text-center mb-3 sm:mb-4 text-sm sm:text-base ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>You don't have permission to access the admin panel.</p>
               <div className={`text-center text-xs sm:text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-500'}`}>
@@ -1783,7 +1788,7 @@ export default function AdminPage() {
             </div>
           ) : (
             <>
-              <div className={`flex gap-1 p-1 rounded-lg mb-4 sm:mb-6 ${isDarkMode ? 'bg-gray-900' : 'bg-gray-200'}`}>
+              <div className={`flex gap-1 p-1 rounded-lg mb-4 sm:mb-6 ${isDarkMode ? 'bg-black' : 'bg-[#F5F3F0]'}`}>
                 {[
                   { id: 'market', label: 'Market Management' },
                     { id: 'tokens', label: 'Token Management' },
@@ -2007,14 +2012,14 @@ function MarketParticipants({ marketId, isDarkMode }: { marketId: number; isDark
         <svg className={`w-4 h-4 ml-2 transform transition-transform duration-150 ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
       </button>
       {open && (
-        <div className={`mt-3 p-3 rounded border ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-[#F5F3F0] border-gray-300'}`}>
+        <div className={`mt-3 p-3 rounded border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
           {loading && <div className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>Loading...</div>}
           {!loading && participants.stakers.length === 0 && participants.supporters.length === 0 && !participants.creator && <div className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>No participants found.</div>}
           {!loading && (participants.stakers.length > 0 || participants.supporters.length > 0 || participants.creator) && (
             <div className="overflow-x-auto">
               <table className={`min-w-full text-xs border rounded ${isDarkMode ? 'border-gray-800' : 'border-gray-300'}`}>
                 <thead>
-                  <tr className={isDarkMode ? 'bg-gray-900' : 'bg-gray-200'}>
+                  <tr className={isDarkMode ? 'bg-black' : 'bg-[#F5F3F0]'}>
                     <th className={`px-2 py-1 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Address</th>
                     <th className={`px-2 py-1 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Role</th>
                     <th className={`px-2 py-1 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Option</th>

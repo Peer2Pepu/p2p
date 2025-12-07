@@ -497,11 +497,11 @@ export default function ProfilePage() {
               ) : (
                 <div className="space-y-6">
                   {/* Profile Header */}
-                  <div className={`p-6 rounded-lg border ${isDarkMode ? 'bg-black border-gray-800' : 'bg-[#F5F3F0] border-gray-300'} shadow-sm`}>
+                  <div className={`p-6 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'} shadow-sm`}>
                     <div className="flex items-start gap-6">
                       {/* Profile Image */}
                       <div className="relative">
-                        <div className={`w-24 h-24 rounded-full overflow-hidden border ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-200 border-gray-300'}`}>
+                        <div className={`w-24 h-24 rounded-full overflow-hidden border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
                           {profile?.image ? (
                             <img 
                               src={profile.image} 
@@ -578,7 +578,7 @@ export default function ProfilePage() {
 
                     {/* Edit Form */}
                     {isEditing && (
-                      <div className={`mt-6 pt-6 border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-300'}`}>
+                      <div className={`mt-6 pt-6 border-t ${isDarkMode ? 'border-[#39FF14]' : 'border-[#39FF14]'}`}>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
                             <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
@@ -590,8 +590,8 @@ export default function ProfilePage() {
                               onChange={(e) => setFormData({...formData, username: e.target.value})}
                               className={`w-full p-3 border rounded-lg focus:border-[#39FF14] focus:outline-none ${
                                 isDarkMode 
-                                  ? 'bg-gray-900 border-gray-700 text-white placeholder-gray-500' 
-                                  : 'bg-[#F5F3F0] border-gray-400 text-gray-900 placeholder-gray-500'
+                                  ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' 
+                                  : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
                               }`}
                               placeholder="Enter username"
                             />
@@ -607,8 +607,8 @@ export default function ProfilePage() {
                               onChange={(e) => setFormData({...formData, display_name: e.target.value})}
                               className={`w-full p-3 border rounded-lg focus:border-[#39FF14] focus:outline-none ${
                                 isDarkMode 
-                                  ? 'bg-gray-900 border-gray-700 text-white placeholder-gray-500' 
-                                  : 'bg-[#F5F3F0] border-gray-400 text-gray-900 placeholder-gray-500'
+                                  ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' 
+                                  : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
                               }`}
                               placeholder="Enter display name"
                             />
@@ -625,8 +625,8 @@ export default function ProfilePage() {
                             rows={3}
                             className={`w-full p-3 border rounded-lg focus:border-[#39FF14] focus:outline-none resize-y ${
                               isDarkMode 
-                                ? 'bg-gray-900 border-gray-700 text-white placeholder-gray-500' 
-                                : 'bg-[#F5F3F0] border-gray-400 text-gray-900 placeholder-gray-500'
+                                ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' 
+                                : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
                             }`}
                             placeholder="Tell us about yourself..."
                           />
@@ -668,14 +668,14 @@ export default function ProfilePage() {
 
                   {/* Analytics Section */}
                   {analytics && (
-                    <div className={`p-6 rounded-lg border ${isDarkMode ? 'bg-black border-gray-800' : 'bg-[#F5F3F0] border-gray-300'} shadow-sm`}>
+                    <div className={`p-6 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'} shadow-sm`}>
                       <h2 className={`text-xl font-bold mb-6 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                         <BarChart3 className={`h-5 w-5 ${isDarkMode ? 'text-[#39FF14]' : 'text-gray-900'}`} />
                         Trading Analytics
                       </h2>
                       
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div className={`text-center p-4 rounded-lg border ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-200 border-gray-300'}`}>
+                        <div className={`text-center p-4 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
                           <Trophy className={`h-8 w-8 mx-auto mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-yellow-500'}`} />
                           <div className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             {calculateWinRate()}%
@@ -685,7 +685,7 @@ export default function ProfilePage() {
                           </div>
                         </div>
                         
-                        <div className={`text-center p-4 rounded-lg border ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-200 border-gray-300'}`}>
+                        <div className={`text-center p-4 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
                           <Target className={`h-8 w-8 mx-auto mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-blue-500'}`} />
                           <div className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             {analytics.totalStakesPlaced.toString()}
@@ -695,7 +695,7 @@ export default function ProfilePage() {
                           </div>
                         </div>
                         
-                        <div className={`text-center p-4 rounded-lg border ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-200 border-gray-300'}`}>
+                        <div className={`text-center p-4 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
                           <DollarSign className={`h-8 w-8 mx-auto mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-green-500'}`} />
                           <div className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             {formatEther(analytics.totalWinnings)} ETH
@@ -705,7 +705,7 @@ export default function ProfilePage() {
                           </div>
                         </div>
                         
-                        <div className={`text-center p-4 rounded-lg border ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-200 border-gray-300'}`}>
+                        <div className={`text-center p-4 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
                           <Users className={`h-8 w-8 mx-auto mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-purple-500'}`} />
                           <div className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             {analytics.marketsCreated.toString()}
@@ -719,7 +719,7 @@ export default function ProfilePage() {
                   )}
 
                   {/* User Markets Section */}
-                  <div className={`p-6 rounded-lg border ${isDarkMode ? 'bg-black border-gray-800' : 'bg-[#F5F3F0] border-gray-300'} shadow-sm`}>
+                  <div className={`p-6 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'} shadow-sm`}>
                     <h2 className={`text-xl font-bold mb-6 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                       <TrendingUp className={`h-5 w-5 ${isDarkMode ? 'text-[#39FF14]' : 'text-gray-900'}`} />
                       Your Markets
@@ -736,14 +736,14 @@ export default function ProfilePage() {
                       <div className="space-y-4">
                         {userMarkets.map((market) => (
                           <div key={market.marketId} className={`p-4 border rounded-lg ${
-                            isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-200 border-gray-300'
+                            isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'
                           }`}>
                             <div className="flex items-center gap-4">
                               <img 
                                 src={market.image} 
                                 alt="Market" 
                                 className={`w-16 h-16 rounded-lg object-cover border ${
-                                  isDarkMode ? 'border-gray-800' : 'border-gray-300'
+                                  isDarkMode ? 'border-[#39FF14]' : 'border-[#39FF14]'
                                 }`}
                               />
                               <div className="flex-1">

@@ -1088,8 +1088,8 @@ export default function CreateMarketPage() {
                           placeholder="e.g., Will Bitcoin reach $200k by end of 2025?"
                         className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${
                           isDarkMode 
-                            ? 'bg-gray-900 border-gray-700 text-white placeholder-gray-500' 
-                            : 'bg-[#F5F3F0] border-gray-400 text-gray-900 placeholder-gray-500'
+                            ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' 
+                            : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
                         }`}
                         />
                       </div>
@@ -1103,8 +1103,8 @@ export default function CreateMarketPage() {
                           rows={4}
                         className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm resize-y ${
                           isDarkMode 
-                            ? 'bg-gray-900 border-gray-700 text-white placeholder-gray-500' 
-                            : 'bg-[#F5F3F0] border-gray-400 text-gray-900 placeholder-gray-500'
+                            ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' 
+                            : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
                         }`}
                         />
                       </div>
@@ -1118,8 +1118,8 @@ export default function CreateMarketPage() {
                           rows={3}
                         className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm resize-y ${
                           isDarkMode 
-                            ? 'bg-gray-900 border-gray-700 text-white placeholder-gray-500' 
-                            : 'bg-[#F5F3F0] border-gray-400 text-gray-900 placeholder-gray-500'
+                            ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' 
+                            : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
                         }`}
                         />
                         <p className="text-xs text-gray-500 mt-1">
@@ -1133,10 +1133,10 @@ export default function CreateMarketPage() {
                           value={selectedToken}
                           onChange={(e) => setSelectedToken(e.target.value)}
                           disabled={outcomeType === 'multiple'} // Multi-option markets must use P2P token
-                        className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${
+                        className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm appearance-none ${
                           isDarkMode 
-                            ? 'bg-gray-900 border-gray-700 text-white' 
-                            : 'bg-[#F5F3F0] border-gray-400 text-gray-900'
+                            ? 'bg-black border-[#39FF14] text-white' 
+                            : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900'
                         }`}
                         >
                           {tokens.map((token) => (
@@ -1163,8 +1163,8 @@ export default function CreateMarketPage() {
                           step="0.01"
                         className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${
                           isDarkMode 
-                            ? 'bg-gray-900 border-gray-700 text-white placeholder-gray-500' 
-                            : 'bg-[#F5F3F0] border-gray-400 text-gray-900 placeholder-gray-500'
+                            ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' 
+                            : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
                         }`}
                         />
                         <p className="text-xs text-gray-500 mt-1">
@@ -1243,8 +1243,8 @@ export default function CreateMarketPage() {
                               step="1"
                               className={`w-full pl-8 pr-16 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${
                                 isDarkMode 
-                                  ? 'bg-gray-900 border-gray-700 text-white placeholder-gray-500' 
-                                  : 'bg-[#F5F3F0] border-gray-400 text-gray-900 placeholder-gray-500'
+                                  ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' 
+                                  : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
                               }`}
                             />
                             <span className={`absolute right-4 top-1/2 transform -translate-y-1/2 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>days</span>
@@ -1261,8 +1261,8 @@ export default function CreateMarketPage() {
                               step="1"
                               className={`w-full pl-8 pr-16 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${
                                 isDarkMode 
-                                  ? 'bg-gray-900 border-gray-700 text-white placeholder-gray-500' 
-                                  : 'bg-[#F5F3F0] border-gray-400 text-gray-900 placeholder-gray-500'
+                                  ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' 
+                                  : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
                               }`}
                             />
                             <span className={`absolute right-4 top-1/2 transform -translate-y-1/2 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>hours</span>
@@ -1279,8 +1279,8 @@ export default function CreateMarketPage() {
                               step="1"
                               className={`w-full pl-8 pr-16 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${
                                 isDarkMode 
-                                  ? 'bg-gray-900 border-gray-700 text-white placeholder-gray-500' 
-                                  : 'bg-[#F5F3F0] border-gray-400 text-gray-900 placeholder-gray-500'
+                                  ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' 
+                                  : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
                               }`}
                             />
                             <span className={`absolute right-4 top-1/2 transform -translate-y-1/2 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>minutes</span>
@@ -1310,8 +1310,8 @@ export default function CreateMarketPage() {
                               step="1"
                               className={`w-full pl-8 pr-12 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${
                                 isDarkMode 
-                                  ? 'bg-gray-900 border-gray-700 text-white placeholder-gray-500' 
-                                  : 'bg-[#F5F3F0] border-gray-400 text-gray-900 placeholder-gray-500'
+                                  ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' 
+                                  : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
                               }`}
                             />
                             <span className={`absolute right-4 top-1/2 transform -translate-y-1/2 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>days</span>
@@ -1328,8 +1328,8 @@ export default function CreateMarketPage() {
                               step="1"
                               className={`w-full pl-8 pr-16 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${
                                 isDarkMode 
-                                  ? 'bg-gray-900 border-gray-700 text-white placeholder-gray-500' 
-                                  : 'bg-[#F5F3F0] border-gray-400 text-gray-900 placeholder-gray-500'
+                                  ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' 
+                                  : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
                               }`}
                             />
                             <span className={`absolute right-4 top-1/2 transform -translate-y-1/2 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>hours</span>
@@ -1346,8 +1346,8 @@ export default function CreateMarketPage() {
                               step="1"
                               className={`w-full pl-8 pr-12 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${
                                 isDarkMode 
-                                  ? 'bg-gray-900 border-gray-700 text-white placeholder-gray-500' 
-                                  : 'bg-[#F5F3F0] border-gray-400 text-gray-900 placeholder-gray-500'
+                                  ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' 
+                                  : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
                               }`}
                             />
                             <span className={`absolute right-4 top-1/2 transform -translate-y-1/2 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>minutes</span>
@@ -1392,14 +1392,14 @@ export default function CreateMarketPage() {
                             key={category}
                             onClick={() => handleCategoryToggle(category)}
                             className={`
-                              px-3 py-1.5 rounded-full text-xs font-medium transition-colors flex items-center gap-1.5
+                              px-3 py-1.5 rounded-full text-xs font-medium transition-colors flex items-center gap-1.5 border
                               ${selectedCategories.includes(category)
                                 ? isDarkMode 
-                                  ? 'bg-[#39FF14] text-black'
-                                  : 'bg-[#39FF14] text-black border border-black'
+                                  ? 'bg-[#39FF14] text-black border-[#39FF14]'
+                                  : 'bg-[#39FF14] text-black border-[#39FF14]'
                               : isDarkMode
-                                ? 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                ? 'bg-black text-white border-[#39FF14] hover:bg-gray-900'
+                                : 'bg-[#F5F3F0] text-gray-900 border-[#39FF14] hover:bg-gray-200'
                               }
                             `}
                           >
@@ -1425,11 +1425,11 @@ export default function CreateMarketPage() {
                           flex-1 px-4 py-3 rounded-lg border-2 transition-colors flex items-center justify-center gap-2 text-sm font-medium
                           ${outcomeType === 'yesno'
                           ? isDarkMode
-                            ? 'border-[#39FF14] bg-[#39FF14]/10 text-[#39FF14]'
-                            : 'border-[#39FF14] bg-[#39FF14]/10 text-emerald-600 border-2 border-black'
+                            ? 'border-[#39FF14] bg-black text-[#39FF14]'
+                            : 'border-[#39FF14] bg-[#F5F3F0] text-[#39FF14]'
                           : isDarkMode
-                            ? 'border-gray-700 bg-gray-800 text-gray-300 hover:border-gray-600'
-                            : 'border-gray-400 bg-[#F5F3F0] text-gray-700 hover:border-gray-500'
+                            ? 'border-[#39FF14] bg-black text-white hover:bg-gray-900'
+                            : 'border-[#39FF14] bg-[#F5F3F0] text-gray-900 hover:bg-gray-200'
                           }
                         `}
                       >
@@ -1442,11 +1442,11 @@ export default function CreateMarketPage() {
                           flex-1 px-4 py-3 rounded-lg border-2 transition-colors flex items-center justify-center gap-2 text-sm font-medium
                           ${outcomeType === 'multiple'
                           ? isDarkMode
-                            ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400'
-                            : 'border-emerald-500 bg-emerald-50 text-emerald-600'
+                            ? 'border-[#39FF14] bg-black text-[#39FF14]'
+                            : 'border-[#39FF14] bg-[#F5F3F0] text-[#39FF14]'
                           : isDarkMode
-                            ? 'border-gray-600 bg-gray-700 text-gray-300 hover:border-gray-500'
-                            : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                            ? 'border-[#39FF14] bg-black text-white hover:bg-gray-900'
+                            : 'border-[#39FF14] bg-[#F5F3F0] text-gray-900 hover:bg-gray-200'
                           }
                         `}
                       >
@@ -1484,10 +1484,10 @@ export default function CreateMarketPage() {
                               value={option}
                               onChange={(e) => handleMultipleOptionChange(index, e.target.value)}
                               placeholder={`Option ${index + 1}`}
-                            className={`flex-1 px-3 py-2.5 border rounded-lg focus:border-emerald-500 focus:outline-none text-sm ${
+                            className={`flex-1 px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${
                               isDarkMode 
-                                ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                                : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500'
+                                ? 'bg-black border-[#39FF14] text-white placeholder-gray-400' 
+                                : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
                             }`}
                             />
                             {multipleOptions.length > 2 && (
@@ -1521,10 +1521,10 @@ export default function CreateMarketPage() {
                         placeholder={minimumStake || "0.1"}
                         min={minimumStake || "0"}
                         step="0.01"
-                      className={`w-full px-3 py-2.5 border rounded-lg focus:border-emerald-500 focus:outline-none text-sm ${
+                      className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${
                         isDarkMode 
-                          ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                          : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500'
+                          ? 'bg-black border-[#39FF14] text-white placeholder-gray-400' 
+                          : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
                       }`}
                       />
                       <p className="text-xs text-gray-500 mt-1">
@@ -1540,10 +1540,10 @@ export default function CreateMarketPage() {
                         <select
                           value={creatorOutcome}
                           onChange={(e) => setCreatorOutcome(e.target.value)}
-                        className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${
+                        className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm appearance-none ${
                           isDarkMode 
-                            ? 'bg-gray-900 border-gray-700 text-white' 
-                            : 'bg-[#F5F3F0] border-gray-400 text-gray-900'
+                            ? 'bg-black border-[#39FF14] text-white' 
+                            : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900'
                         }`}
                         >
                           <option value="">Select your prediction</option>
@@ -1554,10 +1554,10 @@ export default function CreateMarketPage() {
                         <select
                           value={creatorOutcome}
                           onChange={(e) => setCreatorOutcome(e.target.value)}
-                        className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${
+                        className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm appearance-none ${
                           isDarkMode 
-                            ? 'bg-gray-900 border-gray-700 text-white' 
-                            : 'bg-[#F5F3F0] border-gray-400 text-gray-900'
+                            ? 'bg-black border-[#39FF14] text-white' 
+                            : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900'
                         }`}
                         >
                           <option value="">Select your prediction</option>
