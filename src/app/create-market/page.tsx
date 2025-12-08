@@ -1383,7 +1383,7 @@ export default function CreateMarketPage() {
                     {/* Categories */}
                     <div className="space-y-3">
                     <h2 className={`text-base lg:text-lg font-semibold ${
-                      isDarkMode ? 'text-emerald-400' : 'text-emerald-600'
+                      isDarkMode ? 'text-[#39FF14]' : 'text-[#39FF14]'
                     }`}>Categories</h2>
                       
                       <div className="flex flex-wrap gap-2">
@@ -1507,7 +1507,7 @@ export default function CreateMarketPage() {
                   {/* Creator Deposit & Outcome */}
                   <div className="space-y-4">
                     <h2 className={`text-base lg:text-lg font-semibold ${
-                      isDarkMode ? 'text-emerald-400' : 'text-emerald-600'
+                      isDarkMode ? 'text-[#39FF14]' : 'text-[#39FF14]'
                     }`}>Creator Requirements</h2>
                     
                     <div>
