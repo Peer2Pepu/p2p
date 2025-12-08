@@ -1120,7 +1120,7 @@ function VerifierManagement({ isDarkMode }: { isDarkMode: boolean }) {
         </h2>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
-          <div className={`p-3 sm:p-4 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
+          <div className={`p-3 sm:p-4 rounded-lg border ${isDarkMode ? 'bg-black border-gray-700' : 'bg-[#F5F3F0] border-gray-300'}`}>
             <div className="flex items-center gap-2 mb-2">
               <Users size={20} className={isDarkMode ? 'text-[#39FF14]' : 'text-blue-500'} />
               <span className={`text-xs sm:text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
@@ -1132,7 +1132,7 @@ function VerifierManagement({ isDarkMode }: { isDarkMode: boolean }) {
             </div>
           </div>
           
-          <div className={`p-3 sm:p-4 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
+          <div className={`p-3 sm:p-4 rounded-lg border ${isDarkMode ? 'bg-black border-gray-700' : 'bg-[#F5F3F0] border-gray-300'}`}>
             <div className="flex items-center gap-2 mb-2">
               <AlertCircle size={20} className="text-orange-500" />
               <span className={`text-xs sm:text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
@@ -1144,7 +1144,7 @@ function VerifierManagement({ isDarkMode }: { isDarkMode: boolean }) {
             </div>
           </div>
           
-          <div className={`p-3 sm:p-4 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
+          <div className={`p-3 sm:p-4 rounded-lg border ${isDarkMode ? 'bg-black border-gray-700' : 'bg-[#F5F3F0] border-gray-300'}`}>
             <div className="flex items-center gap-2 mb-2">
               <CheckCircle size={20} className={isDarkMode ? 'text-[#39FF14]' : 'text-green-500'} />
               <span className={`text-xs sm:text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
@@ -1160,7 +1160,7 @@ function VerifierManagement({ isDarkMode }: { isDarkMode: boolean }) {
         {/* Add/Remove Verifiers */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           {/* Add Verifier */}
-          <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
+          <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-black border-gray-700' : 'bg-[#F5F3F0] border-gray-300'}`}>
             <h3 className={`text-lg font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
               Add Verifier
             </h3>
@@ -1193,7 +1193,7 @@ function VerifierManagement({ isDarkMode }: { isDarkMode: boolean }) {
           </div>
 
           {/* Remove Verifier */}
-          <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
+          <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-black border-gray-700' : 'bg-[#F5F3F0] border-gray-300'}`}>
             <h3 className={`text-lg font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
               Remove Verifier
             </h3>
@@ -1225,7 +1225,7 @@ function VerifierManagement({ isDarkMode }: { isDarkMode: boolean }) {
         </div>
 
         {/* Current Verifiers List */}
-        <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
+        <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-black border-gray-700' : 'bg-[#F5F3F0] border-gray-300'}`}>
           <h3 className={`text-lg font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
             Current Verifiers ({verifiers.length})
           </h3>
@@ -1248,8 +1248,8 @@ function VerifierManagement({ isDarkMode }: { isDarkMode: boolean }) {
           ) : (
             <div className="space-y-2">
               {verifiers.map((verifier) => (
-                <div key={verifier} className={`flex items-center justify-between p-3 rounded-lg ${
-                  isDarkMode ? 'bg-black' : 'bg-[#F5F3F0]'
+                <div key={verifier} className={`flex items-center justify-between p-3 rounded-lg border ${
+                  isDarkMode ? 'bg-black border-gray-700' : 'bg-[#F5F3F0] border-gray-300'
                 }`}>
                   <div className="flex items-center gap-3">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
@@ -1573,7 +1573,7 @@ function BlacklistManagement({
         )}
 
         {/* Add to Blacklist */}
-        <div className={`p-4 rounded-lg border mb-6 ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
+        <div className={`p-4 rounded-lg border mb-6 ${isDarkMode ? 'bg-black border-gray-700' : 'bg-[#F5F3F0] border-gray-300'}`}>
           <h3 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Add to Blacklist</h3>
           <div className="flex gap-3">
             <input
@@ -1602,7 +1602,7 @@ function BlacklistManagement({
         </div>
 
         {/* Remove from Blacklist */}
-        <div className={`p-4 rounded-lg border mb-6 ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
+        <div className={`p-4 rounded-lg border mb-6 ${isDarkMode ? 'bg-black border-gray-700' : 'bg-[#F5F3F0] border-gray-300'}`}>
           <h3 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Remove from Blacklist</h3>
           <div className="flex gap-3">
             <input
@@ -1631,7 +1631,7 @@ function BlacklistManagement({
               </div>
 
         {/* Blacklisted Addresses List */}
-        <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
+        <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-black border-gray-700' : 'bg-[#F5F3F0] border-gray-300'}`}>
           <h3 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
             Blacklisted Addresses ({blacklistedAddresses?.length || 0})
           </h3>
@@ -1641,7 +1641,7 @@ function BlacklistManagement({
                 <div
                   key={address}
                   className={`flex items-center justify-between p-3 rounded border ${
-                    isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'
+                    isDarkMode ? 'bg-black border-gray-700' : 'bg-[#F5F3F0] border-gray-300'
                   }`}
                 >
                   <span className={`font-mono text-sm ${isDarkMode ? 'text-white' : 'text-gray-700'}`}>
