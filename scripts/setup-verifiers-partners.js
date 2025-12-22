@@ -1,4 +1,6 @@
 const { ethers } = require("hardhat");
+const fs = require("fs");
+const path = require("path");
 require("dotenv").config();
 
 async function main() {
@@ -8,13 +10,30 @@ async function main() {
     const TREASURY_ADDRESS = process.env.NEXT_PUBLIC_P2P_TREASURY_ADDRESS;
     const VERIFICATION_ADDRESS = process.env.NEXT_PUBLIC_P2P_VERIFICATION_ADDRESS;
     const PRIVATE_KEY = process.env.PRIVATE_KEY;
-    const KEY_ONE = process.env.KEY_ONE;
-    const KEY_TWO = process.env.KEY_TWO;
-    const PARTNER_ADDRESS = "0x0a66fe87d80aa139b25d1b2f5f9961c09511a862";
 
-    if (!TREASURY_ADDRESS || !VERIFICATION_ADDRESS || !PRIVATE_KEY || !KEY_ONE || !KEY_TWO) {
+    if (!TREASURY_ADDRESS || !VERIFICATION_ADDRESS || !PRIVATE_KEY) {
         throw new Error('Missing required addresses/keys in .env');
     }
+
+    // Load generated wallets
+    const walletsPath = path.join(__dirname, '..', 'generated-wallets', 'wallets.json');
+    if (!fs.existsSync(walletsPath)) {
+        throw new Error('Generated wallets file not found. Please run: npm run generate-wallets');
+    }
+
+    const wallets = JSON.parse(fs.readFileSync(walletsPath, 'utf8'));
+    
+    if (wallets.length < 4) {
+        throw new Error('Need at least 4 wallets. Please run: npm run generate-wallets');
+    }
+
+    // Use wallets 1, 2, 3 as verifiers and wallet 4 as partner
+    const VERIFIER_ADDRESSES = [
+        wallets[0].address, // Wallet 1
+        wallets[1].address, // Wallet 2
+        wallets[2].address  // Wallet 3
+    ];
+    const PARTNER_ADDRESS = wallets[3].address; // Wallet 4
 
     // Create provider and wallet
     const [signer] = await ethers.getSigners();
@@ -34,16 +53,13 @@ async function main() {
     const verification = new ethers.Contract(VERIFICATION_ADDRESS, verificationABI, signer);
 
     try {
-        // Get addresses from private keys
-        const wallet1 = new ethers.Wallet(KEY_ONE, provider);
-        const wallet2 = new ethers.Wallet(KEY_TWO, provider);
-
         console.log(`📋 Setup Configuration:`);
         console.log(`   Treasury: ${TREASURY_ADDRESS}`);
         console.log(`   Verification: ${VERIFICATION_ADDRESS}`);
         console.log(`   Partner: ${PARTNER_ADDRESS}`);
-        console.log(`   Verifier 1: ${wallet1.address}`);
-        console.log(`   Verifier 2: ${wallet2.address}`);
+        console.log(`   Verifier 1: ${VERIFIER_ADDRESSES[0]}`);
+        console.log(`   Verifier 2: ${VERIFIER_ADDRESSES[1]}`);
+        console.log(`   Verifier 3: ${VERIFIER_ADDRESSES[2]}`);
 
         // 1. Set partner in Treasury
         console.log(`\n1. Setting partner in Treasury...`);
@@ -55,37 +71,25 @@ async function main() {
         // 2. Add verifiers to ValidationCore
         console.log(`\n2. Adding verifiers to ValidationCore...`);
 
-        try {
-            console.log(`   Adding verifier 1: ${wallet1.address}`);
-            const addVerifier1Tx = await verification.addVerifier(wallet1.address);
-            console.log(`   Transaction: ${addVerifier1Tx.hash}`);
-            await addVerifier1Tx.wait();
-            console.log(`   ✅ Verifier 1 added`);
-        } catch (error) {
-            if (error.message.includes("Already a verifier")) {
-                console.log(`   ✅ Verifier 1 already exists: ${wallet1.address}`);
-            } else {
-                throw error;
-            }
-        }
-
-        try {
-            console.log(`   Adding verifier 2: ${wallet2.address}`);
-            const addVerifier2Tx = await verification.addVerifier(wallet2.address);
-            console.log(`   Transaction: ${addVerifier2Tx.hash}`);
-            await addVerifier2Tx.wait();
-            console.log(`   ✅ Verifier 2 added`);
-        } catch (error) {
-            if (error.message.includes("Already a verifier")) {
-                console.log(`   ✅ Verifier 2 already exists: ${wallet2.address}`);
-            } else {
-                throw error;
+        for (let i = 0; i < VERIFIER_ADDRESSES.length; i++) {
+            try {
+                console.log(`   Adding verifier ${i + 1}: ${VERIFIER_ADDRESSES[i]}`);
+                const addVerifierTx = await verification.addVerifier(VERIFIER_ADDRESSES[i]);
+                console.log(`   Transaction: ${addVerifierTx.hash}`);
+                await addVerifierTx.wait();
+                console.log(`   ✅ Verifier ${i + 1} added`);
+            } catch (error) {
+                if (error.message.includes("Already a verifier") || error.message.includes("already a verifier")) {
+                    console.log(`   ✅ Verifier ${i + 1} already exists: ${VERIFIER_ADDRESSES[i]}`);
+                } else {
+                    throw error;
+                }
             }
         }
 
         console.log(`\n🎉 Setup complete!`);
         console.log(`   Partner: ${PARTNER_ADDRESS}`);
-        console.log(`   Verifiers: ${wallet1.address}, ${wallet2.address}`);
+        console.log(`   Verifiers: ${VERIFIER_ADDRESSES.join(', ')}`);
 
     } catch (error) {
         console.error('❌ Error setting up verifiers and partners:', error.message);

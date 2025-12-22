@@ -13,7 +13,9 @@
     "verifiers:list": "npx hardhat run scripts/manage-verifiers.js --network pepu list",
     "verifiers:count": "npx hardhat run scripts/manage-verifiers.js --network pepu count",
     "verifiers:max": "npx hardhat run scripts/manage-verifiers.js --network pepu max",
-    "verifiers:examples": "node scripts/verifier-examples.js"
+    "verifiers:examples": "node scripts/verifier-examples.js",
+    "check-balance": "node scripts/check-balance.js",
+    "generate-wallets": "node scripts/generate-wallets.js"
   },
   "dependencies": {
     "@lighthouse-web3/sdk": "^0.4.1",
@@ -23,6 +25,7 @@
     "chart.js": "^4.5.0",
     "lucide-react": "^0.539.0",
     "next": "15.4.8",
+    "node-telegram-bot-api": "^0.67.0",
     "react": "19.1.2",
     "react-chartjs-2": "^5.3.0",
     "react-dom": "19.1.2",

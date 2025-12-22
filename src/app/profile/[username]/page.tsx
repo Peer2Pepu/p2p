@@ -1,22 +1,17 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { usePathname } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { 
   User, 
-  Edit3, 
-  Save, 
-  X, 
+  Edit3,
   TrendingUp,
-  TrendingDown,
   Trophy,
   Target,
-  Clock,
   DollarSign,
   Users,
-  Heart,
   BarChart3,
   Menu,
   Sun,
@@ -24,12 +19,12 @@ import {
   Wallet,
   Loader2,
   AlertCircle,
-  CheckCircle
+  ArrowLeft
 } from 'lucide-react';
-import { Sidebar } from '../components/Sidebar';
+import { Sidebar } from '../../components/Sidebar';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useReadContract } from 'wagmi';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme } from '../../context/ThemeContext';
 import { formatEther } from 'viem';
 import { UserProfile, UserAnalytics, UserMarketData } from '@/types/profile';
 import { getUserMarketsFromSupabase } from '@/lib/profile';
@@ -79,34 +74,29 @@ const ANALYTICS_ABI = [
   }
 ];
 
-export default function ProfilePage() {
+export default function ProfileViewPage() {
   const { isDarkMode, toggleTheme } = useTheme();
-  const pathname = usePathname();
+  const params = useParams();
+  const router = useRouter();
+  const username = params?.username as string;
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { address, isConnected } = useAccount();
 
   // Profile state
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-
-  // Form state
-  const [formData, setFormData] = useState({
-    username: '',
-    display_name: '',
-    bio: ''
-  });
 
   // Analytics state
   const [analytics, setAnalytics] = useState<UserAnalytics | null>(null);
   const [userMarkets, setUserMarkets] = useState<UserMarketData[]>([]);
 
-  // Contract addresses (you'll need to add these to your env)
+  // Contract addresses
   const ANALYTICS_CONTRACT = process.env.NEXT_PUBLIC_ANALYTICS_CONTRACT_ADDRESS as `0x${string}`;
+
+  // Check if viewing own profile
+  const isOwnProfile = profile && address && profile.address?.toLowerCase() === address.toLowerCase();
 
   // Sidebar handlers
   const onSidebarClose = () => setSidebarOpen(false);
@@ -118,9 +108,9 @@ export default function ProfilePage() {
     address: ANALYTICS_CONTRACT,
     abi: ANALYTICS_ABI,
     functionName: 'getUserStats',
-    args: address ? [address] : undefined,
+    args: profile?.address ? [profile.address as `0x${string}`] : undefined,
     query: {
-      enabled: !!address && !!ANALYTICS_CONTRACT
+      enabled: !!profile?.address && !!ANALYTICS_CONTRACT
     }
   });
 
@@ -128,18 +118,18 @@ export default function ProfilePage() {
     address: ANALYTICS_CONTRACT,
     abi: ANALYTICS_ABI,
     functionName: 'getUserMarkets',
-    args: address ? [address] : undefined,
+    args: profile?.address ? [profile.address as `0x${string}`] : undefined,
     query: {
-      enabled: !!address && !!ANALYTICS_CONTRACT
+      enabled: !!profile?.address && !!ANALYTICS_CONTRACT
     }
   });
 
   // Load profile data
   useEffect(() => {
-    if (address) {
+    if (username) {
       loadProfile();
     }
-  }, [address]);
+  }, [username]);
 
   // Update analytics when contract data changes
   useEffect(() => {
@@ -165,26 +155,19 @@ export default function ProfilePage() {
   };
 
   const loadProfile = async () => {
-    if (!address) return;
+    if (!username) return;
 
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(`/api/profile?address=${address}`);
+      const response = await fetch(`/api/profile/${username}`);
       const data = await response.json();
 
       if (response.ok) {
         setProfile(data.profile);
-        if (data.profile) {
-          setFormData({
-            username: data.profile.username || '',
-            display_name: data.profile.display_name || '',
-            bio: data.profile.bio || ''
-          });
-        }
       } else {
-        setError(data.error || 'Failed to load profile');
+        setError(data.error || 'Profile not found');
       }
     } catch (err) {
       setError('Failed to load profile');
@@ -194,47 +177,6 @@ export default function ProfilePage() {
     }
   };
 
-  const handleSave = async () => {
-    if (!address) return;
-
-    setIsSaving(true);
-    setError(null);
-    setSuccess(null);
-
-    try {
-      const url = profile ? '/api/profile' : '/api/profile';
-      const method = profile ? 'PUT' : 'POST';
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          address,
-          ...formData
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setProfile(data.profile);
-        setIsEditing(false);
-        setSuccess('Profile updated successfully!');
-        setTimeout(() => setSuccess(null), 3000);
-      } else {
-        setError(data.error || 'Failed to save profile');
-      }
-    } catch (err) {
-      setError('Failed to save profile');
-      console.error('Profile save error:', err);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-
   const formatAddress = (addr: string) => {
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   };
@@ -243,105 +185,6 @@ export default function ProfilePage() {
     if (!analytics || analytics.totalStakesPlaced === BigInt(0)) return 0;
     return Number((analytics.totalStakesWon * BigInt(100)) / analytics.totalStakesPlaced);
   };
-
-  if (!isConnected) {
-    return (
-      <ClientOnly>
-        <div className={`min-h-screen ${isDarkMode ? 'bg-black text-white' : 'bg-[#F5F3F0] text-gray-900'}`}>
-          {/* Sidebar */}
-          <Sidebar
-            isOpen={sidebarOpen}
-            onClose={onSidebarClose}
-            collapsed={sidebarCollapsed}
-            onToggleCollapse={onToggleCollapse}
-            isDarkMode={isDarkMode}
-          />
-
-          {/* Main Content */}
-          <div className={`transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'}`}>
-            {/* Header */}
-            <header className={`sticky top-0 z-30 border-b backdrop-blur-sm ${
-              isDarkMode ? 'bg-black border-[#39FF14]/20' : 'bg-[#F5F3F0] border-gray-200'
-            }`}>
-              <div className="px-4 lg:px-6 py-1.5 lg:py-2">
-                <div className="flex items-center justify-between">
-                  {/* Left: Menu + Title */}
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={onMenuClick}
-                      className={`lg:hidden p-2 rounded-lg transition-colors ${
-                        isDarkMode ? 'hover:bg-[#39FF14]/10 text-white' : 'hover:bg-gray-200'
-                      }`}
-                    >
-                      <Menu size={20} className={isDarkMode ? 'text-white' : 'text-gray-900'} />
-                    </button>
-                    <Link href="/" className="lg:hidden transition-opacity hover:opacity-80 cursor-pointer">
-                      <Image
-                        src="/mobile.png"
-                        alt="P2P"
-                        width={90}
-                        height={45}
-                        className="object-contain"
-                        priority
-                      />
-                    </Link>
-                    <div className="hidden lg:flex flex-col">
-                      <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Profile</h1>
-                    </div>
-                  </div>
-
-                  {/* Right: Theme + Connect */}
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={toggleTheme}
-                      className={`p-1.5 lg:p-2 rounded-lg transition-colors ${
-                        isDarkMode ? 'hover:bg-[#39FF14]/10 text-white' : 'hover:bg-gray-200'
-                      }`}
-                    >
-                      {isDarkMode ? <Sun size={20} className="text-white" /> : <Moon size={20} className="text-gray-600" />}
-                    </button>
-                    
-                    {/* Wallet Connection */}
-                    {isConnected ? (
-                      <div className={`flex items-center gap-1 lg:gap-2 px-2 lg:px-3 py-1.5 rounded text-xs lg:text-sm font-medium ${
-                        isDarkMode 
-                          ? 'bg-[#39FF14]/10 text-white border border-[#39FF14]/30' 
-                          : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                      }`}>
-                        <Wallet size={12} className="lg:w-3.5 lg:h-3.5" />
-                        <span className="font-mono text-xs lg:text-sm">{address?.slice(0, 6)}...{address?.slice(-4)}</span>
-                      </div>
-                    ) : (
-                      <div className="scale-90 lg:scale-100">
-                        <ConnectButton />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </header>
-
-            {/* Content */}
-            <div className="p-6">
-              <div className="max-w-4xl mx-auto">
-                <div className="text-center py-12">
-                  <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
-                    isDarkMode ? 'bg-gray-900' : 'bg-gray-200'
-                  }`}>
-                    <User className={`h-8 w-8 ${isDarkMode ? 'text-white' : 'text-gray-500'}`} />
-                  </div>
-                  <h1 className={`text-2xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Connect Your Wallet</h1>
-                  <p className={`mb-6 ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
-                    Please connect your wallet to view and manage your profile.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </ClientOnly>
-    );
-  }
 
   return (
     <ClientOnly>
@@ -373,8 +216,18 @@ export default function ProfilePage() {
                   >
                     <Menu size={20} />
                   </button>
-                  <div className="flex flex-col">
-                    <h1 className="text-sm lg:text-xl font-semibold">Profile</h1>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => router.back()}
+                      className={`p-2 rounded-lg transition-colors ${
+                        isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'
+                      }`}
+                    >
+                      <ArrowLeft size={20} />
+                    </button>
+                    <div className="flex flex-col">
+                      <h1 className="text-sm lg:text-xl font-semibold">Profile</h1>
+                    </div>
                   </div>
                 </div>
 
@@ -412,7 +265,7 @@ export default function ProfilePage() {
           {/* Content */}
           <div className="p-6">
             <div className="max-w-4xl mx-auto">
-              {/* Error/Success Messages */}
+              {/* Error Message */}
               {error && (
                 <div className={`mb-6 p-4 rounded-lg flex items-center gap-2 ${
                   isDarkMode ? 'bg-red-900/40 border border-red-700' : 'bg-red-50 border border-red-200'
@@ -422,21 +275,12 @@ export default function ProfilePage() {
                 </div>
               )}
 
-              {success && (
-                <div className={`mb-6 p-4 rounded-lg flex items-center gap-2 ${
-                  isDarkMode ? 'bg-green-900/40 border border-green-700' : 'bg-green-50 border border-green-200'
-                }`}>
-                  <CheckCircle className={`h-5 w-5 ${isDarkMode ? 'text-green-300' : 'text-green-500'}`} />
-                  <span className={isDarkMode ? 'text-green-300' : 'text-green-700'}>{success}</span>
-                </div>
-              )}
-
               {isLoading ? (
                 <div className="text-center py-12">
                   <Loader2 className={`h-8 w-8 animate-spin mx-auto mb-4 ${isDarkMode ? 'text-white' : 'text-gray-600'}`} />
                   <p className={isDarkMode ? 'text-white' : 'text-gray-900'}>Loading profile...</p>
                 </div>
-              ) : (
+              ) : profile ? (
                 <div className="space-y-6">
                   {/* Profile Header */}
                   <div className={`p-6 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'} shadow-sm`}>
@@ -469,25 +313,13 @@ export default function ProfilePage() {
                               @{profile?.username || 'no-username'}
                             </p>
                             <p className={`text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-500'}`}>
-                              {formatAddress(address || '')}
+                              {formatAddress(profile?.address || '')}
                             </p>
                           </div>
                           
-                          <div className="flex items-center gap-2">
-                            {profile?.username && (
-                              <Link
-                                href={`/profile/${profile.username}`}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
-                                  isDarkMode 
-                                    ? 'bg-gray-800 text-white hover:bg-gray-700 border border-gray-700' 
-                                    : 'bg-gray-200 text-gray-900 hover:bg-gray-300 border border-gray-300'
-                                }`}
-                              >
-                                View Profile
-                              </Link>
-                            )}
-                            <button
-                              onClick={() => setIsEditing(!isEditing)}
+                          {isOwnProfile && (
+                            <Link
+                              href="/profile"
                               className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
                                 isDarkMode 
                                   ? 'bg-[#39FF14] text-black hover:bg-[#39FF14]/80' 
@@ -495,9 +327,9 @@ export default function ProfilePage() {
                               }`}
                             >
                               <Edit3 className="h-4 w-4" />
-                              {isEditing ? 'Cancel' : 'Edit Profile'}
-                            </button>
-                          </div>
+                              Edit Profile
+                            </Link>
+                          )}
                         </div>
 
                         {profile?.bio && (
@@ -507,95 +339,6 @@ export default function ProfilePage() {
                         )}
                       </div>
                     </div>
-
-                    {/* Edit Form */}
-                    {isEditing && (
-                      <div className={`mt-6 pt-6 border-t ${isDarkMode ? 'border-[#39FF14]' : 'border-[#39FF14]'}`}>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                              Username
-                            </label>
-                            <input
-                              type="text"
-                              value={formData.username}
-                              onChange={(e) => setFormData({...formData, username: e.target.value})}
-                              className={`w-full p-3 border rounded-lg focus:border-[#39FF14] focus:outline-none ${
-                                isDarkMode 
-                                  ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' 
-                                  : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
-                              }`}
-                              placeholder="Enter username"
-                            />
-                          </div>
-                          
-                          <div>
-                            <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                              Display Name
-                            </label>
-                            <input
-                              type="text"
-                              value={formData.display_name}
-                              onChange={(e) => setFormData({...formData, display_name: e.target.value})}
-                              className={`w-full p-3 border rounded-lg focus:border-[#39FF14] focus:outline-none ${
-                                isDarkMode 
-                                  ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' 
-                                  : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
-                              }`}
-                              placeholder="Enter display name"
-                            />
-                          </div>
-                        </div>
-                        
-                        <div className="mt-4">
-                          <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                            Bio
-                          </label>
-                          <textarea
-                            value={formData.bio}
-                            onChange={(e) => setFormData({...formData, bio: e.target.value})}
-                            rows={3}
-                            className={`w-full p-3 border rounded-lg focus:border-[#39FF14] focus:outline-none resize-y ${
-                              isDarkMode 
-                                ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' 
-                                : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
-                            }`}
-                            placeholder="Tell us about yourself..."
-                          />
-                        </div>
-                        
-                        <div className="flex gap-3 mt-4">
-                          <button
-                            onClick={handleSave}
-                            disabled={isSaving}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg disabled:opacity-50 ${
-                              isDarkMode 
-                                ? 'bg-[#39FF14] text-black hover:bg-[#39FF14]/80' 
-                                : 'bg-[#39FF14] text-black border border-black hover:bg-[#39FF14]/80'
-                            }`}
-                          >
-                            {isSaving ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Save className="h-4 w-4" />
-                            )}
-                            Save Changes
-                          </button>
-                          
-                          <button
-                            onClick={() => setIsEditing(false)}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
-                              isDarkMode 
-                                ? 'bg-gray-800 text-white hover:bg-gray-700' 
-                                : 'bg-gray-300 text-gray-900 hover:bg-gray-400'
-                            }`}
-                          >
-                            <X className="h-4 w-4" />
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    )}
                   </div>
 
                   {/* Analytics Section */}
@@ -654,22 +397,26 @@ export default function ProfilePage() {
                   <div className={`p-6 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'} shadow-sm`}>
                     <h2 className={`text-xl font-bold mb-6 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                       <TrendingUp className={`h-5 w-5 ${isDarkMode ? 'text-[#39FF14]' : 'text-gray-900'}`} />
-                      Your Markets
+                      Markets
                     </h2>
                     
                     {userMarkets.length === 0 ? (
                       <div className="text-center py-8">
                         <Target className={`h-12 w-12 mx-auto mb-4 ${isDarkMode ? 'text-white/60' : 'text-gray-400'}`} />
                         <p className={isDarkMode ? 'text-white/70' : 'text-gray-600'}>
-                          You haven't created any markets yet.
+                          This user hasn't created any markets yet.
                         </p>
                       </div>
                     ) : (
                       <div className="space-y-4">
                         {userMarkets.map((market) => (
-                          <div key={market.marketId} className={`p-4 border rounded-lg ${
-                            isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'
-                          }`}>
+                          <Link
+                            key={market.marketId}
+                            href={`/market/${market.marketId}`}
+                            className={`block p-4 border rounded-lg transition-colors ${
+                              isDarkMode ? 'bg-black border-[#39FF14] hover:bg-gray-900' : 'bg-[#F5F3F0] border-[#39FF14] hover:bg-gray-50'
+                            }`}
+                          >
                             <div className="flex items-center gap-4">
                               <img 
                                 src={market.image} 
@@ -689,13 +436,13 @@ export default function ProfilePage() {
                                 </div>
                               </div>
                             </div>
-                          </div>
+                          </Link>
                         ))}
                       </div>
                     )}
                   </div>
                 </div>
-              )}
+              ) : null}
             </div>
           </div>
         </div>
@@ -703,3 +450,4 @@ export default function ProfilePage() {
     </ClientOnly>
   );
 }
+

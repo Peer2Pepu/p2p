@@ -16,7 +16,7 @@ const supabaseUrl = `https://${supabaseProjectId}.supabase.co`;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Contract configuration
-const MARKET_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS;
+const MARKET_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS;
 const ADMIN_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_ADMIN_ADDRESS;
 const RPC_URL = 'https://rpc-pepu-v2-mainnet-0.t.conduit.xyz';
 
@@ -334,3 +334,4 @@ process.on('SIGTERM', () => {
 
 // Start monitoring
 monitorMarketEvents().catch(console.error);
+

@@ -4,10 +4,31 @@ require('dotenv').config();
 
 // Configuration
 const RPC_URL = 'https://rpc-pepu-v2-mainnet-0.t.conduit.xyz';
-const MARKET_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS;
+const MARKET_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS || process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS;
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_GROUP_ID = process.env.TELEGRAM_GROUP_ID;
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
+
+// Validate required environment variables
+if (!MARKET_MANAGER_ADDRESS) {
+    console.error('❌ Missing NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS in .env');
+    process.exit(1);
+}
+
+if (!TELEGRAM_BOT_TOKEN) {
+    console.error('❌ Missing TELEGRAM_BOT_TOKEN in .env');
+    process.exit(1);
+}
+
+if (!TELEGRAM_GROUP_ID) {
+    console.error('❌ Missing TELEGRAM_GROUP_ID in .env');
+    process.exit(1);
+}
+
+if (!PRIVATE_KEY) {
+    console.error('❌ Missing PRIVATE_KEY in .env');
+    process.exit(1);
+}
 
 // Contract ABI
 const MARKET_MANAGER_ABI = [
@@ -254,3 +275,4 @@ process.on('SIGINT', () => {
   console.log('🛑 Shutting down bot...');
   process.exit(0);
 });
+
