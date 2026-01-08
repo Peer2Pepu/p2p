@@ -481,13 +481,11 @@ export default function HomePage() {
     return markets.map(market => Number(market.market_id));
   }, [supabaseMarkets, sortBy]);
 
-  // Only count markets that are actually active on-chain (state = 0)
+  // Show all markets from Supabase - MarketCard will filter by state
+  // This ensures newly created markets show up immediately even if getActiveMarkets() hasn't refreshed
   const availableActiveMarkets = useMemo(() => {
-    const activeSet = new Set(
-      Array.isArray(activeMarketIds) ? activeMarketIds.map((id: any) => Number(id)) : []
-    );
-    return filteredActiveMarkets.filter((id) => activeSet.has(id));
-  }, [filteredActiveMarkets, activeMarketIds]);
+    return filteredActiveMarkets;
+  }, [filteredActiveMarkets]);
 
   const handleBet = async (marketId: number, option: number, amount: string, isApproval = false) => {
     if (!isConnected || !address) {
