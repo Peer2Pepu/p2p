@@ -1587,7 +1587,6 @@ export default function CreateMarketPage() {
                       }}
                       disabled={
                         !isConnected || 
-                        !hasMinimumP2PBalance || 
                         !creatorDeposit ||
                         (((outcomeType === 'multiple' && !hasSufficientAllowance) || 
                           (outcomeType === 'yesno' && selectedToken !== '0x0000000000000000000000000000000000000000' && !hasSufficientAllowance)) 
@@ -1596,7 +1595,6 @@ export default function CreateMarketPage() {
                       }
                       className={`w-full px-6 py-3 font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 ${
                         !isConnected || 
-                        !hasMinimumP2PBalance || 
                         !creatorDeposit ||
                         (((outcomeType === 'multiple' && !hasSufficientAllowance) || 
                           (outcomeType === 'yesno' && selectedToken !== '0x0000000000000000000000000000000000000000' && !hasSufficientAllowance)) 
