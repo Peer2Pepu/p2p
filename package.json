@@ -15,7 +15,9 @@
     "verifiers:max": "npx hardhat run scripts/manage-verifiers.js --network pepu max",
     "verifiers:examples": "node scripts/verifier-examples.js",
     "check-balance": "node scripts/check-balance.js",
-    "generate-wallets": "node scripts/generate-wallets.js"
+    "generate-wallets": "node scripts/generate-wallets.js",
+    "bot:market": "node market-bot.js",
+    "bot:monitor": "node market-event-monitor.js"
   },
   "dependencies": {
     "@lighthouse-web3/sdk": "^0.4.1",

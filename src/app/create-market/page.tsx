@@ -337,9 +337,6 @@ export default function CreateMarketPage() {
     "Finance", "Entertainment", "Science", "Gaming"
   ];
 
-  // Check if user has minimum P2P token balance (100 tokens)
-  const hasMinimumP2PBalance = p2pBalance && p2pBalance.value >= parseEther("100");
-
   // Refetch allowance when approval is confirmed
   useEffect(() => {
     if (isApprovalConfirmed) {
@@ -497,16 +494,10 @@ export default function CreateMarketPage() {
     console.log('Create market button clicked!');
     console.log('isConnected:', isConnected);
     console.log('address:', address);
-    console.log('hasMinimumP2PBalance:', hasMinimumP2PBalance);
     console.log('P2P_TOKEN_ADDRESS:', P2P_TOKEN_ADDRESS);
     
     if (!isConnected || !address) {
       setError('Please connect your wallet');
-      return;
-    }
-
-    if (!hasMinimumP2PBalance) {
-      setError('You need at least 100 P2P tokens to create a market');
       return;
     }
 
