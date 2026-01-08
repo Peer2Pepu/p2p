@@ -1626,9 +1626,6 @@ export default function CreateMarketPage() {
                     {!isConnected && (
                       <p className="text-sm text-gray-500 mt-2 text-center">Please connect your wallet to create a market</p>
                     )}
-                    {isConnected && !hasMinimumP2PBalance && (
-                      <p className="text-sm text-red-500 mt-2 text-center">You need at least 100 P2P tokens to create markets</p>
-                    )}
                     <p className="text-xs text-gray-500 mt-2 text-center">
                       Market creation fee: 1 PEPU (always paid in PEPU)
                     </p>
