@@ -994,30 +994,19 @@ export default function CreateMarketPage() {
           {/* Page Content */}
           <div className="p-4 lg:p-6">
             <div className="max-w-4xl mx-auto">
-              {/* P2P Balance Check */}
-              {isConnected && (
+              {/* P2P Balance Display */}
+              {isConnected && p2pBalance && (
                 <div className={`mb-6 p-4 rounded-lg border ${
-                  hasMinimumP2PBalance 
-                    ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
-                    : 'bg-red-50 border-red-200 text-red-800'
-                } ${isDarkMode ? 'dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-300' : ''}`}>
+                  isDarkMode 
+                    ? 'bg-gray-800/50 border-gray-700 text-gray-300' 
+                    : 'bg-gray-50 border-gray-200 text-gray-700'
+                }`}>
                   <div className="flex items-center gap-2">
                     <Coins size={20} />
                     <span className="font-medium">
-                      P2P Token Balance: {p2pBalance ? formatNumber(formatEther(p2pBalance.value)) : '0'} P2P
+                      P2P Token Balance: {formatNumber(formatEther(p2pBalance.value))} P2P
                     </span>
-                    {hasMinimumP2PBalance ? (
-                      <CheckCircle size={20} className="text-emerald-600" />
-                    ) : (
-                      <AlertCircle size={20} className="text-red-600" />
-                    )}
                   </div>
-                  <p className="text-sm mt-1">
-                    {hasMinimumP2PBalance 
-                      ? 'You can create markets!' 
-                      : 'You need at least 100 P2P tokens to create markets'
-                    }
-                  </p>
                 </div>
               )}
 
