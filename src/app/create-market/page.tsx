@@ -83,7 +83,7 @@ export default function CreateMarketPage() {
   const [success, setSuccess] = useState('');
 
   // Contract addresses from environment
-  const P2P_MARKETMANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS as `0x${string}`;
+  const P2P_MARKETMANAGER_ADDRESS = (process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS || process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS) as `0x${string}`;
   const ADMIN_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_ADMIN_ADDRESS as `0x${string}`;
 
   // Get supported tokens from AdminManager contract
