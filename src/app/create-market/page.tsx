@@ -2,6 +2,8 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { usePathname } from 'next/navigation';
+import Link from 'next/link';
+import Image from 'next/image';
 import { 
   Calendar, 
   Clock, 
@@ -425,7 +427,7 @@ export default function CreateMarketPage() {
   };
 
   const addMultipleOption = () => {
-    if (multipleOptions.length < 8) {
+    if (multipleOptions.length < 10) {
       setMultipleOptions([...multipleOptions, '']);
     }
   };
@@ -839,11 +841,11 @@ export default function CreateMarketPage() {
         <div className={`transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'}`}>
           {/* Header */}
           <header className={`sticky top-0 z-30 border-b backdrop-blur-sm ${
-            isDarkMode ? 'bg-black border-[#39FF14]/20' : 'bg-[#F5F3F0] border-gray-200'
+            isDarkMode ? 'bg-black border-gray-300/20' : 'bg-[#F5F3F0] border-gray-200'
           }`}>
-            <div className="px-4 py-3">
+            <div className="px-4 lg:px-6 py-1.5 lg:py-2">
               <div className="flex items-center justify-between">
-                {/* Left: Menu + Title */}
+                {/* Left: Menu + Logo + Title */}
                 <div className="flex items-center gap-3">
                   <button
                     onClick={onMenuClick}
@@ -851,93 +853,54 @@ export default function CreateMarketPage() {
                       isDarkMode ? 'hover:bg-[#39FF14]/10 text-white' : 'hover:bg-gray-200'
                     }`}
                   >
-                    <Menu size={20} />
+                    <Menu size={20} className={isDarkMode ? 'text-white' : 'text-gray-900'} />
                   </button>
-                  <div className="flex flex-col">
-                    <h1 className={`text-sm lg:text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Create Market</h1>
-                    <p className={`text-xs lg:hidden ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>New prediction market</p>
+                  
+                  <Link href="/" className="lg:hidden transition-opacity hover:opacity-80 cursor-pointer">
+                    <Image
+                      src="/mobile.png"
+                      alt="P2P"
+                      width={90}
+                      height={45}
+                      className="object-contain"
+                      priority
+                    />
+                  </Link>
+                  
+                  <div className="hidden lg:block">
+                    <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                      Create Market
+                    </h1>
+                    <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
+                      Create a new prediction market
+                    </p>
                   </div>
                 </div>
 
                 {/* Right: Theme + Wallet */}
-                <div className="flex items-center gap-2 lg:gap-3">
+                <div className="flex items-center gap-2 lg:gap-4">
                   <button
                     onClick={toggleTheme}
-                    className={`p-2 rounded-lg transition-colors ${
-                      isDarkMode ? 'hover:bg-[#39FF14]/10 text-white' : 'hover:bg-gray-200'
-                    }`}
+                    className={`p-1.5 lg:p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-[#39FF14]/10 text-white' : 'hover:bg-gray-200'}`}
                   >
-                    {isDarkMode ? <Sun size={16} className="lg:w-5 lg:h-5 text-white" /> : <Moon size={16} className="lg:w-5 lg:h-5" />}
+                    {isDarkMode ? <Sun className="w-4 h-4 lg:w-5 lg:h-5 text-white" /> : <Moon className="w-4 h-4 lg:w-5 lg:h-5 text-gray-600" />}
                   </button>
-                
-                {/* Desktop Wallet Button */}
-                  <div className="hidden sm:block">
+                  
+                  {/* Wallet Connection */}
                   {isConnected ? (
-                    <div className="flex items-center gap-2">
-                      <Wallet size={16} className={isDarkMode ? 'text-[#39FF14]' : 'text-emerald-500'} />
-                      <button
-                        className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center gap-2 ${
-                          isDarkMode 
-                            ? 'bg-[#39FF14]/10 hover:bg-[#39FF14]/20 text-white border border-[#39FF14]/30' 
-                            : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-                        }`}
-                        onClick={() => setShowDisconnectModal(true)}
-                      >
-                        <span>{address?.slice(0, 6)}...{address?.slice(-4)}</span>
-                      </button>
+                    <div className={`flex items-center gap-1 lg:gap-2 px-2 lg:px-3 py-1.5 rounded text-xs lg:text-sm font-medium ${
+                      isDarkMode 
+                        ? 'bg-[#39FF14]/10 text-white border border-[#39FF14]/30' 
+                        : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    }`}>
+                      <Wallet size={12} className="lg:w-3.5 lg:h-3.5" />
+                      <span className="font-mono text-xs lg:text-sm">{address?.slice(0, 6)}...{address?.slice(-4)}</span>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2">
-                      <Wallet size={16} className={isDarkMode ? 'text-[#39FF14]' : 'text-emerald-500'} />
+                    <div className="scale-90 lg:scale-100">
                       <ConnectButton />
                     </div>
                   )}
-                </div>
-
-                {/* Mobile Wallet Button */}
-                <div className="sm:hidden">
-                  {isConnected ? (
-                    <div className="flex items-center gap-2">
-                      <Wallet size={16} className={isDarkMode ? 'text-[#39FF14]' : 'text-emerald-500'} />
-                      <button
-                        className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center gap-2 ${
-                          isDarkMode 
-                            ? 'bg-[#39FF14]/10 hover:bg-[#39FF14]/20 text-white border border-[#39FF14]/30' 
-                            : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-                        }`}
-                        onClick={() => setShowDisconnectModal(true)}
-                      >
-                        <span>{address?.slice(0, 6)}...{address?.slice(-4)}</span>
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <Wallet size={16} className={isDarkMode ? 'text-gray-400' : 'text-gray-500'} />
-                      <div className="relative">
-                        <button
-                          className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
-                            isDarkMode 
-                              ? 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black' 
-                              : 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black border border-black'
-                          }`}
-                          onClick={() => {
-                            // Trigger the hidden ConnectButton
-                            const hiddenButton = connectButtonRef.current?.querySelector('button');
-                            if (hiddenButton) {
-                              (hiddenButton as HTMLElement).click();
-                            }
-                          }}
-                        >
-                          Connect
-                        </button>
-                        {/* Hidden ConnectButton for functionality */}
-                        <div ref={connectButtonRef} className="absolute opacity-0 pointer-events-none">
-                          <ConnectButton />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
                 </div>
               </div>
             </div>
@@ -954,7 +917,7 @@ export default function CreateMarketPage() {
             }}
           >
             <div className={`p-6 rounded-lg max-w-sm w-full shadow-2xl transform transition-all duration-200 ${
-              isDarkMode ? 'bg-black border border-[#39FF14]/30' : 'bg-[#F5F3F0] border border-gray-200'
+              isDarkMode ? 'bg-black border border-gray-300/30' : 'bg-[#F5F3F0] border border-gray-200'
             }`}>
               <h3 className={`text-lg font-semibold mb-4 ${
                 isDarkMode ? 'text-white' : 'text-gray-800'
@@ -971,7 +934,7 @@ export default function CreateMarketPage() {
                   onClick={() => setShowDisconnectModal(false)}
                   className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isDarkMode 
-                      ? 'bg-[#39FF14]/10 hover:bg-[#39FF14]/20 text-white border border-[#39FF14]/30' 
+                      ? 'bg-[#39FF14]/10 hover:bg-[#39FF14]/20 text-white border border-gray-300/30' 
                       : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
                   }`}
                 >
@@ -998,7 +961,7 @@ export default function CreateMarketPage() {
               {isConnected && p2pBalance && (
                 <div className={`mb-6 p-4 rounded-lg border ${
                   isDarkMode 
-                    ? 'bg-gray-800/50 border-gray-700 text-gray-300' 
+                    ? 'bg-gray-800/50 border-gray-300 text-gray-300' 
                     : 'bg-gray-50 border-gray-200 text-gray-700'
                 }`}>
                   <div className="flex items-center gap-2">
@@ -1055,7 +1018,7 @@ export default function CreateMarketPage() {
                   {/* Basic Info */}
                   <div className="space-y-4">
                   <h2 className={`text-base lg:text-lg font-semibold ${
-                    isDarkMode ? 'text-[#39FF14]' : 'text-emerald-600'
+                    isDarkMode ? 'text-[#39FF14]' : 'text-[#39FF14]'
                   }`}>Basic Information</h2>
                     
                     <div className="grid grid-cols-1 gap-4">
@@ -1068,8 +1031,8 @@ export default function CreateMarketPage() {
                           placeholder="e.g., Will Bitcoin reach $200k by end of 2025?"
                         className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${
                           isDarkMode 
-                            ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' 
-                            : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
+                            ? 'bg-black border-gray-700 text-white placeholder-gray-500' 
+                            : 'bg-[#F5F3F0] border-gray-300 text-gray-900 placeholder-gray-500'
                         }`}
                         />
                       </div>
@@ -1083,8 +1046,8 @@ export default function CreateMarketPage() {
                           rows={4}
                         className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm resize-y ${
                           isDarkMode 
-                            ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' 
-                            : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
+                            ? 'bg-black border-gray-700 text-white placeholder-gray-500' 
+                            : 'bg-[#F5F3F0] border-gray-300 text-gray-900 placeholder-gray-500'
                         }`}
                         />
                       </div>
@@ -1098,8 +1061,8 @@ export default function CreateMarketPage() {
                           rows={3}
                         className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm resize-y ${
                           isDarkMode 
-                            ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' 
-                            : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
+                            ? 'bg-black border-gray-700 text-white placeholder-gray-500' 
+                            : 'bg-[#F5F3F0] border-gray-300 text-gray-900 placeholder-gray-500'
                         }`}
                         />
                         <p className="text-xs text-gray-500 mt-1">
@@ -1115,8 +1078,8 @@ export default function CreateMarketPage() {
                           disabled={outcomeType === 'multiple'} // Multi-option markets must use P2P token
                         className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm appearance-none ${
                           isDarkMode 
-                            ? 'bg-black border-[#39FF14] text-white' 
-                            : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900'
+                            ? 'bg-black border-gray-700 text-white' 
+                            : 'bg-[#F5F3F0] border-gray-300 text-gray-900'
                         }`}
                         >
                           {tokens.map((token) => (
@@ -1143,8 +1106,8 @@ export default function CreateMarketPage() {
                           step="0.01"
                         className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${
                           isDarkMode 
-                            ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' 
-                            : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
+                            ? 'bg-black border-gray-700 text-white placeholder-gray-500' 
+                            : 'bg-[#F5F3F0] border-gray-300 text-gray-900 placeholder-gray-500'
                         }`}
                         />
                         <p className="text-xs text-gray-500 mt-1">
@@ -1204,7 +1167,7 @@ export default function CreateMarketPage() {
                   {/* Duration */}
                   <div className="space-y-4">
                   <h2 className={`text-base lg:text-lg font-semibold ${
-                    isDarkMode ? 'text-[#39FF14]' : 'text-emerald-600'
+                    isDarkMode ? 'text-[#39FF14]' : 'text-[#39FF14]'
                   }`}>Market Timing</h2>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1223,8 +1186,8 @@ export default function CreateMarketPage() {
                               step="1"
                               className={`w-full pl-8 pr-16 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${
                                 isDarkMode 
-                                  ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' 
-                                  : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
+                                  ? 'bg-black border-gray-300 text-white placeholder-gray-500' 
+                                  : 'bg-[#F5F3F0] border-gray-300 text-gray-900 placeholder-gray-500'
                               }`}
                             />
                             <span className={`absolute right-4 top-1/2 transform -translate-y-1/2 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>days</span>
@@ -1241,8 +1204,8 @@ export default function CreateMarketPage() {
                               step="1"
                               className={`w-full pl-8 pr-16 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${
                                 isDarkMode 
-                                  ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' 
-                                  : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
+                                  ? 'bg-black border-gray-300 text-white placeholder-gray-500' 
+                                  : 'bg-[#F5F3F0] border-gray-300 text-gray-900 placeholder-gray-500'
                               }`}
                             />
                             <span className={`absolute right-4 top-1/2 transform -translate-y-1/2 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>hours</span>
@@ -1259,8 +1222,8 @@ export default function CreateMarketPage() {
                               step="1"
                               className={`w-full pl-8 pr-16 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${
                                 isDarkMode 
-                                  ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' 
-                                  : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
+                                  ? 'bg-black border-gray-300 text-white placeholder-gray-500' 
+                                  : 'bg-[#F5F3F0] border-gray-300 text-gray-900 placeholder-gray-500'
                               }`}
                             />
                             <span className={`absolute right-4 top-1/2 transform -translate-y-1/2 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>minutes</span>
@@ -1290,8 +1253,8 @@ export default function CreateMarketPage() {
                               step="1"
                               className={`w-full pl-8 pr-12 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${
                                 isDarkMode 
-                                  ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' 
-                                  : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
+                                  ? 'bg-black border-gray-300 text-white placeholder-gray-500' 
+                                  : 'bg-[#F5F3F0] border-gray-300 text-gray-900 placeholder-gray-500'
                               }`}
                             />
                             <span className={`absolute right-4 top-1/2 transform -translate-y-1/2 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>days</span>
@@ -1308,8 +1271,8 @@ export default function CreateMarketPage() {
                               step="1"
                               className={`w-full pl-8 pr-16 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${
                                 isDarkMode 
-                                  ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' 
-                                  : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
+                                  ? 'bg-black border-gray-300 text-white placeholder-gray-500' 
+                                  : 'bg-[#F5F3F0] border-gray-300 text-gray-900 placeholder-gray-500'
                               }`}
                             />
                             <span className={`absolute right-4 top-1/2 transform -translate-y-1/2 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>hours</span>
@@ -1326,8 +1289,8 @@ export default function CreateMarketPage() {
                               step="1"
                               className={`w-full pl-8 pr-12 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${
                                 isDarkMode 
-                                  ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' 
-                                  : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
+                                  ? 'bg-black border-gray-300 text-white placeholder-gray-500' 
+                                  : 'bg-[#F5F3F0] border-gray-300 text-gray-900 placeholder-gray-500'
                               }`}
                             />
                             <span className={`absolute right-4 top-1/2 transform -translate-y-1/2 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>minutes</span>
@@ -1363,7 +1326,7 @@ export default function CreateMarketPage() {
                     {/* Categories */}
                     <div className="space-y-3">
                     <h2 className={`text-base lg:text-lg font-semibold ${
-                      isDarkMode ? 'text-[#39FF14]' : 'text-[#39FF14]'
+                      isDarkMode ? 'text-[#39FF14]' : 'text-emerald-600'
                     }`}>Categories</h2>
                       
                       <div className="flex flex-wrap gap-2">
@@ -1378,8 +1341,8 @@ export default function CreateMarketPage() {
                                   ? 'bg-[#39FF14] text-black border-[#39FF14]'
                                   : 'bg-[#39FF14] text-black border-[#39FF14]'
                               : isDarkMode
-                                ? 'bg-black text-white border-[#39FF14] hover:bg-gray-900'
-                                : 'bg-[#F5F3F0] text-gray-900 border-[#39FF14] hover:bg-gray-200'
+                                ? 'bg-black text-white border-gray-700 hover:bg-gray-900'
+                                : 'bg-[#F5F3F0] text-gray-900 border-gray-300 hover:bg-gray-200'
                               }
                             `}
                           >
@@ -1395,7 +1358,7 @@ export default function CreateMarketPage() {
                   {/* Outcome Type */}
                   <div className="space-y-4">
                   <h2 className={`text-base lg:text-lg font-semibold ${
-                    isDarkMode ? 'text-[#39FF14]' : 'text-emerald-600'
+                    isDarkMode ? 'text-[#39FF14]' : 'text-[#39FF14]'
                   }`}>Outcome Type</h2>
                     
                     <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
@@ -1408,8 +1371,8 @@ export default function CreateMarketPage() {
                             ? 'border-[#39FF14] bg-black text-[#39FF14]'
                             : 'border-[#39FF14] bg-[#F5F3F0] text-[#39FF14]'
                           : isDarkMode
-                            ? 'border-[#39FF14] bg-black text-white hover:bg-gray-900'
-                            : 'border-[#39FF14] bg-[#F5F3F0] text-gray-900 hover:bg-gray-200'
+                            ? 'border-gray-700 bg-black text-white hover:bg-gray-900'
+                            : 'border-gray-300 bg-[#F5F3F0] text-gray-900 hover:bg-gray-200'
                           }
                         `}
                       >
@@ -1425,8 +1388,8 @@ export default function CreateMarketPage() {
                             ? 'border-[#39FF14] bg-black text-[#39FF14]'
                             : 'border-[#39FF14] bg-[#F5F3F0] text-[#39FF14]'
                           : isDarkMode
-                            ? 'border-[#39FF14] bg-black text-white hover:bg-gray-900'
-                            : 'border-[#39FF14] bg-[#F5F3F0] text-gray-900 hover:bg-gray-200'
+                            ? 'border-gray-700 bg-black text-white hover:bg-gray-900'
+                            : 'border-gray-300 bg-[#F5F3F0] text-gray-900 hover:bg-gray-200'
                           }
                         `}
                       >
@@ -1440,8 +1403,8 @@ export default function CreateMarketPage() {
                   {outcomeType === 'multiple' && (
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
-                        <h3 className="text-sm lg:text-md font-medium">Options (2-8)</h3>
-                        {multipleOptions.length < 8 && (
+                        <h3 className="text-sm lg:text-md font-medium">Options (2-10)</h3>
+                        {multipleOptions.length < 10 && (
                           <button
                             onClick={addMultipleOption}
                             className={`px-3 py-1.5 rounded-lg text-sm transition-colors flex items-center gap-2 ${
@@ -1466,8 +1429,8 @@ export default function CreateMarketPage() {
                               placeholder={`Option ${index + 1}`}
                             className={`flex-1 px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${
                               isDarkMode 
-                                ? 'bg-black border-[#39FF14] text-white placeholder-gray-400' 
-                                : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
+                                ? 'bg-black border-gray-700 text-white placeholder-gray-400' 
+                                : 'bg-[#F5F3F0] border-gray-300 text-gray-900 placeholder-gray-500'
                             }`}
                             />
                             {multipleOptions.length > 2 && (
@@ -1503,8 +1466,8 @@ export default function CreateMarketPage() {
                         step="0.01"
                       className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${
                         isDarkMode 
-                          ? 'bg-black border-[#39FF14] text-white placeholder-gray-400' 
-                          : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
+                          ? 'bg-black border-gray-700 text-white placeholder-gray-400' 
+                          : 'bg-[#F5F3F0] border-gray-300 text-gray-900 placeholder-gray-500'
                       }`}
                       />
                       <p className="text-xs text-gray-500 mt-1">
@@ -1522,8 +1485,8 @@ export default function CreateMarketPage() {
                           onChange={(e) => setCreatorOutcome(e.target.value)}
                         className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm appearance-none ${
                           isDarkMode 
-                            ? 'bg-black border-[#39FF14] text-white' 
-                            : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900'
+                            ? 'bg-black border-gray-700 text-white' 
+                            : 'bg-[#F5F3F0] border-gray-300 text-gray-900'
                         }`}
                         >
                           <option value="">Select your prediction</option>
@@ -1536,8 +1499,8 @@ export default function CreateMarketPage() {
                           onChange={(e) => setCreatorOutcome(e.target.value)}
                         className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm appearance-none ${
                           isDarkMode 
-                            ? 'bg-black border-[#39FF14] text-white' 
-                            : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900'
+                            ? 'bg-black border-gray-700 text-white' 
+                            : 'bg-[#F5F3F0] border-gray-300 text-gray-900'
                         }`}
                         >
                           <option value="">Select your prediction</option>

@@ -143,7 +143,7 @@ function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate, onSt
   onClaimableUpdate: (marketId: number, canClaim: boolean) => void;
   onStatusUpdate?: (marketId: number, marketData: any, hasClaimed: boolean, userStakeOption: number, isWinningStake: boolean) => void;
 }) {
-  const MARKET_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS as `0x${string}`;
+  const MARKET_MANAGER_ADDRESS = (process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS || process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS) as `0x${string}`;
   const TREASURY_ADDRESS = process.env.NEXT_PUBLIC_P2P_TREASURY_ADDRESS as `0x${string}`;
 
   // Claim functionality
@@ -519,15 +519,27 @@ export default function StakesPage() {
 
   const { address, isConnected } = useAccount();
 
-  const MARKET_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS as `0x${string}`;
+  const MARKET_MANAGER_ADDRESS = (process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS || process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS) as `0x${string}`;
   const ANALYTICS_ADDRESS = process.env.NEXT_PUBLIC_P2P_ANALYTICS_ADDRESS as `0x${string}`;
 
-  // Fetch user's all markets (regardless of status)
+  // Fetch user's all markets from MarketManager (more reliable than Analytics)
   const { data: userMarketIds } = useReadContract({
-    address: ANALYTICS_ADDRESS,
-    abi: ANALYTICS_ABI,
-    functionName: 'getUserMarkets',
+    address: MARKET_MANAGER_ADDRESS,
+    abi: [
+      {
+        "inputs": [{"name": "user", "type": "address"}],
+        "name": "getUserMarketHistory",
+        "outputs": [{"name": "", "type": "uint256[]"}],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ],
+    functionName: 'getUserMarketHistory',
     args: [address || '0x0000000000000000000000000000000000000000'],
+    query: {
+      enabled: !!address && !!MARKET_MANAGER_ADDRESS, // Only query when address is connected
+      refetchInterval: 30000, // Refetch every 30 seconds to catch new stakes
+    },
   });
 
   // Sort markets (show all user markets regardless of state)
@@ -657,12 +669,11 @@ export default function StakesPage() {
       {/* Main Content */}
       <div className={`transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'}`}>
         {/* Header */}
-        <header className={`border-b ${isDarkMode ? 'bg-black border-[#39FF14]/20' : 'bg-[#F5F3F0] border-gray-200'}`}>
+        <header className={`sticky top-0 z-30 border-b backdrop-blur-sm ${isDarkMode ? 'bg-black border-[#39FF14]/20' : 'bg-[#F5F3F0] border-gray-200'}`}>
           <div className="px-4 lg:px-6 py-1.5 lg:py-2">
             <div className="flex items-center justify-between">
-              {/* Mobile: Hamburger + P2P, Desktop: Full title */}
+              {/* Left: Menu + Logo + Title */}
               <div className="flex items-center gap-3">
-                {/* Mobile Hamburger Button */}
                 <button
                   onClick={() => setSidebarOpen(true)}
                   className={`lg:hidden p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-[#39FF14]/10 text-white' : 'hover:bg-gray-200'}`}
@@ -670,7 +681,6 @@ export default function StakesPage() {
                   <Menu size={20} className={isDarkMode ? 'text-white' : 'text-gray-900'} />
                 </button>
                 
-                {/* Mobile: Just P2P, Desktop: Full title */}
                 <Link href="/" className="lg:hidden transition-opacity hover:opacity-80 cursor-pointer">
                   <Image
                     src="/mobile.png"
@@ -692,6 +702,7 @@ export default function StakesPage() {
                 </div>
               </div>
 
+              {/* Right: Theme + Wallet */}
               <div className="flex items-center gap-2 lg:gap-4">
                 <button
                   onClick={toggleTheme}

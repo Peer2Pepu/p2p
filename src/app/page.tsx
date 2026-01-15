@@ -272,9 +272,9 @@ export default function HomePage() {
 
   const { address, isConnected } = useAccount();
 
-  // Contract addresses
-  const MARKET_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS as `0x${string}`;
-  const ANALYTICS_ADDRESS = process.env.NEXT_PUBLIC_P2P_ANALYTICS_ADDRESS as `0x${string}`;
+  // Contract addresses - check both environment variable naming conventions
+  const MARKET_MANAGER_ADDRESS = (process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS || process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS) as `0x${string}` | undefined;
+  const ANALYTICS_ADDRESS = process.env.NEXT_PUBLIC_P2P_ANALYTICS_ADDRESS as `0x${string}` | undefined;
 
   const { writeContract, data: writeHash } = useWriteContract();
 
@@ -295,7 +295,7 @@ export default function HomePage() {
         // Refresh stake status to hide the market from main page
         setTimeout(() => {
           const checkUserStakes = async () => {
-            if (!address || supabaseMarkets.length === 0) return;
+            if (!address || supabaseMarkets.length === 0 || !MARKET_MANAGER_ADDRESS) return;
             
             try {
               const stakedMarkets = new Set<number>();
@@ -332,6 +332,9 @@ export default function HomePage() {
     address: MARKET_MANAGER_ADDRESS,
     abi: MARKET_MANAGER_ABI,
     functionName: 'getActiveMarkets',
+    query: {
+      enabled: !!MARKET_MANAGER_ADDRESS,
+    },
   });
 
   // State to store market details for filtering
@@ -397,7 +400,7 @@ export default function HomePage() {
   // Check if user has staked in markets
   useEffect(() => {
     const checkUserStakes = async () => {
-      if (!address || supabaseMarkets.length === 0) {
+      if (!address || supabaseMarkets.length === 0 || !MARKET_MANAGER_ADDRESS) {
         setUserStakedMarkets(new Set());
         return;
       }
@@ -427,31 +430,74 @@ export default function HomePage() {
     };
 
     checkUserStakes();
-  }, [address, supabaseMarkets]);
+  }, [address, supabaseMarkets, MARKET_MANAGER_ADDRESS]);
 
   // Analytics data (simplified for now)
   const [totalParticipants, setTotalParticipants] = useState<number>(0);
   const [totalVolume, setTotalVolume] = useState<string>('0');
 
-  // Convert Supabase markets to market IDs for rendering
+  // State to track which markets are actually active (state = 0)
+  const [activeMarketStates, setActiveMarketStates] = useState<Map<number, boolean>>(new Map());
+  const [checkingStates, setCheckingStates] = useState(false);
+
+  // Check market states from contract to filter only active markets
+  useEffect(() => {
+    const checkMarketStates = async () => {
+      if (supabaseMarkets.length === 0 || !MARKET_MANAGER_ADDRESS) {
+        setActiveMarketStates(new Map());
+        setCheckingStates(false);
+        return;
+      }
+
+      setCheckingStates(true);
+      try {
+        const provider = new ethers.JsonRpcProvider('https://rpc-pepu-v2-mainnet-0.t.conduit.xyz');
+        const contract = new ethers.Contract(MARKET_MANAGER_ADDRESS, MARKET_MANAGER_ABI, provider);
+        const states = new Map<number, boolean>();
+
+        // Check state for each market
+        for (const market of supabaseMarkets) {
+          try {
+            const marketData = await contract.getMarket(Number(market.market_id));
+            const isActive = Number(marketData.state) === 0; // State 0 = Active
+            states.set(Number(market.market_id), isActive);
+          } catch (error) {
+            // If we can't fetch state, assume inactive
+            states.set(Number(market.market_id), false);
+          }
+        }
+
+        setActiveMarketStates(states);
+      } catch (error) {
+        console.error('Error checking market states:', error);
+      } finally {
+        setCheckingStates(false);
+      }
+    };
+
+    checkMarketStates();
+  }, [supabaseMarkets, MARKET_MANAGER_ADDRESS]);
+
+  // Convert Supabase markets to market IDs for rendering - ONLY active markets
   const filteredActiveMarkets = useMemo(() => {
-    let markets = supabaseMarkets;
+    // First filter by active state from contract
+    let markets = supabaseMarkets.filter(market => {
+      const marketId = Number(market.market_id);
+      return activeMarketStates.get(marketId) === true;
+    });
     
     // Filter for "ending soon" (within 24 hours)
     if (sortBy === 'ending_soon') {
-      const now = Math.floor(Date.now() / 1000); // Current time in seconds
-      const twentyFourHours = 24 * 60 * 60; // 24 hours in seconds
+      const now = Math.floor(Date.now() / 1000);
+      const twentyFourHours = 24 * 60 * 60;
       
       markets = markets.filter(market => {
-        // Parse endtime - it could be a timestamp string or ISO date string
         let endTime: number;
         if (typeof market.endtime === 'string') {
-          // Check if it's a timestamp string (numeric)
           const parsed = parseInt(market.endtime);
           if (!isNaN(parsed)) {
             endTime = parsed;
           } else {
-            // Try parsing as ISO date string
             const date = new Date(market.endtime);
             endTime = Math.floor(date.getTime() / 1000);
           }
@@ -459,12 +505,10 @@ export default function HomePage() {
           endTime = market.endtime;
         }
         
-        // Check if market ends within 24 hours and hasn't ended yet
         const timeUntilEnd = endTime - now;
         return timeUntilEnd > 0 && timeUntilEnd <= twentyFourHours;
       });
       
-      // Sort by endtime ascending (ending soonest first)
       markets = markets.sort((a, b) => {
         const getEndTime = (market: SupabaseMarket) => {
           if (typeof market.endtime === 'string') {
@@ -479,10 +523,9 @@ export default function HomePage() {
     }
     
     return markets.map(market => Number(market.market_id));
-  }, [supabaseMarkets, sortBy]);
+  }, [supabaseMarkets, sortBy, activeMarketStates]);
 
-  // Show all markets from Supabase - MarketCard will filter by state
-  // This ensures newly created markets show up immediately even if getActiveMarkets() hasn't refreshed
+  // Only show active markets
   const availableActiveMarkets = useMemo(() => {
     return filteredActiveMarkets;
   }, [filteredActiveMarkets]);
@@ -490,6 +533,11 @@ export default function HomePage() {
   const handleBet = async (marketId: number, option: number, amount: string, isApproval = false) => {
     if (!isConnected || !address) {
       setError('Please connect your wallet');
+      return;
+    }
+
+    if (!MARKET_MANAGER_ADDRESS) {
+      setError('Market manager address not configured');
       return;
     }
 
@@ -598,6 +646,11 @@ export default function HomePage() {
       return;
     }
 
+    if (!MARKET_MANAGER_ADDRESS) {
+      setError('Market manager address not configured');
+      return;
+    }
+
     try {
       const marketData = marketDetails.get(marketId);
       if (!marketData) {
@@ -662,13 +715,14 @@ export default function HomePage() {
       />
 
       <div className={`transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'}`}>
-        <header className={`border-b ${isDarkMode ? 'bg-black border-[#39FF14]/20' : 'bg-[#F5F3F0] border-gray-200'}`}>
+        <header className={`sticky top-0 z-30 border-b backdrop-blur-sm ${isDarkMode ? 'bg-black border-[#39FF14]/20' : 'bg-[#F5F3F0] border-gray-200'}`}>
           <div className="px-4 lg:px-6 py-1.5 lg:py-2">
             <div className="flex items-center justify-between">
+              {/* Left: Menu + Logo + Title */}
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setSidebarOpen(true)}
-                  className={`lg:hidden p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-[#39FF14]/10 text-white' : 'hover:bg-gray-100'}`}
+                  className={`lg:hidden p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-[#39FF14]/10 text-white' : 'hover:bg-gray-200'}`}
                 >
                   <Menu size={20} className={isDarkMode ? 'text-white' : 'text-gray-900'} />
                 </button>
@@ -685,15 +739,16 @@ export default function HomePage() {
                 </Link>
                 
                 <div className="hidden lg:block">
-                <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  Active Markets
-                </h1>
-                <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
-                  Add stake to live prediction markets
-                </p>
+                  <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                    Active Markets
+                  </h1>
+                  <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
+                    Add stake to live prediction markets
+                  </p>
                 </div>
               </div>
 
+              {/* Right: Filters + Theme + Wallet */}
               <div className="flex items-center gap-2 lg:gap-4">
                 <div className="relative filters-dropdown">
                   <button
@@ -812,11 +867,12 @@ export default function HomePage() {
 
                 <button
                   onClick={toggleTheme}
-                  className={`p-1.5 lg:p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-[#39FF14]/10 text-white' : 'hover:bg-gray-100'}`}
+                  className={`p-1.5 lg:p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-[#39FF14]/10 text-white' : 'hover:bg-gray-200'}`}
                 >
                   {isDarkMode ? <Sun className="w-4 h-4 lg:w-5 lg:h-5 text-white" /> : <Moon className="w-4 h-4 lg:w-5 lg:h-5 text-gray-600" />}
                 </button>
                 
+                {/* Wallet Connection */}
                 <ClientOnly>
                   {isConnected ? (
                     <div className={`flex items-center gap-1 lg:gap-2 px-2 lg:px-3 py-1.5 rounded text-xs lg:text-sm font-medium ${
@@ -859,7 +915,7 @@ export default function HomePage() {
             </div>
           )}
 
-          {loadingMarkets ? (
+          {loadingMarkets || checkingStates ? (
             <div className="text-center py-16">
               <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
                 isDarkMode ? 'bg-black' : 'bg-gray-100'

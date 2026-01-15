@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { 
   Users,
   Timer,
@@ -101,9 +102,6 @@ function MultiSegmentCircle({ segments, size = 60, isDarkMode }: {
   const radius = (size - 6) / 2;
   const circumference = radius * 2 * Math.PI;
   
-  // Calculate cumulative offsets for each segment
-  let cumulativePercentage = 0;
-  
   return (
     <div className="relative inline-flex items-center justify-center flex-shrink-0">
       <svg width={size} height={size} className="transform -rotate-90">
@@ -117,28 +115,53 @@ function MultiSegmentCircle({ segments, size = 60, isDarkMode }: {
           fill="none"
         />
         
-        {/* Segments */}
-        {segments.map((segment, index) => {
-          const segmentLength = (segment.percentage / 100) * circumference;
-          const offset = circumference - cumulativePercentage * circumference / 100;
-          cumulativePercentage += segment.percentage;
+        {/* Segments - render all segments with > 0% */}
+        {(() => {
+          const validSegments = segments.filter(s => s.percentage > 0.1 && isFinite(s.percentage) && !isNaN(s.percentage));
           
-          return (
-            <circle
-              key={index}
-              cx={size / 2}
-              cy={size / 2}
-              r={radius}
-              stroke={segment.color}
-              strokeWidth="5"
-              fill="none"
-              strokeDasharray={`${segmentLength} ${circumference}`}
-              strokeDashoffset={offset}
-              strokeLinecap="round"
-              className="transition-all duration-500"
-            />
-          );
-        })}
+          // If no valid segments, show first segment with 100% (default state)
+          if (validSegments.length === 0) {
+            const defaultSegment = segments[0] || { label: 'Yes', percentage: 100, color: '#6B7280' };
+            return (
+              <circle
+                key="default"
+                cx={size / 2}
+                cy={size / 2}
+                r={radius}
+                stroke={defaultSegment.color}
+                strokeWidth="5"
+                fill="none"
+                strokeDasharray={`${circumference} ${circumference}`}
+                strokeDashoffset={0}
+                strokeLinecap="round"
+                className="transition-all duration-500"
+              />
+            );
+          }
+          
+          let cumulative = 0;
+          return validSegments.map((segment, index) => {
+            const segmentLength = (segment.percentage / 100) * circumference;
+            const offset = circumference - (cumulative / 100) * circumference;
+            cumulative += segment.percentage;
+            
+            return (
+              <circle
+                key={`${segment.label}-${index}`}
+                cx={size / 2}
+                cy={size / 2}
+                r={radius}
+                stroke={segment.color}
+                strokeWidth="5"
+                fill="none"
+                strokeDasharray={`${segmentLength} ${circumference}`}
+                strokeDashoffset={offset}
+                strokeLinecap="round"
+                className="transition-all duration-500"
+              />
+            );
+          });
+        })()}
       </svg>
       
       {/* Center display - show highest percentage */}
@@ -173,7 +196,7 @@ export function MarketCard({
   isApprovalConfirming?: boolean;
   isStakeConfirming?: boolean;
 }) {
-  const MARKET_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS as `0x${string}`;
+  const MARKET_MANAGER_ADDRESS = (process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS || process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS) as `0x${string}`;
 
   // ============================================
   // ALL HOOKS MUST BE AT THE TOP - NEVER CONDITIONAL
@@ -199,6 +222,9 @@ export function MarketCard({
     abi: MARKET_MANAGER_ABI,
     functionName: 'getMarket',
     args: [BigInt(marketId)],
+    query: {
+      refetchInterval: 10000, // Refetch every 10 seconds to keep data fresh
+    },
   }) as { data: any | undefined };
 
   const { data: tokenSymbol } = useReadContract({
@@ -243,6 +269,9 @@ export function MarketCard({
     ],
     functionName: 'getOptionPool',
     args: [BigInt(marketId), BigInt(1), market?.paymentToken || '0x0000000000000000000000000000000000000000'],
+    query: {
+      refetchInterval: 10000, // Refetch every 10 seconds to keep volume fresh
+    },
   });
 
   const { data: option2Pool } = useReadContract({
@@ -258,6 +287,9 @@ export function MarketCard({
     ],
     functionName: 'getOptionPool',
     args: [BigInt(marketId), BigInt(2), market?.paymentToken || '0x0000000000000000000000000000000000000000'],
+    query: {
+      refetchInterval: 10000, // Refetch every 10 seconds to keep volume fresh
+    },
   });
 
   const { data: option3Pool } = useReadContract({
@@ -273,6 +305,9 @@ export function MarketCard({
     ],
     functionName: 'getOptionPool',
     args: [BigInt(marketId), BigInt(3), market?.paymentToken || '0x0000000000000000000000000000000000000000'],
+    query: {
+      refetchInterval: 10000, // Refetch every 10 seconds to keep volume fresh
+    },
   });
 
   const { data: option4Pool } = useReadContract({
@@ -288,6 +323,9 @@ export function MarketCard({
     ],
     functionName: 'getOptionPool',
     args: [BigInt(marketId), BigInt(4), market?.paymentToken || '0x0000000000000000000000000000000000000000'],
+    query: {
+      refetchInterval: 10000, // Refetch every 10 seconds to keep volume fresh
+    },
   });
 
   const { data: stakerCount } = useReadContract({
@@ -333,7 +371,50 @@ export function MarketCard({
     ],
     functionName: 'getSupportPool',
     args: [BigInt(marketId), market?.paymentToken || '0x0000000000000000000000000000000000000000'],
+    query: {
+      refetchInterval: 10000, // Refetch every 10 seconds to keep volume fresh
+    },
   }) as { data: bigint | undefined };
+
+  // Get total pool directly from contract (more accurate than summing manually)
+  const { data: totalPool } = useReadContract({
+    address: MARKET_MANAGER_ADDRESS,
+    abi: [
+      {
+        "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "token", "type": "address"}],
+        "name": "getTotalPool",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ],
+    functionName: 'getTotalPool',
+    args: [BigInt(marketId), market?.paymentToken || '0x0000000000000000000000000000000000000000'],
+    query: {
+      refetchInterval: 10000, // Refetch every 10 seconds to keep volume fresh
+    },
+  }) as { data: bigint | undefined };
+
+  // Debug logging for volume and dates
+  useEffect(() => {
+    if (market) {
+      console.log(`[MarketCard ${marketId}] Contract Data:`, {
+        totalPool: totalPool?.toString(),
+        option1Pool: option1Pool?.toString(),
+        option2Pool: option2Pool?.toString(),
+        option3Pool: option3Pool?.toString(),
+        option4Pool: option4Pool?.toString(),
+        supportPool: supportPool?.toString(),
+        paymentToken: market.paymentToken,
+        endTime: market.endTime?.toString(),
+        stakeEndTime: market.stakeEndTime?.toString(),
+        endTimeType: typeof market.endTime,
+        stakeEndTimeType: typeof market.stakeEndTime,
+        endTimeDate: market.endTime ? new Date(Number(market.endTime) * 1000).toISOString() : 'N/A',
+        stakeEndTimeDate: market.stakeEndTime ? new Date(Number(market.stakeEndTime) * 1000).toISOString() : 'N/A',
+      });
+    }
+  }, [marketId, market, totalPool, option1Pool, option2Pool, option3Pool, option4Pool, supportPool]);
 
   const { data: tokenAllowance, refetch: refetchAllowance } = useReadContract({
     address: market?.paymentToken as `0x${string}`,
@@ -421,18 +502,52 @@ export function MarketCard({
   }, [marketId]);
 
   useEffect(() => {
-    if (!market) return;
+    if (!market || market.endTime === undefined || market.stakeEndTime === undefined) return;
     
     const updateTimes = () => {
       const now = Math.floor(Date.now() / 1000);
-      setTimeLeft(Number(market.endTime) - now);
-      setStakeTimeLeft(Number(market.stakeEndTime) - now);
+      
+      // Convert BigInt to Number properly - handle both BigInt and string/number formats
+      let endTime: number;
+      let stakeEndTime: number;
+      
+      if (typeof market.endTime === 'bigint') {
+        endTime = Number(market.endTime);
+      } else if (typeof market.endTime === 'string') {
+        endTime = parseInt(market.endTime, 10);
+      } else {
+        endTime = Number(market.endTime);
+      }
+      
+      if (typeof market.stakeEndTime === 'bigint') {
+        stakeEndTime = Number(market.stakeEndTime);
+      } else if (typeof market.stakeEndTime === 'string') {
+        stakeEndTime = parseInt(market.stakeEndTime, 10);
+      } else {
+        stakeEndTime = Number(market.stakeEndTime);
+      }
+      
+      // Validate that times are reasonable (not 0 or negative, and not too far in the future)
+      if (isNaN(endTime) || isNaN(stakeEndTime) || endTime <= 0 || stakeEndTime <= 0) {
+        return;
+      }
+      
+      const calculatedTimeLeft = endTime - now;
+      const calculatedStakeTimeLeft = stakeEndTime - now;
+      
+      const finalTimeLeft = Math.max(0, calculatedTimeLeft);
+      const finalStakeTimeLeft = Math.max(0, calculatedStakeTimeLeft);
+      
+      setTimeLeft(finalTimeLeft);
+      setStakeTimeLeft(finalStakeTimeLeft);
     };
     
+    // Run immediately
     updateTimes();
+    // Then update every second
     const interval = setInterval(updateTimes, 1000);
     return () => clearInterval(interval);
-  }, [market?.endTime, market?.stakeEndTime]);
+  }, [market?.endTime, market?.stakeEndTime, marketId]);
 
   useEffect(() => {
     if (isApprovalPending === false && market?.paymentToken && market.paymentToken !== '0x0000000000000000000000000000000000000000' && betAmount) {
@@ -481,7 +596,10 @@ export function MarketCard({
 
   const stakeHoursLeft = Math.max(0, Math.floor(stakeTimeLeft / 3600));
   const stakeMinutesLeft = Math.max(0, Math.floor((stakeTimeLeft % 3600) / 60));
+  // Can stake if market is active, stake period hasn't ended, and user hasn't staked yet
   const canStake = marketData && marketData.state === 0 && stakeTimeLeft > 0 && !userHasStaked;
+  // Stake period is open if time hasn't ended (regardless of whether user has staked)
+  const isStakePeriodOpen = marketData && marketData.state === 0 && stakeTimeLeft > 0;
 
   const getMarketTitle = () => {
     if (loadingSupabase) return 'Loading...';
@@ -505,23 +623,63 @@ export function MarketCard({
   };
 
   const getTotalPool = () => {
+    // Use contract's getTotalPool for accurate volume (includes all option pools + support pool)
+    if (totalPool !== undefined && totalPool !== null) {
+      return totalPool;
+    }
+    // Fallback to manual calculation if contract call hasn't loaded yet
     const optionPools = [option1Pool || BigInt(0), option2Pool || BigInt(0), option3Pool || BigInt(0), option4Pool || BigInt(0)];
     const maxOptions = market ? Number(market.maxOptions) : 2;
     const relevantPools = optionPools.slice(0, maxOptions);
     const totalOptionPools = relevantPools.reduce((sum, pool) => sum + pool, BigInt(0));
     const supportAmount = supportPool || BigInt(0);
-    return totalOptionPools + supportAmount;
+    const manualTotal = totalOptionPools + supportAmount;
+    return manualTotal;
+  };
+
+  // Accurate percentage calculation using BigInt for precision
+  const calculateAccuratePercentages = () => {
+    // Get pools - handle undefined by defaulting to 0
+    const optionPools = [
+      option1Pool !== undefined && option1Pool !== null ? option1Pool : BigInt(0),
+      option2Pool !== undefined && option2Pool !== null ? option2Pool : BigInt(0),
+      option3Pool !== undefined && option3Pool !== null ? option3Pool : BigInt(0),
+      option4Pool !== undefined && option4Pool !== null ? option4Pool : BigInt(0)
+    ];
+    const maxOptions = market ? Number(market.maxOptions) : 2;
+    const relevantPools = optionPools.slice(0, maxOptions);
+    
+    // Calculate total of option pools ONLY (exclude support pool)
+    const totalOptionPools = relevantPools.reduce((sum, pool) => sum + pool, BigInt(0));
+    
+    // If no stakes, return equal distribution
+    if (totalOptionPools === BigInt(0)) {
+      return relevantPools.map(() => 100 / relevantPools.length);
+    }
+    
+    // Calculate percentages with high precision using BigInt
+    // Use 1000000 for better precision (6 decimal places)
+    const percentages = relevantPools.map((pool) => {
+      if (pool === BigInt(0)) return 0;
+      // (pool * 1000000) / totalOptionPools gives percentage * 10000 (e.g., 500000 = 50%)
+      const percentageScaled = (pool * BigInt(1000000)) / totalOptionPools;
+      // Convert to number and divide by 10000 to get actual percentage
+      return Number(percentageScaled) / 10000;
+    });
+    
+    // Normalize to ensure they sum to exactly 100% (handle rounding errors)
+    const sum = percentages.reduce((s, p) => s + p, 0);
+    if (sum > 0 && Math.abs(sum - 100) > 0.01) {
+      // Only normalize if sum is significantly different from 100
+      return percentages.map(p => (p / sum) * 100);
+    }
+    
+    return percentages;
   };
 
   const getOptionPercentage = (optionIndex: number) => {
-    const optionPools = [option1Pool || BigInt(0), option2Pool || BigInt(0), option3Pool || BigInt(0), option4Pool || BigInt(0)];
-    const maxOptions = market ? Number(market.maxOptions) : 2;
-    const relevantPools = optionPools.slice(0, maxOptions);
-    const totalPool = relevantPools.reduce((sum, pool) => sum + pool, BigInt(0));
-    
-    if (totalPool === BigInt(0)) return 0;
-    const optionPool = relevantPools[optionIndex] || BigInt(0);
-    return Number((optionPool * BigInt(100)) / totalPool);
+    const percentages = calculateAccuratePercentages();
+    return percentages[optionIndex] || 0;
   };
 
   const totalParticipants = (stakerCount ? Number(stakerCount) : 0) + (supporterCount ? Number(supporterCount) : 0) + 1;
@@ -536,10 +694,11 @@ export function MarketCard({
   const options = getMarketOptions();
 
   return (
-    <div 
+    <Link 
+      href={`/market/${marketId}`}
       className={`w-full max-w-sm border rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg flex flex-col ${
         isDarkMode 
-          ? 'bg-black border-gray-800 hover:shadow-gray-900/50' 
+          ? 'bg-black border-gray-800 hover:border-[#39FF14]/30 hover:shadow-[#39FF14]/20 hover:bg-gray-900/50' 
           : 'bg-[#F5F3F0] border-gray-300 hover:shadow-gray-900/20'
       }`}
       style={{ height: '380px' }}
@@ -572,11 +731,39 @@ export function MarketCard({
           
           {/* Multi-segment circle at top-right */}
           <MultiSegmentCircle
-            segments={options.map((option: string, index: number) => ({
-              label: option,
-              percentage: getOptionPercentage(index),
-              color: ['#10B981', '#EF4444', '#3B82F6', '#F59E0B'][index] || '#6B7280'
-            }))}
+            segments={(() => {
+              // Use accurate percentage calculation
+              const percentages = calculateAccuratePercentages();
+              
+              // Map colors based on option name: Yes=Red, No=Green, others by index
+              const getOptionColor = (option: string, index: number): string => {
+                const optionLower = option.toLowerCase().trim();
+                if (optionLower === 'yes') return '#EF4444'; // Red
+                if (optionLower === 'no') return '#10B981'; // Green
+                // For other options, use a color palette
+                const colors = ['#3B82F6', '#F59E0B', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316'];
+                return colors[index % colors.length] || '#6B7280';
+              };
+              
+              // Create segments with accurate percentages and correct colors
+              const segments = options.map((option: string, index: number) => {
+                const color = getOptionColor(option, index);
+                let percentage = percentages[index] || 0;
+                
+                // Ensure percentage is valid and clamped
+                percentage = isNaN(percentage) || !isFinite(percentage) 
+                  ? (100 / options.length) 
+                  : Math.max(0, Math.min(100, percentage));
+                
+                return {
+                  label: option,
+                  percentage,
+                  color
+                };
+              });
+              
+              return segments;
+            })()}
             size={60}
             isDarkMode={isDarkMode}
           />
@@ -597,12 +784,29 @@ export function MarketCard({
               const percentage = getOptionPercentage(index);
               const isSelected = selectedOption === index + 1;
               const isUserStake = userHasStaked && userStakeOption && Number(userStakeOption) === index + 1;
-              const optionColor = ['#10B981', '#EF4444', '#3B82F6', '#F59E0B'][index] || '#6B7280';
+              
+              // Map colors based on option name: Yes=Red, No=Green, others by index
+              const getOptionColor = (opt: string, idx: number): string => {
+                const optLower = opt.toLowerCase().trim();
+                if (optLower === 'yes') return '#EF4444'; // Red
+                if (optLower === 'no') return '#10B981'; // Green
+                // For other options, use a color palette
+                const colors = ['#3B82F6', '#F59E0B', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316'];
+                return colors[idx % colors.length] || '#6B7280';
+              };
+              
+              const optionColor = getOptionColor(option, index);
                 
               return (
                 <div
                   key={index}
-                  onClick={() => !canEndMarket && !isUserStake && setSelectedOption(index + 1)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (!canEndMarket && !isUserStake) {
+                      setSelectedOption(index + 1);
+                    }
+                  }}
                   className={`flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-all ${
                     isUserStake
                       ? (isDarkMode ? 'border border-[#39FF14] bg-[#39FF14]/10' : 'border-2 border-black bg-[#39FF14]/10')
@@ -623,11 +827,6 @@ export function MarketCard({
                       {option} {isUserStake ? '✓' : ''}
                     </span>
                   </div>
-                  
-                  {/* Percentage */}
-                  <span className={`text-sm font-bold flex-shrink-0 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    {percentage}%
-                  </span>
                   
                   {/* Radio button */}
                   <input
@@ -665,12 +864,13 @@ export function MarketCard({
           <div className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-1">
               <Timer size={12} className={isDarkMode ? 'text-gray-500' : 'text-gray-400'} />
-              <span className={`${!canStake ? 'text-red-500 font-medium' : isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                Stake: {canStake ? (() => {
+              <span className={`${!isStakePeriodOpen ? 'text-red-500 font-medium' : isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                Stake: {isStakePeriodOpen ? (() => {
                   if (stakeHoursLeft > 24) return `${Math.floor(stakeHoursLeft / 24)}d`;
                   if (stakeHoursLeft > 0) return `${stakeHoursLeft}h`;
                   return `${stakeMinutesLeft}m`;
                 })() : 'Closed'}
+                {userHasStaked && isStakePeriodOpen && ' (You staked)'}
               </span>
             </div>
             <div className="flex items-center gap-1">
@@ -688,7 +888,11 @@ export function MarketCard({
             <div>
               {canEndMarket && (
                 <button
-                  onClick={() => onEndMarket(marketId)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onEndMarket(marketId);
+                  }}
                   className="w-full py-2.5 px-4 rounded-lg text-sm font-semibold bg-orange-600 hover:bg-orange-700 text-white transition-colors flex items-center justify-center gap-2"
                 >
                   <Timer size={16} />
@@ -698,18 +902,26 @@ export function MarketCard({
             </div>
           ) : canEndMarket ? (
             <button
-              onClick={() => onEndMarket(marketId)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onEndMarket(marketId);
+              }}
               className="w-full py-2.5 px-4 rounded-lg text-sm font-semibold bg-orange-600 hover:bg-orange-700 text-white transition-colors flex items-center justify-center gap-2"
             >
               <Timer size={16} />
               End Market
             </button>
           ) : (
-            <div className="flex gap-1">
+            <div className="flex gap-1" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
               <input
                 type="number"
                 value={betAmount}
-                onChange={(e) => setBetAmount(e.target.value)}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  setBetAmount(e.target.value);
+                }}
+                onClick={(e) => e.stopPropagation()}
                 placeholder={`Min: ${market?.minStake ? formatEther(market.minStake) : '0'} ${tokenSymbol || 'PEPU'}`}
                 disabled={!canStake}
                 className={`flex-1 px-2 py-1.5 border rounded text-xs ${
@@ -720,7 +932,11 @@ export function MarketCard({
               />
               {needsTokenApproval ? (
                 <button
-                  onClick={() => onBet(marketId, selectedOption, betAmount, true)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onBet(marketId, selectedOption, betAmount, true);
+                  }}
                   disabled={!betAmount || !canStake || isApprovalPending || isApprovalConfirming}
                   className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
                     !betAmount || !canStake || isApprovalPending || isApprovalConfirming
@@ -734,7 +950,11 @@ export function MarketCard({
                 </button>
               ) : (
                 <button
-                  onClick={() => onBet(marketId, selectedOption, betAmount)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onBet(marketId, selectedOption, betAmount);
+                  }}
                   disabled={!betAmount || !canStake || isStakePending || isStakeConfirming}
                   className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
                     !betAmount || !canStake || isStakePending || isStakeConfirming
@@ -759,6 +979,6 @@ export function MarketCard({
           )}
         </div>
       </div>
-    </div>
+    </Link>
   );
 }

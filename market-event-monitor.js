@@ -177,12 +177,13 @@ async function insertMarket(marketData, retries = 3) {
 // Function to process a single market event
 async function processMarketEvent(event, provider) {
     const { marketId, creator, ipfsHash, isMultiOption, paymentToken, startTime, stakeEndTime, endTime } = event.args;
+    const marketIdNum = Number(marketId);
 
-    console.log(`🎯 Processing MarketCreated event: Market #${marketId}`);
+    console.log(`🎯 Processing MarketCreated event: Market #${marketIdNum}`);
 
-    // Check if market already exists
-    if (await marketExists(marketId)) {
-        console.log(`⏭️  Market ${marketId} already exists, skipping`);
+    // Check if market already exists in Supabase (most reliable check)
+    if (await marketExists(marketIdNum)) {
+        console.log(`⏭️  Market ${marketIdNum} already exists in Supabase, skipping`);
         return;
     }
 
@@ -215,7 +216,7 @@ async function processMarketEvent(event, provider) {
 
     // Prepare market data for Supabase
     const marketRecord = {
-        market_id: marketId.toString(),
+        market_id: marketIdNum.toString(),
         ipfs: ipfsHash || '',
         image: imageUrl || '',
         stakeend: new Date(Number(stakeEndTime) * 1000).toISOString(),
@@ -228,9 +229,9 @@ async function processMarketEvent(event, provider) {
 
     console.log(`📝 Market data:`, marketRecord);
 
-    // Double-check if market exists before inserting (race condition protection)
-    if (await marketExists(marketId)) {
-        console.log(`⏭️  Market ${marketId} already exists in Supabase, skipping insertion`);
+    // Final check if market exists before inserting (race condition protection)
+    if (await marketExists(marketIdNum)) {
+        console.log(`⏭️  Market ${marketIdNum} already exists in Supabase (final check), skipping insertion`);
         return;
     }
 
@@ -243,6 +244,10 @@ async function monitorMarketEvents() {
     console.log('🚀 Starting Market Event Monitor...');
     console.log(`📡 Monitoring MarketManager: ${MARKET_MANAGER_ADDRESS}`);
     console.log(`🔄 Polling every 5 seconds`);
+
+    // Track processed events to prevent duplicates
+    const processedEvents = new Set(); // Track by txHash:logIndex
+    const processedMarketIds = new Set(); // Track processed market IDs in this session
 
     // Create provider with retry configuration
     const provider = new ethers.JsonRpcProvider(RPC_URL, undefined, {
@@ -291,6 +296,17 @@ async function monitorMarketEvents() {
     
     // Process missed events
     for (const event of missedEvents) {
+        const eventKey = `${event.transactionHash}:${event.logIndex}`;
+        const marketId = Number(event.args.marketId);
+        
+        // Skip if already processed
+        if (processedEvents.has(eventKey) || processedMarketIds.has(marketId)) {
+            console.log(`⏭️  Skipping already processed event: Market #${marketId} (${eventKey})`);
+            continue;
+        }
+        
+        processedEvents.add(eventKey);
+        processedMarketIds.add(marketId);
         await processMarketEvent(event, provider);
     }
     
@@ -310,6 +326,17 @@ async function monitorMarketEvents() {
 
                 // Process new events
                 for (const event of events) {
+                    const eventKey = `${event.transactionHash}:${event.logIndex}`;
+                    const marketId = Number(event.args.marketId);
+                    
+                    // Skip if already processed
+                    if (processedEvents.has(eventKey) || processedMarketIds.has(marketId)) {
+                        console.log(`⏭️  Skipping already processed event: Market #${marketId} (${eventKey})`);
+                        continue;
+                    }
+                    
+                    processedEvents.add(eventKey);
+                    processedMarketIds.add(marketId);
                     await processMarketEvent(event, provider);
                 }
 

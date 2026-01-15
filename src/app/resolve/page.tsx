@@ -622,12 +622,11 @@ export default function ResolvePage() {
       {/* Main Content */}
       <div className={`transition-all duration-300 lg:${sidebarCollapsed ? 'ml-16' : 'ml-64'}`}>
         {/* Header */}
-        <header className={`border-b ${isDarkMode ? 'bg-black border-[#39FF14]/20' : 'bg-[#F5F3F0] border-gray-200'}`}>
+        <header className={`sticky top-0 z-30 border-b backdrop-blur-sm ${isDarkMode ? 'bg-black border-[#39FF14]/20' : 'bg-[#F5F3F0] border-gray-200'}`}>
           <div className="px-4 lg:px-6 py-1.5 lg:py-2">
             <div className="flex items-center justify-between">
-              {/* Mobile: Hamburger + P2P, Desktop: Full title */}
+              {/* Left: Menu + Logo + Title */}
               <div className="flex items-center gap-3">
-                {/* Mobile Hamburger Button */}
                 <button
                   onClick={() => setSidebarOpen(true)}
                   className={`lg:hidden p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-[#39FF14]/10 text-white' : 'hover:bg-gray-200'}`}
@@ -635,7 +634,6 @@ export default function ResolvePage() {
                   <Menu size={20} className={isDarkMode ? 'text-white' : 'text-gray-900'} />
                 </button>
                 
-                {/* Mobile: Just P2P, Desktop: Full title */}
                 <Link href="/" className="lg:hidden transition-opacity hover:opacity-80 cursor-pointer">
                   <Image
                     src="/mobile.png"
@@ -657,6 +655,7 @@ export default function ResolvePage() {
                 </div>
               </div>
               
+              {/* Right: Stats + Verifier Status + Theme + Wallet */}
               <div className="flex items-center gap-2 lg:gap-4">
                 {/* Stats Summary */}
                 <div className="hidden md:flex items-center gap-6 text-sm">
