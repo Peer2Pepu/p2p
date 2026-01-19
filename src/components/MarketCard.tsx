@@ -696,22 +696,7 @@ export function MarketCard({
 
   return (
     <div 
-      onClick={(e) => {
-        // Only navigate if NOT clicking on interactive elements
-        const target = e.target as HTMLElement;
-        const isInteractive = 
-          target.tagName === 'INPUT' ||
-          target.tagName === 'BUTTON' ||
-          target.closest('input') !== null ||
-          target.closest('button') !== null ||
-          target.closest('.flex.gap-1') !== null ||
-          target.closest('[data-interactive]') !== null;
-        
-        if (!isInteractive) {
-          router.push(`/market/${marketId}`);
-        }
-      }}
-      className={`w-full max-w-sm border rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg flex flex-col cursor-pointer ${
+      className={`w-full max-w-sm border rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg flex flex-col ${
         isDarkMode 
           ? 'bg-black border-gray-800 hover:border-[#39FF14]/30 hover:shadow-[#39FF14]/20 hover:bg-gray-900/50' 
           : 'bg-[#F5F3F0] border-gray-300 hover:shadow-gray-900/20'
@@ -736,9 +721,12 @@ export function MarketCard({
             )}
             
             <div className="flex-1 min-w-0">
-              <h3 className={`font-semibold text-base leading-tight ${
-                isDarkMode ? 'text-white' : 'text-gray-900'
-              }`}>
+              <h3 
+                onClick={() => router.push(`/market/${marketId}`)}
+                className={`font-semibold text-base leading-tight cursor-pointer hover:underline transition-all ${
+                  isDarkMode ? 'text-white hover:text-[#39FF14]' : 'text-gray-900 hover:text-[#39FF14]'
+                }`}
+              >
                 {getMarketTitle()}
               </h3>
             </div>
@@ -940,35 +928,12 @@ export function MarketCard({
               End Market
             </button>
           ) : (
-            <div 
-              data-interactive="true"
-              className="flex gap-1 relative z-10" 
-              style={{ pointerEvents: 'auto' }}
-              onClick={(e) => { 
-                e.preventDefault();
-                e.stopPropagation(); 
-              }}
-              onMouseDown={(e) => { 
-                e.preventDefault();
-                e.stopPropagation(); 
-              }}
-            >
+            <div className="flex gap-1">
               <input
                 type="number"
                 value={betAmount}
                 onChange={(e) => {
-                  e.stopPropagation();
                   setBetAmount(e.target.value);
-                }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                }}
-                onMouseDown={(e) => {
-                  e.stopPropagation();
-                  // Don't prevent default - allow input to focus normally
-                }}
-                onFocus={(e) => {
-                  e.stopPropagation();
                 }}
                 placeholder={`Min: ${market?.minStake ? formatEther(market.minStake) : '0'} ${tokenSymbol || 'PEPU'}`}
                 disabled={!canStake}
