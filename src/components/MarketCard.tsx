@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { 
   Users,
   Timer,
@@ -215,6 +215,7 @@ export function MarketCard({
 
   // 2. Get user account
   const { address: currentUserAddress } = useAccount();
+  const router = useRouter();
 
   // 3. ALL useReadContract hooks - must always be called
   const { data: market } = useReadContract({
@@ -694,9 +695,23 @@ export function MarketCard({
   const options = getMarketOptions();
 
   return (
-    <Link 
-      href={`/market/${marketId}`}
-      className={`w-full max-w-sm border rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg flex flex-col ${
+    <div 
+      onClick={(e) => {
+        // Only navigate if NOT clicking on interactive elements
+        const target = e.target as HTMLElement;
+        const isInteractive = 
+          target.tagName === 'INPUT' ||
+          target.tagName === 'BUTTON' ||
+          target.closest('input') !== null ||
+          target.closest('button') !== null ||
+          target.closest('.flex.gap-1') !== null ||
+          target.closest('[data-interactive]') !== null;
+        
+        if (!isInteractive) {
+          router.push(`/market/${marketId}`);
+        }
+      }}
+      className={`w-full max-w-sm border rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg flex flex-col cursor-pointer ${
         isDarkMode 
           ? 'bg-black border-gray-800 hover:border-[#39FF14]/30 hover:shadow-[#39FF14]/20 hover:bg-gray-900/50' 
           : 'bg-[#F5F3F0] border-gray-300 hover:shadow-gray-900/20'
@@ -807,6 +822,10 @@ export function MarketCard({
                       setSelectedOption(index + 1);
                     }
                   }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
                   className={`flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-all ${
                     isUserStake
                       ? (isDarkMode ? 'border border-[#39FF14] bg-[#39FF14]/10' : 'border-2 border-black bg-[#39FF14]/10')
@@ -893,6 +912,10 @@ export function MarketCard({
                     e.stopPropagation();
                     onEndMarket(marketId);
                   }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
                   className="w-full py-2.5 px-4 rounded-lg text-sm font-semibold bg-orange-600 hover:bg-orange-700 text-white transition-colors flex items-center justify-center gap-2"
                 >
                   <Timer size={16} />
@@ -907,13 +930,29 @@ export function MarketCard({
                 e.stopPropagation();
                 onEndMarket(marketId);
               }}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
               className="w-full py-2.5 px-4 rounded-lg text-sm font-semibold bg-orange-600 hover:bg-orange-700 text-white transition-colors flex items-center justify-center gap-2"
             >
               <Timer size={16} />
               End Market
             </button>
           ) : (
-            <div className="flex gap-1" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+            <div 
+              data-interactive="true"
+              className="flex gap-1 relative z-10" 
+              style={{ pointerEvents: 'auto' }}
+              onClick={(e) => { 
+                e.preventDefault();
+                e.stopPropagation(); 
+              }}
+              onMouseDown={(e) => { 
+                e.preventDefault();
+                e.stopPropagation(); 
+              }}
+            >
               <input
                 type="number"
                 value={betAmount}
@@ -921,7 +960,16 @@ export function MarketCard({
                   e.stopPropagation();
                   setBetAmount(e.target.value);
                 }}
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                }}
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  // Don't prevent default - allow input to focus normally
+                }}
+                onFocus={(e) => {
+                  e.stopPropagation();
+                }}
                 placeholder={`Min: ${market?.minStake ? formatEther(market.minStake) : '0'} ${tokenSymbol || 'PEPU'}`}
                 disabled={!canStake}
                 className={`flex-1 px-2 py-1.5 border rounded text-xs ${
@@ -936,6 +984,10 @@ export function MarketCard({
                     e.preventDefault();
                     e.stopPropagation();
                     onBet(marketId, selectedOption, betAmount, true);
+                  }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                   }}
                   disabled={!betAmount || !canStake || isApprovalPending || isApprovalConfirming}
                   className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
@@ -954,6 +1006,10 @@ export function MarketCard({
                     e.preventDefault();
                     e.stopPropagation();
                     onBet(marketId, selectedOption, betAmount);
+                  }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                   }}
                   disabled={!betAmount || !canStake || isStakePending || isStakeConfirming}
                   className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
@@ -979,6 +1035,6 @@ export function MarketCard({
           )}
         </div>
       </div>
-    </Link>
+    </div>
   );
 }
