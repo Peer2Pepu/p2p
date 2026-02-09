@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
 import { HeaderWallet } from '@/components/HeaderWallet';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useReadContract } from 'wagmi';
 import { useTheme } from '../context/ThemeContext';
 import { formatEther } from 'viem';
