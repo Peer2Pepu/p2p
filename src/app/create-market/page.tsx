@@ -874,7 +874,7 @@ export default function CreateMarketPage() {
       const priceFeedAddress = marketType === 'PRICE_FEED' ? selectedPriceFeed : '0x0000000000000000000000000000000000000000';
       const priceThresholdValue = marketType === 'PRICE_FEED' ? BigInt(priceThreshold) : BigInt(0);
 
-      const args: [string, boolean, bigint, `0x${string}`, bigint, bigint, bigint, bigint, bigint, bigint, `0x${string}`, bigint] = [
+      const args: [string, boolean, bigint, `0x${string}`, bigint, bigint, bigint, bigint, bigint, number, `0x${string}`, bigint] = [
         ipfsHash,
         isMultiOption,
         BigInt(maxOptions),
@@ -884,7 +884,7 @@ export default function CreateMarketPage() {
         BigInt(parseInt(creatorOutcome)),
         BigInt(stakeDurationMinutes),
         BigInt(resolutionDurationMinutes),
-        BigInt(marketTypeValue),
+        marketTypeValue, // uint8 is a number, not bigint
         priceFeedAddress as `0x${string}`,
         priceThresholdValue
       ];
@@ -1788,12 +1788,12 @@ export default function CreateMarketPage() {
                               ? 'border-gray-800 bg-gray-900 text-gray-600 cursor-not-allowed opacity-50'
                               : 'border-gray-300 bg-gray-200 text-gray-500 cursor-not-allowed opacity-50'
                             : outcomeType === 'multiple'
-                            ? isDarkMode
-                              ? 'border-[#39FF14] bg-black text-[#39FF14]'
-                              : 'border-[#39FF14] bg-[#F5F3F0] text-[#39FF14]'
-                            : isDarkMode
-                              ? 'border-gray-700 bg-black text-white hover:bg-gray-900'
-                              : 'border-gray-300 bg-[#F5F3F0] text-gray-900 hover:bg-gray-200'
+                          ? isDarkMode
+                            ? 'border-[#39FF14] bg-black text-[#39FF14]'
+                            : 'border-[#39FF14] bg-[#F5F3F0] text-[#39FF14]'
+                          : isDarkMode
+                            ? 'border-gray-700 bg-black text-white hover:bg-gray-900'
+                            : 'border-gray-300 bg-[#F5F3F0] text-gray-900 hover:bg-gray-200'
                           }
                         `}
                       >

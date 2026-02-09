@@ -602,8 +602,8 @@ export default function StakesPage() {
         if (analyticsIds.includes(marketId)) continue;
 
         try {
-          // Use wagmi's publicClient to read contracts
-          const { createPublicClient, http } = await import('wagmi');
+          // Use viem's createPublicClient to read contracts
+          const { createPublicClient, http } = await import('viem');
           const publicClient = createPublicClient({
             transport: http('https://rpc-pepu-v2-mainnet-0.t.conduit.xyz'),
           });
@@ -648,7 +648,7 @@ export default function StakesPage() {
             args: [BigInt(marketId), address, market.paymentToken || '0x0000000000000000000000000000000000000000'],
           });
 
-          if (stake > 0n) {
+          if (stake > BigInt(0)) {
             found.push(marketId);
             console.log(`✅ Found market ${marketId} in Treasury (stake: ${stake.toString()}) but missing from Analytics`);
           }
