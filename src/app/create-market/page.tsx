@@ -24,7 +24,7 @@ import {
   Check
 } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
-import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { HeaderWallet } from '@/components/HeaderWallet';
 import { useAccount, useBalance, useChainId, useDisconnect, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { pepuMainnet } from '../chains';
 import { useTheme } from '../context/ThemeContext';
@@ -1115,20 +1115,7 @@ export default function CreateMarketPage() {
                   </button>
                   
                   {/* Wallet Connection */}
-                  {isConnected ? (
-                    <div className={`flex items-center gap-1 lg:gap-2 px-2 lg:px-3 py-1.5 rounded text-xs lg:text-sm font-medium ${
-                      isDarkMode 
-                        ? 'bg-[#39FF14]/10 text-white border border-[#39FF14]/30' 
-                        : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                    }`}>
-                      <Wallet size={12} className="lg:w-3.5 lg:h-3.5" />
-                      <span className="font-mono text-xs lg:text-sm">{address?.slice(0, 6)}...{address?.slice(-4)}</span>
-                    </div>
-                  ) : (
-                    <div className="scale-90 lg:scale-100">
-                      <ConnectButton />
-                    </div>
-                  )}
+                  <HeaderWallet isDarkMode={isDarkMode} />
                 </div>
               </div>
             </div>

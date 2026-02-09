@@ -27,7 +27,7 @@ import {
   CheckCircle
 } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
-import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { HeaderWallet } from '@/components/HeaderWallet';
 import { useAccount, useReadContract } from 'wagmi';
 import { useTheme } from '../context/ThemeContext';
 import { formatEther } from 'viem';
@@ -390,20 +390,7 @@ export default function ProfilePage() {
                   </button>
                   
                   {/* Wallet Connection */}
-                  {isConnected ? (
-                    <div className={`flex items-center gap-1 lg:gap-2 px-2 lg:px-3 py-1.5 rounded text-xs lg:text-sm font-medium ${
-                      isDarkMode 
-                        ? 'bg-emerald-600/10 text-emerald-400 border border-emerald-600/20' 
-                        : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                    }`}>
-                      <Wallet size={12} className="lg:w-3.5 lg:h-3.5" />
-                      <span className="font-mono text-xs lg:text-sm">{address?.slice(0, 6)}...{address?.slice(-4)}</span>
-                    </div>
-                  ) : (
-                    <div className="scale-90 lg:scale-100">
-                      <ConnectButton />
-                    </div>
-                  )}
+                  <HeaderWallet isDarkMode={isDarkMode} />
                 </div>
               </div>
             </div>

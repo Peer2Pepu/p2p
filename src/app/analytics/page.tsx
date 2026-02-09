@@ -22,6 +22,7 @@ import {
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useReadContract } from 'wagmi';
 import { Sidebar } from '../components/Sidebar';
+import { HeaderWallet } from '@/components/HeaderWallet';
 import { useTheme } from '../context/ThemeContext';
 import { 
   LineChart as RechartsLineChart, 
@@ -541,28 +542,7 @@ export default function AnalyticsPage() {
                 </button>
 
                 {/* Wallet Connection */}
-                {isConnected ? (
-                  <div className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 rounded text-xs sm:text-sm font-medium ${
-                    isDarkMode 
-                      ? 'bg-[#39FF14]/10 text-white border border-[#39FF14]/30' 
-                      : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                  }`}>
-                    <Wallet size={16} />
-                    <span className="font-mono hidden sm:inline">
-                      {address?.slice(0, 6)}...{address?.slice(-4)}
-                    </span>
-                    <span className="font-mono sm:hidden">
-                      {address?.slice(0, 4)}...{address?.slice(-2)}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1 sm:gap-2">
-                    <Wallet size={16} className={isDarkMode ? 'text-white/60' : 'text-gray-400'} />
-                    <div className="scale-90 sm:scale-100">
-                      <ConnectButton />
-                    </div>
-                  </div>
-                )}
+                <HeaderWallet isDarkMode={isDarkMode} />
               </div>
             </div>
           </div>

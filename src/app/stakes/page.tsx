@@ -24,6 +24,7 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { formatEther } from 'viem';
 import { Sidebar } from '../components/Sidebar';
+import { HeaderWallet } from '@/components/HeaderWallet';
 import { useTheme } from '../context/ThemeContext';
 
 // Contract ABIs
@@ -839,20 +840,7 @@ export default function StakesPage() {
                 </button>
                 
                 {/* Wallet Connection */}
-                {isConnected ? (
-                  <div className={`flex items-center gap-1 lg:gap-2 px-2 lg:px-3 py-1.5 rounded text-xs lg:text-sm font-medium ${
-                    isDarkMode 
-                      ? 'bg-[#39FF14]/10 text-white border border-[#39FF14]/30' 
-                      : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                  }`}>
-                    <Wallet size={12} className="lg:w-3.5 lg:h-3.5" />
-                    <span className="font-mono text-xs lg:text-sm">{address?.slice(0, 6)}...{address?.slice(-4)}</span>
-                  </div>
-                ) : (
-                  <div className="scale-90 lg:scale-100">
-                    <ConnectButton />
-                  </div>
-                )}
+                <HeaderWallet isDarkMode={isDarkMode} />
               </div>
             </div>
           </div>
@@ -862,7 +850,7 @@ export default function StakesPage() {
         <main className="p-3 sm:p-4 lg:p-6">
           {/* Tabs */}
           {isConnected && Array.isArray(userMarketIds) && userMarketIds.length > 0 && (
-            <div className={`flex gap-1.5 sm:gap-2 lg:gap-3 mb-3 sm:mb-4 p-1 sm:p-1.5 rounded-lg overflow-x-auto ${isDarkMode ? 'bg-gray-900' : 'bg-gray-200'}`}>
+            <div className={`flex gap-1.5 sm:gap-2 lg:gap-3 mb-3 sm:mb-4 p-1 sm:p-1.5 rounded-lg overflow-x-auto ${isDarkMode ? 'bg-black' : 'bg-gray-200'}`}>
               <button
                 onClick={() => setActiveTab('pending')}
                 className={`flex-shrink-0 px-2.5 sm:px-3 lg:px-4 py-2 sm:py-2.5 rounded-md text-xs sm:text-sm font-semibold transition-colors relative whitespace-nowrap ${
