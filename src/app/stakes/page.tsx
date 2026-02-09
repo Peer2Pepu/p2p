@@ -395,18 +395,18 @@ function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate, onSt
   };
 
   return (
-    <div className={`border rounded-lg p-2.5 transition-all duration-200 hover:shadow-md ${
+    <div className={`border rounded-lg p-2.5 sm:p-3 transition-all duration-200 hover:shadow-md ${
       isDarkMode ? 'bg-black border-gray-800 hover:shadow-gray-900/20' : 'bg-[#F5F3F0] border-gray-300 hover:shadow-gray-900/10'
     }`}>
-      <div className="flex items-start justify-between mb-2">
-        <div className="flex-1 min-w-0 pr-2">
-          <div className="flex items-center gap-2 mb-0.5">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-0 mb-2">
+        <div className="flex-1 min-w-0 w-full sm:pr-2">
+          <div className="flex items-center gap-2 mb-1.5 sm:mb-0.5">
             {getMarketImage() && (
               <div className="flex-shrink-0">
                 <img
                   src={getMarketImage()!}
                   alt=""
-                  className={`w-10 h-10 rounded-lg object-cover border ${isDarkMode ? 'border-gray-800' : 'border-gray-400'}`}
+                  className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg object-cover border ${isDarkMode ? 'border-gray-800' : 'border-gray-400'}`}
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
                   }}
@@ -416,18 +416,18 @@ function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate, onSt
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
                 <Link href={`/market/${marketId}`} className="flex-1 min-w-0">
-                  <h3 className={`font-semibold text-sm truncate hover:text-[#39FF14] transition-colors cursor-pointer ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  <h3 className={`font-semibold text-xs sm:text-sm truncate hover:text-[#39FF14] transition-colors cursor-pointer ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                     {getMarketTitle()}
                   </h3>
                 </Link>
-                <span className={`px-1.5 py-0.5 rounded text-xs flex-shrink-0 ${isDarkMode ? 'bg-gray-900 text-gray-300' : 'bg-gray-200 text-gray-600'}`}>
+                <span className={`px-1 sm:px-1.5 py-0.5 rounded text-xs flex-shrink-0 ${isDarkMode ? 'bg-gray-900 text-gray-300' : 'bg-gray-200 text-gray-600'}`}>
                   #{marketId}
                 </span>
               </div>
             </div>
           </div>
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className={`px-1.5 py-0.5 rounded text-xs ${
+            <span className={`px-1 sm:px-1.5 py-0.5 rounded text-xs ${
               marketData.isMultiOption 
                 ? (isDarkMode ? 'bg-purple-900/40 text-purple-300' : 'bg-purple-100 text-purple-700')
                 : (isDarkMode ? 'bg-gray-800 text-gray-300' : 'bg-gray-200 text-gray-600')
@@ -435,7 +435,7 @@ function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate, onSt
               {marketData.isMultiOption ? 'Multi' : 'Y/N'}
             </span>
             {marketData.state === 2 && marketData.isResolved && (
-              <span className={`px-1.5 py-0.5 rounded text-xs ${
+              <span className={`px-1 sm:px-1.5 py-0.5 rounded text-xs ${
                 canClaim 
                   ? (isDarkMode ? 'bg-[#39FF14]/20 text-[#39FF14]' : 'bg-[#39FF14]/20 text-emerald-700 border border-black')
                   : hasClaimed
@@ -447,8 +447,8 @@ function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate, onSt
             )}
           </div>
         </div>
-          <div className={`text-right ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-            <div className="text-base font-bold">
+          <div className={`text-left sm:text-right ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            <div className="text-sm sm:text-base font-bold">
               {userStakeAmount ? formatEther(userStakeAmount as bigint) : '0'}
             </div>
             <div className={`text-xs ${isDarkMode ? 'text-white/60' : 'text-gray-500'}`}>
@@ -456,11 +456,11 @@ function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate, onSt
             </div>
           </div>
       </div>
-      <div className="flex justify-between text-xs mb-1.5">
+      <div className="flex justify-between text-xs mb-1 sm:mb-1.5">
         <span className={isDarkMode ? 'text-white/60' : 'text-gray-500'}>Option: </span>
         <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{getUserOptionText()}</span>
       </div>
-      <div className="flex justify-between text-xs mb-1.5">
+      <div className="flex justify-between text-xs mb-1 sm:mb-1.5">
         <span className={isDarkMode ? 'text-white/60' : 'text-gray-500'}>Winning: </span>
         <span className={`font-medium ${
           marketData.isResolved && Number(marketData.winningOption) > 0
@@ -469,7 +469,7 @@ function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate, onSt
         }`}>{getWinningOptionText()}</span>
       </div>
       {marketData.state === 2 && marketData.isResolved && !hasClaimed && userWinnings !== undefined && (
-        <div className={`flex justify-between text-xs mb-1.5 p-1.5 rounded ${
+        <div className={`flex justify-between text-xs mb-1 sm:mb-1.5 p-1.5 rounded ${
           canClaim 
             ? (isDarkMode ? 'bg-[#39FF14]/10 border border-[#39FF14]/30' : 'bg-[#39FF14]/10 border border-black')
             : (isDarkMode ? 'bg-gray-900/50 border border-gray-800' : 'bg-gray-200 border border-gray-300')
@@ -501,7 +501,7 @@ function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate, onSt
             </div>
           )}
           <button
-            className={`w-full py-1.5 px-2 rounded text-xs font-medium transition-colors flex items-center justify-center gap-1 ${
+            className={`w-full py-2 sm:py-1.5 px-2 rounded text-xs font-medium transition-colors flex items-center justify-center gap-1 ${
               isClaiming || isConfirming
                 ? (isDarkMode ? 'bg-gray-600 text-gray-400' : 'bg-gray-300 text-gray-600')
                 : (isDarkMode 
@@ -514,7 +514,8 @@ function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate, onSt
             {isClaiming || isConfirming ? (
               <>
                 <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                {isClaiming ? 'Claiming...' : 'Confirming...'}
+                <span className="hidden sm:inline">{isClaiming ? 'Claiming...' : 'Confirming...'}</span>
+                <span className="sm:hidden">{isClaiming ? 'Claiming...' : 'Confirming...'}</span>
               </>
             ) : (
               <>
@@ -858,13 +859,13 @@ export default function StakesPage() {
         </header>
 
         {/* Main Content */}
-        <main className="p-4 lg:p-6">
+        <main className="p-3 sm:p-4 lg:p-6">
           {/* Tabs */}
           {isConnected && Array.isArray(userMarketIds) && userMarketIds.length > 0 && (
-            <div className={`flex gap-3 mb-4 p-1.5 rounded-lg ${isDarkMode ? 'bg-gray-900' : 'bg-gray-200'}`}>
+            <div className={`flex gap-1.5 sm:gap-2 lg:gap-3 mb-3 sm:mb-4 p-1 sm:p-1.5 rounded-lg overflow-x-auto ${isDarkMode ? 'bg-gray-900' : 'bg-gray-200'}`}>
               <button
                 onClick={() => setActiveTab('pending')}
-                className={`flex-1 px-4 py-2.5 rounded-md text-sm font-semibold transition-colors relative ${
+                className={`flex-shrink-0 px-2.5 sm:px-3 lg:px-4 py-2 sm:py-2.5 rounded-md text-xs sm:text-sm font-semibold transition-colors relative whitespace-nowrap ${
                   activeTab === 'pending'
                     ? (isDarkMode ? 'bg-[#39FF14] text-black' : 'bg-[#39FF14] text-black border border-black shadow-sm')
                     : (isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900')
@@ -874,7 +875,7 @@ export default function StakesPage() {
               </button>
               <button
                 onClick={() => setActiveTab('claimed')}
-                className={`flex-1 px-4 py-2.5 rounded-md text-sm font-semibold transition-colors relative ${
+                className={`flex-shrink-0 px-2.5 sm:px-3 lg:px-4 py-2 sm:py-2.5 rounded-md text-xs sm:text-sm font-semibold transition-colors relative whitespace-nowrap ${
                   activeTab === 'claimed'
                     ? (isDarkMode ? 'bg-[#39FF14] text-black' : 'bg-[#39FF14] text-black border border-black shadow-sm')
                     : (isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900')
@@ -884,7 +885,7 @@ export default function StakesPage() {
               </button>
               <button
                 onClick={() => setActiveTab('resolved')}
-                className={`flex-1 px-4 py-2.5 rounded-md text-sm font-semibold transition-colors relative ${
+                className={`flex-shrink-0 px-2.5 sm:px-3 lg:px-4 py-2 sm:py-2.5 rounded-md text-xs sm:text-sm font-semibold transition-colors relative whitespace-nowrap ${
                   activeTab === 'resolved'
                     ? (isDarkMode ? 'bg-[#39FF14] text-black' : 'bg-[#39FF14] text-black border border-black shadow-sm')
                     : (isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900')
@@ -892,12 +893,12 @@ export default function StakesPage() {
               >
                 Resolved ({tabCounts.resolved})
                 {tabCounts.resolved > 0 && Array.from(marketCategories.resolved).some(id => claimableMarkets.has(id)) && (
-                  <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full"></span>
+                  <span className="absolute top-1.5 sm:top-2 right-1.5 sm:right-2 w-2 h-2 sm:w-2.5 sm:h-2.5 bg-red-500 rounded-full"></span>
                 )}
               </button>
               <button
                 onClick={() => setActiveTab('lost')}
-                className={`flex-1 px-4 py-2.5 rounded-md text-sm font-semibold transition-colors relative ${
+                className={`flex-shrink-0 px-2.5 sm:px-3 lg:px-4 py-2 sm:py-2.5 rounded-md text-xs sm:text-sm font-semibold transition-colors relative whitespace-nowrap ${
                   activeTab === 'lost'
                     ? (isDarkMode ? 'bg-[#39FF14] text-black' : 'bg-[#39FF14] text-black border border-black shadow-sm')
                     : (isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900')
@@ -910,41 +911,41 @@ export default function StakesPage() {
 
           {/* Markets List */}
           {!isConnected ? (
-            <div className="text-center py-16">
-              <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
+            <div className="text-center py-12 sm:py-16">
+              <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 ${
                 isDarkMode ? 'bg-gray-900' : 'bg-gray-200'
               }`}>
-                <Wallet className={`w-8 h-8 ${isDarkMode ? 'text-white' : 'text-gray-500'}`} />
+                <Wallet className={`w-6 h-6 sm:w-8 sm:h-8 ${isDarkMode ? 'text-white' : 'text-gray-500'}`} />
               </div>
-              <h3 className={`text-lg font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h3 className={`text-base sm:text-lg font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 Connect Your Wallet
               </h3>
-              <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
+              <p className={`text-xs sm:text-sm px-4 ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                 Connect your wallet to view all your staked markets
               </p>
             </div>
           ) : !Array.isArray(userMarketIds) || userMarketIds.length === 0 ? (
-            <div className="text-center py-16">
-              <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
+            <div className="text-center py-12 sm:py-16">
+              <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 ${
                 isDarkMode ? 'bg-gray-900' : 'bg-gray-200'
               }`}>
-                <Receipt className={`w-8 h-8 ${isDarkMode ? 'text-white' : 'text-gray-500'}`} />
+                <Receipt className={`w-6 h-6 sm:w-8 sm:h-8 ${isDarkMode ? 'text-white' : 'text-gray-500'}`} />
               </div>
-              <h3 className={`text-lg font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h3 className={`text-base sm:text-lg font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 No Staked Markets
               </h3>
-              <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
+              <p className={`text-xs sm:text-sm px-4 ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                 You haven't staked in any markets yet. Start betting to see your markets here!
               </p>
             </div>
           ) : displayedMarkets.length === 0 ? (
-            <div className="text-center py-12">
-              <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
+            <div className="text-center py-8 sm:py-12">
+              <p className={`text-xs sm:text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                 No {activeTab} markets
               </p>
             </div>
           ) : (
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
               {displayedMarkets.map((marketId: number) => (
                 <StakesCard
                   key={marketId}

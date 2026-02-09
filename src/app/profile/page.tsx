@@ -410,40 +410,40 @@ export default function ProfilePage() {
           </header>
 
           {/* Content */}
-          <div className="p-6">
+          <div className="p-3 sm:p-4 lg:p-6">
             <div className="max-w-4xl mx-auto">
               {/* Error/Success Messages */}
               {error && (
-                <div className={`mb-6 p-4 rounded-lg flex items-center gap-2 ${
+                <div className={`mb-4 sm:mb-6 p-3 sm:p-4 rounded-lg flex items-center gap-2 text-sm sm:text-base ${
                   isDarkMode ? 'bg-red-900/40 border border-red-700' : 'bg-red-50 border border-red-200'
                 }`}>
-                  <AlertCircle className={`h-5 w-5 ${isDarkMode ? 'text-red-300' : 'text-red-500'}`} />
+                  <AlertCircle className={`h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0 ${isDarkMode ? 'text-red-300' : 'text-red-500'}`} />
                   <span className={isDarkMode ? 'text-red-300' : 'text-red-700'}>{error}</span>
                 </div>
               )}
 
               {success && (
-                <div className={`mb-6 p-4 rounded-lg flex items-center gap-2 ${
+                <div className={`mb-4 sm:mb-6 p-3 sm:p-4 rounded-lg flex items-center gap-2 text-sm sm:text-base ${
                   isDarkMode ? 'bg-green-900/40 border border-green-700' : 'bg-green-50 border border-green-200'
                 }`}>
-                  <CheckCircle className={`h-5 w-5 ${isDarkMode ? 'text-green-300' : 'text-green-500'}`} />
+                  <CheckCircle className={`h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0 ${isDarkMode ? 'text-green-300' : 'text-green-500'}`} />
                   <span className={isDarkMode ? 'text-green-300' : 'text-green-700'}>{success}</span>
                 </div>
               )}
 
               {isLoading ? (
-                <div className="text-center py-12">
-                  <Loader2 className={`h-8 w-8 animate-spin mx-auto mb-4 ${isDarkMode ? 'text-white' : 'text-gray-600'}`} />
-                  <p className={isDarkMode ? 'text-white' : 'text-gray-900'}>Loading profile...</p>
+                <div className="text-center py-8 sm:py-12">
+                  <Loader2 className={`h-6 w-6 sm:h-8 sm:w-8 animate-spin mx-auto mb-4 ${isDarkMode ? 'text-white' : 'text-gray-600'}`} />
+                  <p className={`text-sm sm:text-base ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Loading profile...</p>
                 </div>
               ) : (
-                <div className="space-y-6">
+                <div className="space-y-4 sm:space-y-6">
                   {/* Profile Header */}
-                  <div className={`p-6 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'} shadow-sm`}>
-                    <div className="flex items-start gap-6">
+                  <div className={`p-4 sm:p-6 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'} shadow-sm`}>
+                    <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
                       {/* Profile Image */}
-                      <div className="relative">
-                        <div className={`w-24 h-24 rounded-full overflow-hidden border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
+                      <div className="relative flex-shrink-0 mx-auto sm:mx-0">
+                        <div className={`w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
                           {profile?.image ? (
                             <img 
                               src={profile.image} 
@@ -452,32 +452,32 @@ export default function ProfilePage() {
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
-                              <User className={`h-8 w-8 ${isDarkMode ? 'text-white/60' : 'text-gray-400'}`} />
+                              <User className={`h-6 w-6 sm:h-8 sm:w-8 ${isDarkMode ? 'text-white/60' : 'text-gray-400'}`} />
                             </div>
                           )}
                         </div>
                       </div>
 
                       {/* Profile Info */}
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-4">
-                          <div>
-                            <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                      <div className="flex-1 w-full text-center sm:text-left">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-3 sm:mb-4">
+                          <div className="flex-1">
+                            <h1 className={`text-xl sm:text-2xl font-bold mb-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                               {profile?.display_name || 'Anonymous User'}
                             </h1>
-                            <p className={isDarkMode ? 'text-white/70' : 'text-gray-600'}>
+                            <p className={`text-sm sm:text-base mb-1 ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                               @{profile?.username || 'no-username'}
                             </p>
-                            <p className={`text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-500'}`}>
+                            <p className={`text-xs sm:text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-500'}`}>
                               {formatAddress(address || '')}
                             </p>
                           </div>
                           
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                             {profile?.username && (
                               <Link
                                 href={`/profile/${profile.username}`}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+                                className={`flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm sm:text-base ${
                                   isDarkMode 
                                     ? 'bg-gray-800 text-white hover:bg-gray-700 border border-gray-700' 
                                     : 'bg-gray-200 text-gray-900 hover:bg-gray-300 border border-gray-300'
@@ -488,20 +488,20 @@ export default function ProfilePage() {
                             )}
                             <button
                               onClick={() => setIsEditing(!isEditing)}
-                              className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+                              className={`flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm sm:text-base ${
                                 isDarkMode 
                                   ? 'bg-[#39FF14] text-black hover:bg-[#39FF14]/80' 
                                   : 'bg-[#39FF14] text-black border border-black hover:bg-[#39FF14]/80'
                               }`}
                             >
-                              <Edit3 className="h-4 w-4" />
+                              <Edit3 className="h-3 w-3 sm:h-4 sm:w-4" />
                               {isEditing ? 'Cancel' : 'Edit Profile'}
                             </button>
                           </div>
                         </div>
 
                         {profile?.bio && (
-                          <p className={`mb-4 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                          <p className={`text-sm sm:text-base mb-0 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
                             {profile.bio}
                           </p>
                         )}
@@ -510,17 +510,17 @@ export default function ProfilePage() {
 
                     {/* Edit Form */}
                     {isEditing && (
-                      <div className={`mt-6 pt-6 border-t ${isDarkMode ? 'border-[#39FF14]' : 'border-[#39FF14]'}`}>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className={`mt-4 sm:mt-6 pt-4 sm:pt-6 border-t ${isDarkMode ? 'border-[#39FF14]' : 'border-[#39FF14]'}`}>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                           <div>
-                            <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                            <label className={`block text-xs sm:text-sm font-medium mb-1.5 sm:mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                               Username
                             </label>
                             <input
                               type="text"
                               value={formData.username}
                               onChange={(e) => setFormData({...formData, username: e.target.value})}
-                              className={`w-full p-3 border rounded-lg focus:border-[#39FF14] focus:outline-none ${
+                              className={`w-full p-2.5 sm:p-3 text-sm sm:text-base border rounded-lg focus:border-[#39FF14] focus:outline-none ${
                                 isDarkMode 
                                   ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' 
                                   : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
@@ -530,14 +530,14 @@ export default function ProfilePage() {
                           </div>
                           
                           <div>
-                            <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                            <label className={`block text-xs sm:text-sm font-medium mb-1.5 sm:mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                               Display Name
                             </label>
                             <input
                               type="text"
                               value={formData.display_name}
                               onChange={(e) => setFormData({...formData, display_name: e.target.value})}
-                              className={`w-full p-3 border rounded-lg focus:border-[#39FF14] focus:outline-none ${
+                              className={`w-full p-2.5 sm:p-3 text-sm sm:text-base border rounded-lg focus:border-[#39FF14] focus:outline-none ${
                                 isDarkMode 
                                   ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' 
                                   : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
@@ -547,15 +547,15 @@ export default function ProfilePage() {
                           </div>
                         </div>
                         
-                        <div className="mt-4">
-                          <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        <div className="mt-3 sm:mt-4">
+                          <label className={`block text-xs sm:text-sm font-medium mb-1.5 sm:mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             Bio
                           </label>
                           <textarea
                             value={formData.bio}
                             onChange={(e) => setFormData({...formData, bio: e.target.value})}
                             rows={3}
-                            className={`w-full p-3 border rounded-lg focus:border-[#39FF14] focus:outline-none resize-y ${
+                            className={`w-full p-2.5 sm:p-3 text-sm sm:text-base border rounded-lg focus:border-[#39FF14] focus:outline-none resize-y ${
                               isDarkMode 
                                 ? 'bg-black border-[#39FF14] text-white placeholder-gray-500' 
                                 : 'bg-[#F5F3F0] border-[#39FF14] text-gray-900 placeholder-gray-500'
@@ -564,11 +564,11 @@ export default function ProfilePage() {
                           />
                         </div>
                         
-                        <div className="flex gap-3 mt-4">
+                        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-3 sm:mt-4">
                           <button
                             onClick={handleSave}
                             disabled={isSaving}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg disabled:opacity-50 ${
+                            className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg disabled:opacity-50 text-sm sm:text-base ${
                               isDarkMode 
                                 ? 'bg-[#39FF14] text-black hover:bg-[#39FF14]/80' 
                                 : 'bg-[#39FF14] text-black border border-black hover:bg-[#39FF14]/80'
@@ -584,7 +584,7 @@ export default function ProfilePage() {
                           
                           <button
                             onClick={() => setIsEditing(false)}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+                            className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm sm:text-base ${
                               isDarkMode 
                                 ? 'bg-gray-800 text-white hover:bg-gray-700' 
                                 : 'bg-gray-300 text-gray-900 hover:bg-gray-400'
@@ -600,49 +600,49 @@ export default function ProfilePage() {
 
                   {/* Analytics Section */}
                   {analytics && (
-                    <div className={`p-6 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'} shadow-sm`}>
-                      <h2 className={`text-xl font-bold mb-6 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        <BarChart3 className={`h-5 w-5 ${isDarkMode ? 'text-[#39FF14]' : 'text-gray-900'}`} />
+                    <div className={`p-4 sm:p-6 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'} shadow-sm`}>
+                      <h2 className={`text-lg sm:text-xl font-bold mb-4 sm:mb-6 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        <BarChart3 className={`h-4 w-4 sm:h-5 sm:w-5 ${isDarkMode ? 'text-[#39FF14]' : 'text-gray-900'}`} />
                         Trading Analytics
                       </h2>
                       
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div className={`text-center p-4 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
-                          <Trophy className={`h-8 w-8 mx-auto mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-yellow-500'}`} />
-                          <div className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                        <div className={`text-center p-3 sm:p-4 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
+                          <Trophy className={`h-6 w-6 sm:h-8 sm:w-8 mx-auto mb-1.5 sm:mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-yellow-500'}`} />
+                          <div className={`text-xl sm:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             {calculateWinRate()}%
                           </div>
-                          <div className={`text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
+                          <div className={`text-xs sm:text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
                             Win Rate
                           </div>
                         </div>
                         
-                        <div className={`text-center p-4 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
-                          <Target className={`h-8 w-8 mx-auto mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-blue-500'}`} />
-                          <div className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        <div className={`text-center p-3 sm:p-4 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
+                          <Target className={`h-6 w-6 sm:h-8 sm:w-8 mx-auto mb-1.5 sm:mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-blue-500'}`} />
+                          <div className={`text-xl sm:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             {analytics.totalStakesPlaced.toString()}
                           </div>
-                          <div className={`text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
+                          <div className={`text-xs sm:text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
                             Total Stakes
                           </div>
                         </div>
                         
-                        <div className={`text-center p-4 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
-                          <DollarSign className={`h-8 w-8 mx-auto mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-green-500'}`} />
-                          <div className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        <div className={`text-center p-3 sm:p-4 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
+                          <DollarSign className={`h-6 w-6 sm:h-8 sm:w-8 mx-auto mb-1.5 sm:mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-green-500'}`} />
+                          <div className={`text-lg sm:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             {formatEther(analytics.totalWinnings)} ETH
                           </div>
-                          <div className={`text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
+                          <div className={`text-xs sm:text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
                             Total Winnings
                           </div>
                         </div>
                         
-                        <div className={`text-center p-4 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
-                          <Users className={`h-8 w-8 mx-auto mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-purple-500'}`} />
-                          <div className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        <div className={`text-center p-3 sm:p-4 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
+                          <Users className={`h-6 w-6 sm:h-8 sm:w-8 mx-auto mb-1.5 sm:mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-purple-500'}`} />
+                          <div className={`text-xl sm:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             {analytics.marketsCreated.toString()}
                           </div>
-                          <div className={`text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
+                          <div className={`text-xs sm:text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
                             Markets Created
                           </div>
                         </div>
@@ -651,39 +651,39 @@ export default function ProfilePage() {
                   )}
 
                   {/* User Markets Section */}
-                  <div className={`p-6 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'} shadow-sm`}>
-                    <h2 className={`text-xl font-bold mb-6 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                      <TrendingUp className={`h-5 w-5 ${isDarkMode ? 'text-[#39FF14]' : 'text-gray-900'}`} />
+                  <div className={`p-4 sm:p-6 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'} shadow-sm`}>
+                    <h2 className={`text-lg sm:text-xl font-bold mb-4 sm:mb-6 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                      <TrendingUp className={`h-4 w-4 sm:h-5 sm:w-5 ${isDarkMode ? 'text-[#39FF14]' : 'text-gray-900'}`} />
                       Your Markets
                     </h2>
                     
                     {userMarkets.length === 0 ? (
-                      <div className="text-center py-8">
-                        <Target className={`h-12 w-12 mx-auto mb-4 ${isDarkMode ? 'text-white/60' : 'text-gray-400'}`} />
-                        <p className={isDarkMode ? 'text-white/70' : 'text-gray-600'}>
+                      <div className="text-center py-6 sm:py-8">
+                        <Target className={`h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-3 sm:mb-4 ${isDarkMode ? 'text-white/60' : 'text-gray-400'}`} />
+                        <p className={`text-sm sm:text-base ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                           You haven't created any markets yet.
                         </p>
                       </div>
                     ) : (
-                      <div className="space-y-4">
+                      <div className="space-y-3 sm:space-y-4">
                         {userMarkets.map((market) => (
-                          <div key={market.marketId} className={`p-4 border rounded-lg ${
+                          <div key={market.marketId} className={`p-3 sm:p-4 border rounded-lg ${
                             isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'
                           }`}>
-                            <div className="flex items-center gap-4">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
                               <img 
                                 src={market.image} 
                                 alt="Market" 
-                                className={`w-16 h-16 rounded-lg object-cover border ${
+                                className={`w-full sm:w-16 sm:h-16 h-32 sm:h-16 rounded-lg object-cover border flex-shrink-0 ${
                                   isDarkMode ? 'border-[#39FF14]' : 'border-[#39FF14]'
                                 }`}
                               />
-                              <div className="flex-1">
-                                <h3 className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{market.title}</h3>
-                                <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
+                              <div className="flex-1 min-w-0 w-full sm:w-auto">
+                                <h3 className={`font-semibold text-sm sm:text-base mb-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{market.title}</h3>
+                                <p className={`text-xs sm:text-sm mb-2 line-clamp-2 ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                                   {market.description}
                                 </p>
-                                <div className={`flex items-center gap-4 mt-2 text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-500'}`}>
+                                <div className={`flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-500'}`}>
                                   <span>Type: {market.type}</span>
                                   <span>State: {market.state}</span>
                                 </div>
