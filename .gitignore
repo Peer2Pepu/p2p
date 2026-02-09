@@ -45,3 +45,6 @@ next-env.d.ts
 
 # oracle
 p2p/oracle/p2p-oracle
+
+# moderation service
+p2p/moderation-service
