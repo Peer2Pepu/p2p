@@ -2,12 +2,18 @@ const { ethers } = require("ethers");
 require("dotenv").config();
 
 // Supabase configuration
+// IMPORTANT: Bot uses SERVICE_ROLE_KEY (not anon key) to bypass RLS for INSERT/UPDATE
 const { createClient } = require('@supabase/supabase-js');
 const supabaseProjectId = process.env.SUPABASE_PROJECT_ID;
-const supabaseKey = process.env.SUPABASE_ANON_KEY;
+// Use service role key for bot (bypasses RLS, allows INSERT/UPDATE/DELETE)
+// Browser uses NEXT_PUBLIC_SUPABASE_ANON_KEY (respects RLS, read-only)
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
 
 if (!supabaseProjectId || !supabaseKey) {
-    console.error('❌ Missing Supabase configuration. Please set SUPABASE_PROJECT_ID and SUPABASE_ANON_KEY in .env');
+    console.error('❌ Missing Supabase configuration.');
+    console.error('   Bot requires: SUPABASE_PROJECT_ID and SUPABASE_SERVICE_ROLE_KEY');
+    console.error('   (SUPABASE_SERVICE_ROLE_KEY bypasses RLS for INSERT/UPDATE operations)');
+    console.error('   Fallback: SUPABASE_ANON_KEY (will fail if RLS blocks INSERT)');
     process.exit(1);
 }
 
@@ -15,8 +21,17 @@ const supabaseUrl = `https://${supabaseProjectId}.supabase.co`;
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+// Warn if using anon key instead of service role key
+if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.log('✅ Using SUPABASE_SERVICE_ROLE_KEY (bypasses RLS)');
+} else {
+    console.warn('⚠️  WARNING: Using SUPABASE_ANON_KEY instead of SUPABASE_SERVICE_ROLE_KEY');
+    console.warn('   Bot may fail if RLS policies block INSERT operations');
+    console.warn('   Add SUPABASE_SERVICE_ROLE_KEY to .env for proper operation');
+}
+
 // Contract configuration
-const MARKET_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS;
+const MARKET_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS || process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS;
 const ADMIN_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_ADMIN_ADDRESS;
 const RPC_URL = 'https://rpc-pepu-v2-mainnet-0.t.conduit.xyz';
 
@@ -187,6 +202,58 @@ async function processMarketEvent(event, provider) {
         return;
     }
 
+    // Get market data from contract to fetch new fields (marketType, priceFeed, priceThreshold)
+    const marketContract = new ethers.Contract(MARKET_MANAGER_ADDRESS, [
+        {
+            "inputs": [{"name": "marketId", "type": "uint256"}],
+            "name": "getMarket",
+            "outputs": [
+                {
+                    "components": [
+                        {"name": "creator", "type": "address"},
+                        {"name": "ipfsHash", "type": "string"},
+                        {"name": "isMultiOption", "type": "bool"},
+                        {"name": "maxOptions", "type": "uint256"},
+                        {"name": "paymentToken", "type": "address"},
+                        {"name": "minStake", "type": "uint256"},
+                        {"name": "creatorDeposit", "type": "uint256"},
+                        {"name": "creatorOutcome", "type": "uint256"},
+                        {"name": "startTime", "type": "uint256"},
+                        {"name": "stakeEndTime", "type": "uint256"},
+                        {"name": "endTime", "type": "uint256"},
+                        {"name": "resolutionEndTime", "type": "uint256"},
+                        {"name": "state", "type": "uint8"},
+                        {"name": "winningOption", "type": "uint256"},
+                        {"name": "isResolved", "type": "bool"},
+                        {"name": "umaAssertionId", "type": "bytes32"},
+                        {"name": "priceFeed", "type": "address"},
+                        {"name": "priceThreshold", "type": "uint256"},
+                        {"name": "marketType", "type": "uint8"},
+                        {"name": "umaAssertionMade", "type": "bool"}
+                    ],
+                    "name": "",
+                    "type": "tuple"
+                }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+        }
+    ], provider);
+
+    let marketType = 'UMA_MANUAL';
+    let priceFeed = null;
+    let priceThreshold = null;
+
+    try {
+        const marketData = await marketContract.getMarket(marketId);
+        marketType = Number(marketData.marketType) === 0 ? 'PRICE_FEED' : 'UMA_MANUAL';
+        priceFeed = marketData.priceFeed !== ethers.ZeroAddress ? marketData.priceFeed : null;
+        priceThreshold = marketData.priceThreshold > 0 ? marketData.priceThreshold.toString() : null;
+        console.log(`📊 Market type: ${marketType}, Price feed: ${priceFeed}, Threshold: ${priceThreshold}`);
+    } catch (error) {
+        console.warn(`⚠️  Could not fetch market data from contract: ${error.message}`);
+    }
+
     // Get IPFS data
     let ipfsData = null;
     let imageUrl = null;
@@ -224,7 +291,11 @@ async function processMarketEvent(event, provider) {
         creator: creator.toLowerCase(),
         type: isMultiOption ? 'multi' : 'linear',
         token: tokenSymbol,
-        category: categories
+        category: categories,
+        market_type: marketType,
+        price_feed: priceFeed,
+        price_threshold: priceThreshold,
+        uma_assertion_made: false
     };
 
     console.log(`📝 Market data:`, marketRecord);

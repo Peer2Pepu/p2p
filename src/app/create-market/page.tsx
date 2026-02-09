@@ -29,6 +29,7 @@ import { useAccount, useBalance, useChainId, useDisconnect, useReadContract, use
 import { pepuMainnet } from '../chains';
 import { useTheme } from '../context/ThemeContext';
 import { parseEther, formatEther } from 'viem';
+import { ethers } from 'ethers';
 import lighthouse from '@lighthouse-web3/sdk';
 
 // Client-only wrapper to prevent hydration issues
@@ -77,6 +78,15 @@ export default function CreateMarketPage() {
   const [creatorDeposit, setCreatorDeposit] = useState('');
   const [creatorOutcome, setCreatorOutcome] = useState('');
   const [selectedToken, setSelectedToken] = useState('0x0000000000000000000000000000000000000000'); // Default to PEPU
+  const [marketType, setMarketType] = useState<'PRICE_FEED' | 'UMA_MANUAL'>('UMA_MANUAL');
+  const [selectedPriceFeed, setSelectedPriceFeed] = useState('');
+  const [priceThreshold, setPriceThreshold] = useState('');
+  const [priceThresholdDisplay, setPriceThresholdDisplay] = useState(''); // Display value for user input
+  const [priceDirection, setPriceDirection] = useState<'over' | 'under'>('over'); // Over = Yes wins if price >= threshold
+  const [currentPrice, setCurrentPrice] = useState<string | null>(null);
+  const [priceDecimals, setPriceDecimals] = useState<number>(8);
+  const [isLoadingPrice, setIsLoadingPrice] = useState(false);
+  const [priceError, setPriceError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isUploadingMetadata, setIsUploadingMetadata] = useState(false);
@@ -126,14 +136,129 @@ export default function CreateMarketPage() {
 
   // Helper functions to convert time inputs to minutes
   const convertToMinutes = (days: string, hours: string, minutes: string = '0') => {
-    const daysNum = parseInt(days) || 0;
-    const hoursNum = parseInt(hours) || 0;
-    const minutesNum = parseInt(minutes) || 0;
+    const daysNum = days && days.trim() !== '' ? parseInt(days) || 0 : 0;
+    const hoursNum = hours && hours.trim() !== '' ? parseInt(hours) || 0 : 0;
+    const minutesNum = minutes && minutes.trim() !== '' ? parseInt(minutes) || 0 : 0;
     return (daysNum * 24 * 60) + (hoursNum * 60) + minutesNum;
   };
 
   const getStakingDurationMinutes = () => convertToMinutes(stakingDays, stakingHours, stakingMinutes);
   const getResolutionDurationMinutes = () => convertToMinutes(resolutionDays, resolutionHours, resolutionMinutes);
+
+  // Fetch current price from price feed when selected
+  useEffect(() => {
+    const fetchPrice = async () => {
+      if (!selectedPriceFeed || marketType !== 'PRICE_FEED') {
+        setCurrentPrice(null);
+        return;
+      }
+
+      setIsLoadingPrice(true);
+      try {
+        const provider = new ethers.JsonRpcProvider('https://rpc-pepu-v2-mainnet-0.t.conduit.xyz');
+        
+        // ABI for AggregatorV3Interface
+        const PRICE_FEED_ABI = [
+          {
+            "inputs": [],
+            "name": "latestRoundData",
+            "outputs": [
+              {"name": "roundId", "type": "uint80"},
+              {"name": "answer", "type": "int256"},
+              {"name": "startedAt", "type": "uint256"},
+              {"name": "updatedAt", "type": "uint256"},
+              {"name": "answeredInRound", "type": "uint80"}
+            ],
+            "stateMutability": "view",
+            "type": "function"
+          },
+          {
+            "inputs": [],
+            "name": "decimals",
+            "outputs": [{"name": "", "type": "uint8"}],
+            "stateMutability": "view",
+            "type": "function"
+          }
+        ];
+
+        const priceFeedContract = new ethers.Contract(selectedPriceFeed, PRICE_FEED_ABI, provider);
+        
+        // Get decimals first
+        const decimals = await priceFeedContract.decimals();
+        const decimalsNum = Number(decimals);
+        setPriceDecimals(decimalsNum);
+        
+        // Try to get price - may fail if stale
+        try {
+          const roundData = await priceFeedContract.latestRoundData();
+          const priceValue = BigInt(roundData.answer.toString());
+          
+          // Convert to human-readable price
+          const divisor = BigInt(10 ** decimalsNum);
+          const wholePart = priceValue / divisor;
+          const fractionalPart = priceValue % divisor;
+          const fractionalStr = fractionalPart.toString().padStart(decimalsNum, '0');
+          
+          // Build price string
+          let priceStr: string;
+          
+          if (wholePart === 0n) {
+            // For prices < 1: count leading zeros, then show next 3 digits
+            // e.g., 0.000196141642653553 -> 0.000196 (3 leading zeros + 3 digits)
+            const leadingZeros = fractionalStr.match(/^0*/)?.[0].length || 0;
+            const totalDigits = leadingZeros + 3;
+            priceStr = `0.${fractionalStr.substring(0, totalDigits)}`;
+          } else {
+            // For prices >= 1, show 2 decimal places
+            priceStr = `${wholePart}.${fractionalStr.substring(0, 2)}`;
+          }
+          
+          setCurrentPrice(priceStr);
+          setPriceError(null);
+          
+          // Auto-fill threshold with current price (scaled)
+          setPriceThreshold(priceValue.toString());
+          setPriceThresholdDisplay(priceStr);
+        } catch (priceError: any) {
+          // Price is stale or other error
+          if (priceError?.message?.includes('stale') || priceError?.reason?.includes('stale')) {
+            setPriceError('Price feed is stale (not updated in last 5 minutes). The relayer bot needs to update it. You can still set a threshold manually.');
+            setCurrentPrice(null);
+          } else {
+            throw priceError; // Re-throw other errors
+          }
+        }
+      } catch (error: any) {
+        console.error('Error fetching price:', error);
+        setCurrentPrice(null);
+        
+        // Check if it's a stale price error (already handled above, but catch any others)
+        if (error?.message?.includes('stale') || error?.reason?.includes('stale')) {
+          setPriceError('Price feed is stale (not updated in last 5 minutes). You can still set a threshold manually.');
+        } else {
+          setPriceError('Failed to load price. Please check the feed address or try again later.');
+        }
+      } finally {
+        setIsLoadingPrice(false);
+      }
+    };
+
+    fetchPrice();
+  }, [selectedPriceFeed, marketType]);
+
+  // Helper to adjust threshold by percentage
+  const adjustThreshold = (percentage: number) => {
+    if (!currentPrice || !priceThreshold) return;
+    
+    try {
+      const currentThreshold = BigInt(priceThreshold);
+      const adjustment = (currentThreshold * BigInt(Math.round(percentage * 100))) / BigInt(10000);
+      const newThreshold = currentThreshold + adjustment;
+      setPriceThreshold(newThreshold.toString());
+    } catch (error) {
+      console.error('Error adjusting threshold:', error);
+    }
+  };
 
   // Calculate end dates
   const getStakingEndDate = () => {
@@ -162,32 +287,90 @@ export default function CreateMarketPage() {
     });
   };
 
-  // Image upload handler
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // Image upload handler (validates & moderates before preview)
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        setError('Please select a valid image file');
-        return;
-      }
-      
-      // Validate file size (max 10MB)
-      if (file.size > 10 * 1024 * 1024) {
-        setError('Image file size must be less than 10MB');
-        return;
-      }
-      
-      setImageFile(file);
-      
-      // Create preview URL
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setImagePreview(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-      setError(''); // Clear any previous errors
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('Please select a valid image file');
+      return;
     }
+    
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      setError('Image file size must be less than 10MB');
+      return;
+    }
+
+    // Run NSFW moderation at upload time (before preview)
+    const moderationEnabled = process.env.NEXT_PUBLIC_ENABLE_MODERATION !== 'false';
+    if (moderationEnabled) {
+      try {
+        setError('');
+        setSuccess('🔍 Checking image content...');
+
+        const moderationFormData = new FormData();
+        moderationFormData.append('file', file);
+
+        const moderationResponse = await fetch('/api/moderate-image', {
+          method: 'POST',
+          body: moderationFormData,
+        });
+
+        const moderationResult = await moderationResponse.json();
+
+        if (!moderationResult.success || moderationResult.blocked) {
+          const reason = moderationResult.reason || 'Image contains inappropriate content';
+          const score = moderationResult.score ? ` (NSFW score: ${(moderationResult.score * 100).toFixed(1)}%)` : '';
+          setSuccess('');
+          setImageFile(null);
+          setImagePreview(null);
+          setError(`${reason}${score}. Please upload a different image.`);
+          return;
+        }
+
+        if (moderationResult.decision?.action === 'blur') {
+          console.warn('⚠️ Image flagged for blur, but allowing upload');
+        }
+
+        console.log('✅ Image passed moderation check');
+        setSuccess('');
+      } catch (moderationError: any) {
+        console.error('❌ Image moderation failed:', moderationError);
+
+        // If it's clearly a blocked/NSFW error, show it
+        if (moderationError?.message && (moderationError.message.includes('inappropriate') || moderationError.message.includes('NSFW'))) {
+          setImageFile(null);
+          setImagePreview(null);
+          setSuccess('');
+          setError(moderationError.message);
+          return;
+        }
+
+        // If moderation service is down and fail-open is NOT enabled, block the upload
+        if (process.env.NEXT_PUBLIC_MODERATION_FAIL_OPEN !== 'true') {
+          setImageFile(null);
+          setImagePreview(null);
+          setSuccess('');
+          setError('Image moderation service unavailable. Please try again later.');
+          return;
+        }
+
+        console.warn('⚠️ Moderation service unavailable, continuing with upload (fail-open mode)');
+      }
+    }
+
+    // If we reach here, the file is allowed → set and preview
+    setImageFile(file);
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setImagePreview(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+    setError(''); // Clear any previous errors
   };
 
   // Remove image handler
@@ -528,6 +711,18 @@ export default function CreateMarketPage() {
       return;
     }
 
+    // Validate market type specific requirements
+    if (marketType === 'PRICE_FEED') {
+      if (!selectedPriceFeed) {
+        setError('Please select a price feed for price feed markets');
+        return;
+      }
+      if (!priceThreshold || parseFloat(priceThreshold) <= 0) {
+        setError('Please enter a valid price threshold for price feed markets');
+        return;
+      }
+    }
+
     // Validate staking duration
     const stakingMinutes = getStakingDurationMinutes();
     if (stakingMinutes < 5) {
@@ -548,6 +743,7 @@ export default function CreateMarketPage() {
     }
 
     setIsCreating(true);
+    // Image is already uploaded/validated at selection time; we just track states here
     setIsUploadingImage(true);
     setError('');
     setSuccess('');
@@ -556,7 +752,7 @@ export default function CreateMarketPage() {
       console.log('🚀 Starting market creation process...');
       console.log('📋 Market data:', { title, outcomeType, minimumStake, creatorDeposit });
       
-      // Step 1: Upload image to IPFS first
+      // Step 1: Upload image to IPFS (image already validated at upload)
       setSuccess('📤 Uploading image to IPFS...');
       console.log('📤 Uploading image file:', imageFile.name, 'Size:', imageFile.size);
       
@@ -598,15 +794,28 @@ export default function CreateMarketPage() {
       setIsUploadingMetadata(true);
       setSuccess('✅ Image uploaded! Creating market metadata...');
 
-      // Step 2: Create market data with image link
+      // Step 3: Create market data with image link
+      // For price feed markets, set options based on direction
+      let marketOptions: string[];
+      if (marketType === 'PRICE_FEED') {
+        if (priceDirection === 'over') {
+          marketOptions = ['Yes (price ≥ threshold)', 'No (price < threshold)'];
+        } else {
+          marketOptions = ['Yes (price < threshold)', 'No (price ≥ threshold)'];
+        }
+      } else {
+        marketOptions = outcomeType === 'multiple' ? multipleOptions : ['Yes', 'No'];
+      }
+
       const marketData = {
         title,
         description: description || '',
         vanityInfo: vanityInfo || '',
         imageUrl,
         categories: selectedCategories || [],
-        outcomeType,
-        options: outcomeType === 'multiple' ? multipleOptions : ['Yes', 'No'],
+        outcomeType: marketType === 'PRICE_FEED' ? 'yesno' : outcomeType,
+        options: marketOptions,
+        priceDirection: marketType === 'PRICE_FEED' ? priceDirection : undefined,
         createdAt: new Date().toISOString(),
         version: '1.0'
       };
@@ -654,7 +863,18 @@ export default function CreateMarketPage() {
 
       console.log('💰 Payment details:', { paymentToken, minimumStake, creatorDeposit, creatorOutcome });
 
-      const args: [string, boolean, bigint, `0x${string}`, bigint, bigint, bigint, bigint, bigint] = [
+      // Validate market type specific requirements
+      if (marketType === 'PRICE_FEED') {
+        if (!selectedPriceFeed || !priceThreshold) {
+          throw new Error('Price feed and threshold are required for price feed markets');
+        }
+      }
+
+      const marketTypeValue = marketType === 'PRICE_FEED' ? 0 : 1; // 0 = PRICE_FEED, 1 = UMA_MANUAL
+      const priceFeedAddress = marketType === 'PRICE_FEED' ? selectedPriceFeed : '0x0000000000000000000000000000000000000000';
+      const priceThresholdValue = marketType === 'PRICE_FEED' ? BigInt(priceThreshold) : BigInt(0);
+
+      const args: [string, boolean, bigint, `0x${string}`, bigint, bigint, bigint, bigint, bigint, bigint, `0x${string}`, bigint] = [
         ipfsHash,
         isMultiOption,
         BigInt(maxOptions),
@@ -663,7 +883,10 @@ export default function CreateMarketPage() {
         parseEther(creatorDeposit),
         BigInt(parseInt(creatorOutcome)),
         BigInt(stakeDurationMinutes),
-        BigInt(resolutionDurationMinutes)
+        BigInt(resolutionDurationMinutes),
+        BigInt(marketTypeValue),
+        priceFeedAddress as `0x${string}`,
+        priceThresholdValue
       ];
 
       console.log('📋 Contract args:', args);
@@ -691,7 +914,10 @@ export default function CreateMarketPage() {
               {"name": "creatorDeposit", "type": "uint256"},
               {"name": "creatorOutcome", "type": "uint256"},
               {"name": "stakeDurationMinutes", "type": "uint256"},
-              {"name": "resolutionDurationMinutes", "type": "uint256"}
+              {"name": "resolutionDurationMinutes", "type": "uint256"},
+              {"name": "marketType", "type": "uint8"},
+              {"name": "priceFeed", "type": "address"},
+              {"name": "priceThreshold", "type": "uint256"}
             ],
             "name": "createMarket",
             "outputs": [{"name": "", "type": "uint256"}],
@@ -733,7 +959,6 @@ export default function CreateMarketPage() {
       setCreatorDeposit('0.1');
       setCreatorOutcome('0');
       setSelectedToken('0x0000000000000000000000000000000000000000');
-      setResolutionHours('1');
 
     } catch (err: any) {
       console.error('❌ Market creation failed:', err);
@@ -813,6 +1038,9 @@ export default function CreateMarketPage() {
       setCreatorDeposit('');
       setCreatorOutcome('');
       setSelectedToken('0x0000000000000000000000000000000000000000');
+      setMarketType('UMA_MANUAL');
+      setSelectedPriceFeed('');
+      setPriceThreshold('');
       setMultipleOptions(['', '']);
     }
   }, [isConfirmed]);
@@ -1069,6 +1297,173 @@ export default function CreateMarketPage() {
                           This information will be visible to verifiers to help them make accurate decisions
                         </p>
                       </div>
+
+                      <div>
+                        <label className="block text-sm font-medium mb-2">Market Type</label>
+                        <select
+                          value={marketType}
+                          onChange={(e) => {
+                            const newType = e.target.value as 'PRICE_FEED' | 'UMA_MANUAL';
+                            setMarketType(newType);
+                            // Force binary (yesno) for price feed markets
+                            if (newType === 'PRICE_FEED') {
+                              setOutcomeType('yesno');
+                            }
+                          }}
+                          className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm appearance-none ${
+                            isDarkMode 
+                              ? 'bg-black border-gray-700 text-white' 
+                              : 'bg-[#F5F3F0] border-gray-300 text-gray-900'
+                          }`}
+                        >
+                          <option value="UMA_MANUAL">Optimistic Oracle (Sports, Politics, etc.)</option>
+                          <option value="PRICE_FEED">Price Feed (Auto-resolve from price)</option>
+                        </select>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {marketType === 'PRICE_FEED' 
+                            ? 'Market will auto-resolve based on price feed threshold (Yes/No only)' 
+                            : 'Market requires Optimistic Oracle assertion for resolution'}
+                        </p>
+                      </div>
+
+                      {marketType === 'PRICE_FEED' && (
+                        <>
+                          <div>
+                            <label className="block text-sm font-medium mb-2">Price Feed</label>
+                            <select
+                              value={selectedPriceFeed}
+                              onChange={(e) => setSelectedPriceFeed(e.target.value)}
+                              className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm appearance-none ${
+                                isDarkMode 
+                                  ? 'bg-black border-gray-700 text-white' 
+                                  : 'bg-[#F5F3F0] border-gray-300 text-gray-900'
+                              }`}
+                            >
+                              <option value="">Select price feed...</option>
+                              <option value="0x20D9BBEAE75d9E17176520aD473234BE293e4C5d">ETH/USD</option>
+                              <option value="0xA74CCEe7759c7bb2cE3f0b1599428fed08FaB8Ce">BTC/USD</option>
+                              <option value="0x786BE298CFfF15c49727C0998392Ff38e45f99b3">SOL/USD</option>
+                              <option value="0x51C17E20994C6c0eE787fE1604ef14EBafdB7ce9">PEPU/USD</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium mb-2">
+                              Market Direction
+                            </label>
+                            <div className="flex gap-2 mb-4">
+                              <button
+                                type="button"
+                                onClick={() => setPriceDirection('over')}
+                                className={`flex-1 px-3 py-2 rounded text-sm font-medium transition-colors ${
+                                  priceDirection === 'over'
+                                    ? isDarkMode 
+                                      ? 'bg-[#39FF14] text-black' 
+                                      : 'bg-[#39FF14] text-black border-2 border-black'
+                                    : isDarkMode
+                                      ? 'bg-gray-800 hover:bg-gray-700 text-white'
+                                      : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
+                                }`}
+                              >
+                                Over (Yes if price ≥ threshold)
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setPriceDirection('under')}
+                                className={`flex-1 px-3 py-2 rounded text-sm font-medium transition-colors ${
+                                  priceDirection === 'under'
+                                    ? isDarkMode 
+                                      ? 'bg-[#39FF14] text-black' 
+                                      : 'bg-[#39FF14] text-black border-2 border-black'
+                                    : isDarkMode
+                                      ? 'bg-gray-800 hover:bg-gray-700 text-white'
+                                      : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
+                                }`}
+                              >
+                                Under (Yes if price &lt; threshold)
+                              </button>
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium mb-2">
+                              Price Threshold
+                            </label>
+                            {isLoadingPrice && (
+                              <p className={`text-xs mb-2 ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
+                                Loading current price...
+                              </p>
+                            )}
+                            {priceError && (
+                              <p className={`text-xs mb-2 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>
+                                ⚠️ {priceError}
+                              </p>
+                            )}
+                            {currentPrice && !priceError && (
+                              <p className={`text-xs mb-2 ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
+                                Current price: <span className="text-[#39FF14]">${currentPrice}</span>
+                              </p>
+                            )}
+                            <input
+                              type="text"
+                              value={priceThresholdDisplay}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                setPriceThresholdDisplay(value);
+                                
+                                if (value === '') {
+                                  setPriceThreshold('');
+                                  return;
+                                }
+                                
+                                // Allow partial input (e.g., "2", "2.", "2.5")
+                                // Only update the scaled value when it's a valid number
+                                try {
+                                  const numValue = parseFloat(value);
+                                  if (!isNaN(numValue) && numValue >= 0) {
+                                    const scaledValue = BigInt(Math.round(numValue * (10 ** priceDecimals)));
+                                    setPriceThreshold(scaledValue.toString());
+                                  }
+                                } catch {
+                                  // Invalid input, keep display value but don't update scaled value
+                                }
+                              }}
+                              placeholder={currentPrice ? `e.g., ${currentPrice}` : "e.g., 2000.00"}
+                              className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${
+                                isDarkMode 
+                                  ? 'bg-black border-gray-700 text-white placeholder-gray-500' 
+                                  : 'bg-[#F5F3F0] border-gray-300 text-gray-900 placeholder-gray-500'
+                              }`}
+                            />
+                            {priceThreshold && (
+                              <p className={`text-xs mt-1 ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
+                                Threshold: ${(() => {
+                                  try {
+                                    const thresholdBigInt = BigInt(priceThreshold);
+                                    const divisor = BigInt(10 ** priceDecimals);
+                                    const wholePart = thresholdBigInt / divisor;
+                                    const fractionalPart = thresholdBigInt % divisor;
+                                    const fractionalStr = fractionalPart.toString().padStart(priceDecimals, '0');
+                                    return `${wholePart}.${fractionalStr}`;
+                                  } catch {
+                                    return 'Invalid';
+                                  }
+                                })()}
+                                {priceDirection === 'over' ? (
+                                  <span className="text-green-500"> - Yes wins if price ≥ threshold</span>
+                                ) : (
+                                  <span className="text-green-500"> - Yes wins if price &lt; threshold</span>
+                                )}
+                              </p>
+                            )}
+                            <p className="text-xs text-gray-500 mt-1">
+                              {priceDirection === 'over' 
+                                ? 'Yes wins if final price is greater than or equal to threshold'
+                                : 'Yes wins if final price is less than threshold'}
+                            </p>
+                          </div>
+                        </>
+                      )}
 
                       <div>
                         <label className="block text-sm font-medium mb-2">Payment Token</label>
@@ -1380,20 +1775,30 @@ export default function CreateMarketPage() {
                       </button>
                       
                       <button
-                        onClick={() => setOutcomeType('multiple')}
+                        onClick={() => {
+                          if (marketType !== 'PRICE_FEED') {
+                            setOutcomeType('multiple');
+                          }
+                        }}
+                        disabled={marketType === 'PRICE_FEED'}
                         className={`
                           flex-1 px-4 py-3 rounded-lg border-2 transition-colors flex items-center justify-center gap-2 text-sm font-medium
-                          ${outcomeType === 'multiple'
-                          ? isDarkMode
-                            ? 'border-[#39FF14] bg-black text-[#39FF14]'
-                            : 'border-[#39FF14] bg-[#F5F3F0] text-[#39FF14]'
-                          : isDarkMode
-                            ? 'border-gray-700 bg-black text-white hover:bg-gray-900'
-                            : 'border-gray-300 bg-[#F5F3F0] text-gray-900 hover:bg-gray-200'
+                          ${marketType === 'PRICE_FEED'
+                            ? isDarkMode
+                              ? 'border-gray-800 bg-gray-900 text-gray-600 cursor-not-allowed opacity-50'
+                              : 'border-gray-300 bg-gray-200 text-gray-500 cursor-not-allowed opacity-50'
+                            : outcomeType === 'multiple'
+                            ? isDarkMode
+                              ? 'border-[#39FF14] bg-black text-[#39FF14]'
+                              : 'border-[#39FF14] bg-[#F5F3F0] text-[#39FF14]'
+                            : isDarkMode
+                              ? 'border-gray-700 bg-black text-white hover:bg-gray-900'
+                              : 'border-gray-300 bg-[#F5F3F0] text-gray-900 hover:bg-gray-200'
                           }
                         `}
                       >
                         Multiple Options
+                        {marketType === 'PRICE_FEED' && ' (Not available)'}
                       </button>
                     </div>
                   </div>

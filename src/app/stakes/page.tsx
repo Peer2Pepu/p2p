@@ -115,6 +115,13 @@ const ANALYTICS_ABI = [
     "outputs": [{"name": "", "type": "uint256[]"}],
     "stateMutability": "view",
     "type": "function"
+  },
+  {
+    "inputs": [{"name": "user", "type": "address"}],
+    "name": "getUserStakes",
+    "outputs": [{"name": "", "type": "uint256[]"}],
+    "stateMutability": "view",
+    "type": "function"
   }
 ];
 
@@ -194,6 +201,10 @@ function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate, onSt
     abi: MARKET_MANAGER_ABI,
     functionName: 'userStakeOptions',
     args: [BigInt(marketId), userAddress],
+    query: {
+      enabled: !!market && !!userAddress && !!MARKET_MANAGER_ADDRESS,
+      refetchInterval: 10000, // Refetch every 10 seconds to catch updates
+    },
   });
 
   // Get token symbol from AdminManager contract
@@ -277,10 +288,23 @@ function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate, onSt
 
   // Update category when market data changes
   useEffect(() => {
-    // Only update when we have both marketData and hasClaimed value (not undefined) and userStakeOption
-    if (marketData && hasClaimed !== undefined && userStakeOption !== undefined && onStatusUpdate) {
-      const isWinningStake = marketData?.winningOption ? Number(userStakeOption) === Number(marketData.winningOption) : false;
-      onStatusUpdate(marketId, marketData, hasClaimed as boolean, Number(userStakeOption), isWinningStake);
+    // Update when we have marketData and hasClaimed value
+    if (marketData && hasClaimed !== undefined && onStatusUpdate) {
+      // If market is resolved, we need userStakeOption to determine win/loss
+      // If userStakeOption is still loading, we'll wait for it
+      if (marketData?.state === 2 && marketData?.isResolved) {
+        // Market is resolved - need userStakeOption to determine category
+        if (userStakeOption !== undefined) {
+          const isWinningStake = marketData?.winningOption ? Number(userStakeOption) === Number(marketData.winningOption) : false;
+          onStatusUpdate(marketId, marketData, hasClaimed as boolean, Number(userStakeOption), isWinningStake);
+        }
+        // If userStakeOption is undefined, we'll wait - but this shouldn't happen for long
+      } else {
+        // Market is not resolved - categorize as pending
+        // Use default values if userStakeOption is not available yet
+        const stakeOption = userStakeOption !== undefined ? Number(userStakeOption) : 0;
+        onStatusUpdate(marketId, marketData, hasClaimed as boolean, stakeOption, false);
+      }
     }
   }, [marketData, hasClaimed, userStakeOption, marketId, onStatusUpdate]);
 
@@ -391,9 +415,11 @@ function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate, onSt
             )}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
-                <h3 className={`font-semibold text-sm truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {getMarketTitle()}
-                </h3>
+                <Link href={`/market/${marketId}`} className="flex-1 min-w-0">
+                  <h3 className={`font-semibold text-sm truncate hover:text-[#39FF14] transition-colors cursor-pointer ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                    {getMarketTitle()}
+                  </h3>
+                </Link>
                 <span className={`px-1.5 py-0.5 rounded text-xs flex-shrink-0 ${isDarkMode ? 'bg-gray-900 text-gray-300' : 'bg-gray-200 text-gray-600'}`}>
                   #{marketId}
                 </span>
@@ -522,33 +548,133 @@ export default function StakesPage() {
   const MARKET_MANAGER_ADDRESS = (process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS || process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS) as `0x${string}`;
   const ANALYTICS_ADDRESS = process.env.NEXT_PUBLIC_P2P_ANALYTICS_ADDRESS as `0x${string}`;
 
-  // Fetch user's all markets from MarketManager (more reliable than Analytics)
+  // Fetch user's markets where they have staked from Analytics contract
   const { data: userMarketIds } = useReadContract({
-    address: MARKET_MANAGER_ADDRESS,
-    abi: [
-      {
-        "inputs": [{"name": "user", "type": "address"}],
-        "name": "getUserMarketHistory",
-        "outputs": [{"name": "", "type": "uint256[]"}],
-        "stateMutability": "view",
-        "type": "function"
-      }
-    ],
-    functionName: 'getUserMarketHistory',
+    address: ANALYTICS_ADDRESS,
+    abi: ANALYTICS_ABI,
+    functionName: 'getUserStakes',
     args: [address || '0x0000000000000000000000000000000000000000'],
     query: {
-      enabled: !!address && !!MARKET_MANAGER_ADDRESS, // Only query when address is connected
+      enabled: !!address && !!ANALYTICS_ADDRESS, // Only query when address is connected
       refetchInterval: 30000, // Refetch every 30 seconds to catch new stakes
     },
   });
 
-  // Sort markets (show all user markets regardless of state)
+  // Check Treasury directly for ALL markets to find ones Analytics missed
+  // This catches cases where Analytics.trackStake() failed or wasn't called
+  const TREASURY_ADDRESS_CHECK = process.env.NEXT_PUBLIC_P2P_TREASURY_ADDRESS as `0x${string}`;
+  
+  // Get total market count
+  const { data: nextMarketId } = useReadContract({
+    address: MARKET_MANAGER_ADDRESS,
+    abi: [
+      {
+        "inputs": [],
+        "name": "getNextMarketId",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ],
+    functionName: 'getNextMarketId',
+    query: {
+      enabled: !!MARKET_MANAGER_ADDRESS && !!address,
+    },
+  });
+
+  // Check Treasury for markets Analytics missed (like market 4)
+  const [treasuryMarketIds, setTreasuryMarketIds] = useState<number[]>([]);
+  
+  useEffect(() => {
+    async function checkTreasuryForAllMarkets() {
+      if (!address || !nextMarketId || !TREASURY_ADDRESS_CHECK || !MARKET_MANAGER_ADDRESS) {
+        setTreasuryMarketIds([]);
+        return;
+      }
+
+      const analyticsIds = Array.isArray(userMarketIds) ? userMarketIds.map(id => Number(id)) : [];
+      const totalMarkets = Number(nextMarketId);
+      const found: number[] = [];
+
+      // Check each market in Treasury
+      for (let marketId = 1; marketId < totalMarkets && marketId <= 20; marketId++) {
+        // Skip if already in Analytics
+        if (analyticsIds.includes(marketId)) continue;
+
+        try {
+          // Use wagmi's publicClient to read contracts
+          const { createPublicClient, http } = await import('wagmi');
+          const publicClient = createPublicClient({
+            transport: http('https://rpc-pepu-v2-mainnet-0.t.conduit.xyz'),
+          });
+
+          // Get market to know payment token
+          const market = await publicClient.readContract({
+            address: MARKET_MANAGER_ADDRESS,
+            abi: [
+              {
+                "inputs": [{"name": "marketId", "type": "uint256"}],
+                "name": "getMarket",
+                "outputs": [
+                  {
+                    "components": [
+                      {"name": "paymentToken", "type": "address"},
+                    ],
+                    "name": "",
+                    "type": "tuple"
+                  }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+              }
+            ],
+            functionName: 'getMarket',
+            args: [BigInt(marketId)],
+          }) as any;
+
+          // Check user stake in Treasury
+          const stake = await publicClient.readContract({
+            address: TREASURY_ADDRESS_CHECK,
+            abi: [
+              {
+                "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "user", "type": "address"}, {"name": "token", "type": "address"}],
+                "name": "getUserStake",
+                "outputs": [{"name": "", "type": "uint256"}],
+                "stateMutability": "view",
+                "type": "function"
+              }
+            ],
+            functionName: 'getUserStake',
+            args: [BigInt(marketId), address, market.paymentToken || '0x0000000000000000000000000000000000000000'],
+          });
+
+          if (stake > 0n) {
+            found.push(marketId);
+            console.log(`✅ Found market ${marketId} in Treasury (stake: ${stake.toString()}) but missing from Analytics`);
+          }
+        } catch (error) {
+          // Market might not exist, skip
+          continue;
+        }
+      }
+
+      if (found.length > 0) {
+        console.log(`📊 Found ${found.length} markets in Treasury that Analytics missed:`, found);
+        setTreasuryMarketIds(found);
+      } else {
+        setTreasuryMarketIds([]);
+      }
+    }
+
+    checkTreasuryForAllMarkets();
+  }, [address, nextMarketId, userMarketIds, TREASURY_ADDRESS_CHECK, MARKET_MANAGER_ADDRESS]);
+
+  // Sort markets (combine Analytics + Treasury results)
   const sortedMarkets = React.useMemo(() => {
-    if (!Array.isArray(userMarketIds)) return [];
-    
-    const markets = [...userMarketIds].map(id => Number(id));
-    return markets.sort((a, b) => b - a); // Higher market ID = newer
-  }, [userMarketIds]);
+    const analyticsIds = Array.isArray(userMarketIds) ? userMarketIds.map(id => Number(id)) : [];
+    const allIds = [...new Set([...analyticsIds, ...treasuryMarketIds])];
+    return allIds.sort((a, b) => b - a); // Higher market ID = newer
+  }, [userMarketIds, treasuryMarketIds]);
 
   // Initialize all markets as pending when they first load
   useEffect(() => {

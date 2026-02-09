@@ -1,4 +1,6 @@
 const { ethers } = require("hardhat");
+const fs = require("fs");
+const path = require("path");
 
 async function main() {
     const [deployer] = await ethers.getSigners();
@@ -34,24 +36,16 @@ async function main() {
     const vaultAddress = await vault.getAddress();
     console.log("✅ PoolVault deployed to:", vaultAddress);
 
-    // 4. Deploy ValidationCore
-    console.log("\n4. Deploying ValidationCore...");
-    const ValidationCore = await ethers.getContractFactory("ValidationCore");
-    const validationCore = await ValidationCore.deploy(deployer.address);
-    await validationCore.waitForDeployment();
-    const validationAddress = await validationCore.getAddress();
-    console.log("✅ ValidationCore deployed to:", validationAddress);
-
-    // 5. Deploy MetricsHub (Analytics)
-    console.log("\n5. Deploying MetricsHub (Analytics)...");
+    // 4. Deploy MetricsHub (Analytics)
+    console.log("\n4. Deploying MetricsHub (Analytics)...");
     const MetricsHub = await ethers.getContractFactory("MetricsHub");
     const metricsHub = await MetricsHub.deploy(deployer.address, ethers.ZeroAddress);
     await metricsHub.waitForDeployment();
     const analyticsAddress = await metricsHub.getAddress();
     console.log("✅ MetricsHub deployed to:", analyticsAddress);
 
-    // 6. Deploy EventPool with AdminManager address
-    console.log("\n6. Deploying EventPool (MarketManager)...");
+    // 5. Deploy EventPool with AdminManager address
+    console.log("\n5. Deploying EventPool (MarketManager)...");
     const EventPool = await ethers.getContractFactory("EventPool");
     const eventPool = await EventPool.deploy(
         deployer.address,
@@ -62,65 +56,116 @@ async function main() {
     const marketManagerAddress = await eventPool.getAddress();
     console.log("✅ EventPool deployed to:", marketManagerAddress);
 
-    // 7. Link EventPool to AdminManager
-    console.log("\n7. Linking EventPool to AdminManager...");
+    // 6. Link EventPool to AdminManager
+    console.log("\n6. Linking EventPool to AdminManager...");
     const setEventPoolTx = await adminManager.setEventPool(marketManagerAddress);
     await setEventPoolTx.wait();
     console.log("✅ EventPool linked to AdminManager");
 
-    // 8. Set Analytics and Verification in AdminManager
-    console.log("\n8. Setting Analytics in AdminManager...");
+    // 7. Set Analytics in AdminManager
+    console.log("\n7. Setting Analytics in AdminManager...");
     const setAnalyticsTx = await adminManager.setAnalytics(analyticsAddress);
     await setAnalyticsTx.wait();
     console.log("✅ Analytics set in AdminManager");
-    
-    console.log("\n9. Setting Verification in AdminManager...");
-    const setVerificationTx = await adminManager.setVerification(validationAddress);
-    await setVerificationTx.wait();
-    console.log("✅ Verification set in AdminManager");
 
-    // 10. Set MarketManager in Treasury
-    console.log("\n10. Setting MarketManager in Treasury...");
+    // 8. Set MarketManager in Treasury
+    console.log("\n8. Setting MarketManager in Treasury...");
     const setMarketManagerTx = await vault.setMarketManager(marketManagerAddress);
     await setMarketManagerTx.wait();
     console.log("✅ MarketManager set in Treasury");
 
-    // 11. Set MarketManager in ValidationCore
-    console.log("\n11. Setting MarketManager in ValidationCore...");
-    const setValidationMarketManagerTx = await validationCore.setMarketManager(marketManagerAddress);
-    await setValidationMarketManagerTx.wait();
-    console.log("✅ MarketManager set in ValidationCore");
-
-    // 12. Set MarketManager in Analytics
-    console.log("\n12. Setting MarketManager in Analytics...");
+    // 9. Set MarketManager in Analytics
+    console.log("\n9. Setting MarketManager in Analytics...");
     const setAnalyticsMarketManagerTx = await metricsHub.setMarketManager(marketManagerAddress);
     await setAnalyticsMarketManagerTx.wait();
     console.log("✅ MarketManager set in Analytics");
 
-    // 13. Add P2P Token via AdminManager
-    console.log("\n13. Adding P2P Token via AdminManager...");
+    // 10. Add P2P Token via AdminManager
+    console.log("\n10. Adding P2P Token via AdminManager...");
     const addTokenTx = await adminManager.addSupportedToken(poolTokenAddress, "P2P");
     await addTokenTx.wait();
     console.log("✅ P2P Token added as supported token");
 
-    // 14. Add verifiers to ValidationCore
-    console.log("\n14. Adding verifiers to ValidationCore...");
-    const verifiers = [
-        "0x62942BbBb86482bFA0C064d0262E23Ca04ea99C5"
-    ];
-
-    for (const verifier of verifiers) {
-        try {
-            const addVerifierTx = await validationCore.addVerifier(verifier);
-            await addVerifierTx.wait();
-            console.log(`✅ Verifier added: ${verifier}`);
-        } catch (error) {
-            console.log(`⚠️  Verifier ${verifier} might already exist or failed:`, error.message);
+    // 11. Configure UMA Optimistic Oracle (using existing deployed addresses)
+    console.log("\n11. Configuring UMA Optimistic Oracle...");
+    // UMA contracts are already deployed - try to find Finder address
+    let UMA_FINDER = process.env.UMA_FINDER_ADDRESS || process.env.FINDER_ADDRESS || "";
+    
+    // Try to read from UMA deployment config if not in env
+    if (!UMA_FINDER) {
+        const umaConfigPath = path.join(__dirname, "..", "oracle", "p2p-oracle", "packages", "core", "networks", "97741.json");
+        if (fs.existsSync(umaConfigPath)) {
+            try {
+                const umaConfig = JSON.parse(fs.readFileSync(umaConfigPath, "utf8"));
+                UMA_FINDER = umaConfig.Finder || umaConfig.finder || "";
+                if (UMA_FINDER) {
+                    console.log("   Found Finder address from UMA config:", UMA_FINDER);
+                }
+            } catch (error) {
+                console.log("   Could not read UMA config:", error.message);
+            }
         }
     }
+    
+    const UMA_BOND_CURRENCY = poolTokenAddress; // Use P2P token as bond currency
+    const UMA_BOND_AMOUNT = ethers.parseEther("1000"); // 1000 P2P tokens
+    const UMA_LIVENESS = 7200; // 2 hours in seconds
+    const UMA_IDENTIFIER = ethers.id("ASSERT_TRUTH"); // keccak256("ASSERT_TRUTH")
 
-    // 15. Verify contract parameters
-    console.log("\n15. Verifying contract parameters...");
+    // Set UMA Finder and OptimisticOracle
+    const UMA_OPTIMISTIC_ORACLE = process.env.UMA_OPTIMISTIC_ORACLE_ADDRESS || "0x08134f53EA608Ef199DBa2E86340456D22b480B9";
+    
+    if (UMA_FINDER && UMA_FINDER !== "") {
+        console.log("   Setting UMA Finder (already deployed):", UMA_FINDER);
+        try {
+            const setFinderTx = await eventPool.setFinder(UMA_FINDER);
+            await setFinderTx.wait();
+            const optimisticOracle = await eventPool.optimisticOracle();
+            console.log("✅ UMA Finder set, OptimisticOracle auto-configured:", optimisticOracle);
+        } catch (error) {
+            console.log("⚠️  Could not auto-configure from Finder:", error.message);
+            console.log("   Setting OptimisticOracle directly:", UMA_OPTIMISTIC_ORACLE);
+            const setOOTx = await eventPool.setOptimisticOracle(UMA_OPTIMISTIC_ORACLE);
+            await setOOTx.wait();
+            console.log("✅ OptimisticOracle set directly");
+        }
+    } else {
+        console.log("⚠️  UMA_FINDER_ADDRESS not found, setting OptimisticOracle directly");
+        console.log("   Setting OptimisticOracle:", UMA_OPTIMISTIC_ORACLE);
+        const setOOTx = await eventPool.setOptimisticOracle(UMA_OPTIMISTIC_ORACLE);
+        await setOOTx.wait();
+        console.log("✅ OptimisticOracle set directly");
+        console.log("   You can set Finder later using: eventPool.setFinder(finderAddress)");
+    }
+
+    // Set default bond configuration
+    console.log("   Setting default UMA bond configuration...");
+    const setBondTx = await eventPool.setDefaultBond(UMA_BOND_CURRENCY, UMA_BOND_AMOUNT);
+    await setBondTx.wait();
+    console.log("✅ Default bond set:", ethers.formatEther(UMA_BOND_AMOUNT), "P2P tokens");
+
+    const setLivenessTx = await eventPool.setDefaultLiveness(UMA_LIVENESS);
+    await setLivenessTx.wait();
+    console.log("✅ Default liveness set:", UMA_LIVENESS, "seconds (2 hours)");
+
+    const setIdentifierTx = await eventPool.setDefaultIdentifier(UMA_IDENTIFIER);
+    await setIdentifierTx.wait();
+    console.log("✅ Default identifier set: ASSERT_TRUTH");
+
+    // 12. Display Price Feed Addresses (already deployed)
+    console.log("\n12. Price Feed Addresses (already deployed on Pepe Unchained):");
+    const priceFeeds = {
+        "ETH/USD": "0x20D9BBEAE75d9E17176520aD473234BE293e4C5d",
+        "BTC/USD": "0xA74CCEe7759c7bb2cE3f0b1599428fed08FaB8Ce",
+        "SOL/USD": "0x786BE298CFfF15c49727C0998392Ff38e45f99b3",
+        "PEPU/USD": "0x51C17E20994C6c0eE787fE1604ef14EBafdB7ce9"
+    };
+    for (const [name, address] of Object.entries(priceFeeds)) {
+        console.log(`   ${name}: ${address}`);
+    }
+
+    // 13. Verify contract parameters
+    console.log("\n13. Verifying contract parameters...");
     const minDuration = await adminManager.minMarketDurationMinutes();
     const stakingRestrictionEnabled = await adminManager.bettingRestrictionEnabled();
     const stakingRestrictionMinutes = await adminManager.bettingRestrictionMinutes();
@@ -139,17 +184,23 @@ async function main() {
     console.log(`AdminManager: ${adminManagerAddress}`);
     console.log(`P2P Token (Existing): ${poolTokenAddress}`);
     console.log(`PoolVault (Treasury): ${vaultAddress}`);
-    console.log(`ValidationCore: ${validationAddress}`);
     console.log(`MetricsHub (Analytics): ${analyticsAddress}`);
     console.log(`EventPool (MarketManager): ${marketManagerAddress}`);
+    
+    if (UMA_FINDER && UMA_FINDER !== "") {
+        const optimisticOracle = await eventPool.optimisticOracle();
+        console.log(`UMA Finder: ${UMA_FINDER}`);
+        console.log(`UMA OptimisticOracle: ${optimisticOracle}`);
+    }
 
     console.log("\n📝 Add to your .env file:");
     console.log(`NEXT_PUBLIC_P2P_ADMIN_ADDRESS=${adminManagerAddress}`);
     console.log(`NEXT_PUBLIC_P2P_TOKEN_ADDRESS=${poolTokenAddress}`);
     console.log(`NEXT_PUBLIC_P2P_TREASURY_ADDRESS=${vaultAddress}`);
-    console.log(`NEXT_PUBLIC_P2P_VERIFICATION_ADDRESS=${validationAddress}`);
     console.log(`NEXT_PUBLIC_P2P_ANALYTICS_ADDRESS=${analyticsAddress}`);
     console.log(`NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS=${marketManagerAddress}`);
+    console.log(`# UMA_FINDER_ADDRESS=<finder_address_from_p2p-oracle_packages_core_networks_97741.json>`);
+    console.log(`# Note: UMA contracts are already deployed - get Finder address from oracle deployment`);
 
     console.log("\n✨ System Features:");
     console.log("• AdminManager contract for all admin functions");
@@ -160,15 +211,21 @@ async function main() {
     console.log("• Settable staking restrictions");
     console.log("• Fixed fee distribution");
     console.log("• P2P Token support");
-    console.log("• Multiple verifiers");
+    console.log("• UMA Optimistic Oracle integration (for UMA_MANUAL markets)");
+    console.log("• Price Feed integration (for PRICE_FEED markets)");
+    console.log("• Direct price feed resolution (no UMA needed for price markets)");
     console.log("• All contracts properly linked");
 
     console.log("\n🔧 Next Steps:");
     console.log("1. Update your .env file with the contract addresses above");
-    console.log("2. Restart your frontend application");
-    console.log("3. For admin tasks, interact with AdminManager contract");
-    console.log("4. Test market creation via EventPool");
-    console.log("5. Test market deletion via AdminManager.deleteMarket()");
+    console.log("2. If UMA not configured, set UMA_FINDER_ADDRESS in .env and run:");
+    console.log("   eventPool.setFinder(UMA_FINDER_ADDRESS)");
+    console.log("3. Restart your frontend application");
+    console.log("4. For admin tasks, interact with AdminManager contract");
+    console.log("5. Test market creation via EventPool (with marketType parameter)");
+    console.log("6. Test PRICE_FEED market resolution (direct price feed read)");
+    console.log("7. Test UMA_MANUAL market resolution (UMA assertion flow)");
+    console.log("8. Test market deletion via AdminManager.deleteMarket()");
 }
 
 main()

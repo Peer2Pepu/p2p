@@ -1,4 +1,4 @@
-const { ethers } = require('ethers');
+dudconst { ethers } = require('ethers');
 
 // Contract addresses
 const ANALYTICS_ADDRESS = '0x...'; // You'll need to provide this

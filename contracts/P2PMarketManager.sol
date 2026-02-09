@@ -1,34 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-// ========================================
-// EVENT POOL CONTRACT (MAIN BETTING CONTRACT)
-// ========================================
-// This contract handles all betting/market functions:
-// - Create markets
-// - Place stakes/bets
-// - Support markets
-// - Resolve markets
-// - Claim winnings/refunds
-//
-// USERS CALL THIS CONTRACT for all betting actions
-// READS FROM AdminManager for permissions/settings
-// ========================================
+// EventPool: Main betting contract
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./P2PTreasury.sol";
-import "./P2PVerification.sol";
-import "./P2PAnalytics.sol";
-
-pragma solidity ^0.8.20;
-
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "./P2PTreasury.sol";
-import "./P2PVerification.sol";
 import "./P2PAnalytics.sol";
 
 interface IAdminManager {
@@ -40,7 +18,53 @@ interface IAdminManager {
     function bettingRestrictionEnabled() external view returns (bool);
     function bettingRestrictionMinutes() external view returns (uint256);
     function analytics() external view returns (address);
-    function verification() external view returns (address);
+}
+
+// UMA Optimistic Oracle V3 Interface
+interface OptimisticOracleV3 {
+    function assertTruth(
+        bytes memory claim,
+        address asserter,
+        address callbackRecipient,
+        address bondCurrency,
+        uint256 bond,
+        bytes32 identifier,
+        uint64 liveness,
+        bytes memory ancillaryData
+    ) external returns (bytes32 assertionId);
+    
+    function getAssertion(bytes32 assertionId) external view returns (
+        bytes32 claim,
+        address asserter,
+        address callbackRecipient,
+        address bondCurrency,
+        uint256 bond,
+        uint64 settledAt,
+        bool settled,
+        bytes32 settlementResolution
+    );
+    
+    function settleAndGetAssertionResult(bytes32 assertionId) external returns (bool);
+}
+
+// UMA Finder Interface
+interface Finder {
+    function getImplementationAddress(bytes32 interfaceName) external view returns (address);
+}
+
+// Price Feed Interface (Chainlink-compatible)
+interface AggregatorV3Interface {
+    function latestRoundData()
+        external
+        view
+        returns (
+            uint80 roundId,
+            int256 answer,
+            uint256 startedAt,
+            uint256 updatedAt,
+            uint80 answeredInRound
+        );
+    function decimals() external view returns (uint8);
 }
 
 contract EventPool is Ownable {
@@ -53,6 +77,12 @@ contract EventPool is Ownable {
         Resolved,
         Cancelled,
         Deleted
+    }
+
+    // Market types
+    enum MarketType {
+        PRICE_FEED,    // Resolves using on-chain price feed (no UMA)
+        UMA_MANUAL     // Resolves via UMA Optimistic Oracle (sports/politics/etc)
     }
 
     // Market structure
@@ -72,6 +102,11 @@ contract EventPool is Ownable {
         MarketState state;
         uint256 winningOption;
         bool isResolved;
+        MarketType marketType;        // NEW: Market type
+        address priceFeed;             // NEW: Price feed address (for PRICE_FEED markets)
+        uint256 priceThreshold;        // NEW: Price threshold (for PRICE_FEED markets)
+        bytes32 umaAssertionId;        // NEW: UMA assertion ID (for UMA_MANUAL markets)
+        bool umaAssertionMade;         // NEW: Whether UMA assertion was made
     }
 
     // Market data
@@ -92,8 +127,8 @@ contract EventPool is Ownable {
     
     // Fee structure (in basis points)
     uint256 public constant CREATOR_FEE_BPS = 350;
-    uint256 public constant VERIFIER_FEE_BPS = 150;
     uint256 public constant PLATFORM_FEE_BPS = 500;
+    // Note: VERIFIER_FEE_BPS removed - repurposed for UMA bonds if needed
     
     // Active market tracking
     uint256[] public activeMarkets;
@@ -102,8 +137,13 @@ contract EventPool is Ownable {
     // Stake history tracking
     mapping(address => uint256[]) public userMarketHistory;
     
-    // Verifier resolution tracking
-    mapping(uint256 => address[]) public marketResolvingVerifiers;
+    // UMA Configuration
+    address public optimisticOracle;    // UMA OptimisticOracleV3 address
+    address public finder;              // UMA Finder address
+    address public defaultBondCurrency; // Currency for UMA bonds (P2P token)
+    uint256 public defaultBond;         // Default bond amount
+    uint64 public defaultLiveness;     // Default liveness period (e.g., 2 hours = 7200)
+    bytes32 public defaultIdentifier;   // UMA identifier (e.g., "ASSERT_TRUTH")
     
     // Events
     event MarketCreated(
@@ -131,6 +171,8 @@ contract EventPool is Ownable {
     event MarketCancelled(uint256 indexed marketId, string reason);
     event RefundClaimed(uint256 indexed marketId, address indexed user, uint256 amount);
     event WinningsClaimed(uint256 indexed marketId, address indexed user, uint256 amount);
+    event ResolutionRequested(uint256 indexed marketId, bytes32 indexed assertionId);
+    event UMAResolutionSettled(uint256 indexed marketId, bytes32 indexed assertionId, bool outcome);
 
     constructor(
         address initialOwner,
@@ -144,17 +186,20 @@ contract EventPool is Ownable {
     // ============ MODIFIERS ============
     
     modifier notBlacklisted() {
-        require(!IAdminManager(adminManager).blacklistedWallets(msg.sender), "EventPool: Wallet blacklisted");
+        require(!IAdminManager(adminManager).blacklistedWallets(msg.sender), "EP: Wallet blacklisted");
         _;
     }
     
     modifier notDeleted(uint256 marketId) {
-        require(!IAdminManager(adminManager).isMarketDeleted(marketId), "EventPool: Market deleted");
+        require(!IAdminManager(adminManager).isMarketDeleted(marketId), "EP: Market deleted");
         _;
     }
 
     /**
      * @dev Create a new market
+     * @param marketType 0 = PRICE_FEED, 1 = UMA_MANUAL
+     * @param priceFeed Address of price feed (required for PRICE_FEED markets, ignored for UMA_MANUAL)
+     * @param priceThreshold Price threshold in USD (scaled by feed decimals, required for PRICE_FEED markets)
      */
     function createMarket(
         string memory ipfsHash,
@@ -165,37 +210,48 @@ contract EventPool is Ownable {
         uint256 creatorDeposit,
         uint256 creatorOutcome,
         uint256 stakeDurationMinutes,
-        uint256 resolutionDurationMinutes
+        uint256 resolutionDurationMinutes,
+        MarketType marketType,
+        address priceFeed,
+        uint256 priceThreshold
     ) external payable notBlacklisted returns (uint256) {
-        require(bytes(ipfsHash).length > 0, "EventPool: Invalid IPFS hash");
-        require(maxOptions >= 2 && maxOptions <= 10, "EventPool: Invalid max options");
-        require(minStake > 0, "EventPool: Invalid min stake");
-        require(creatorDeposit > 0, "EventPool: Invalid creator deposit");
-        require(creatorOutcome > 0 && creatorOutcome <= maxOptions, "EventPool: Invalid creator outcome");
+        require(bytes(ipfsHash).length > 0, "EP: Invalid hash");
+        require(maxOptions >= 2 && maxOptions <= 10, "EP: Invalid options");
+        require(minStake > 0, "EP: Invalid stake");
+        require(creatorDeposit > 0, "EP: Invalid deposit");
+        require(creatorOutcome > 0 && creatorOutcome <= maxOptions, "EP: Invalid outcome");
+        
+        // Validate market type specific requirements
+        if (marketType == MarketType.PRICE_FEED) {
+            require(priceFeed != address(0), "EP: Price feed required");
+            require(priceThreshold > 0, "EP: Price threshold required");
+        }
         
         // Get settings from AdminManager
         uint256 minDuration = IAdminManager(adminManager).minMarketDurationMinutes();
-        require(stakeDurationMinutes >= minDuration, "EventPool: Below minimum stake duration");
-        require(resolutionDurationMinutes >= stakeDurationMinutes, "EventPool: Resolution must be after stake period");
+        require(stakeDurationMinutes >= minDuration, "EP: Min duration");
+        require(resolutionDurationMinutes >= stakeDurationMinutes, "EP: Resolution after stake");
         
         // Validate payment token via AdminManager
         if (isMultiOption) {
-            require(paymentToken != address(0), "EventPool: Multi-option markets require P2P token");
-            require(IAdminManager(adminManager).supportedTokens(paymentToken), "EventPool: Token not supported for multi-option");
+            require(paymentToken != address(0), "EP: Multi-option needs P2P token");
+            require(IAdminManager(adminManager).supportedTokens(paymentToken), "EP: Token not supported");
         } else {
             if (paymentToken != address(0)) {
-                require(IAdminManager(adminManager).supportedTokens(paymentToken), "EventPool: Token not supported");
+                require(IAdminManager(adminManager).supportedTokens(paymentToken), "EP: Token not supported");
             }
         }
         
         // Pay market creation fee
-        require(msg.value >= marketCreationFee, "EventPool: Insufficient creation fee");
+        require(msg.value >= marketCreationFee, "EP: Insufficient fee");
         
         // Calculate timestamps
         uint256 startTime = block.timestamp;
         uint256 stakeEndTime = startTime + (stakeDurationMinutes * 1 minutes);
         uint256 endTime = startTime + (resolutionDurationMinutes * 1 minutes);
-        uint256 resolutionEndTime = endTime + 48 hours;
+        // For PRICE_FEED markets, resolution can happen immediately after endTime
+        // For UMA_MANUAL markets, add 48 hours buffer for dispute period
+        uint256 resolutionEndTime = marketType == MarketType.PRICE_FEED ? endTime : endTime + 48 hours;
         
         // Create market
         uint256 marketId = nextMarketId++;
@@ -214,7 +270,12 @@ contract EventPool is Ownable {
             resolutionEndTime: resolutionEndTime,
             state: MarketState.Active,
             winningOption: 0,
-            isResolved: false
+            isResolved: false,
+            marketType: marketType,
+            priceFeed: priceFeed,
+            priceThreshold: priceThreshold,
+            umaAssertionId: bytes32(0),
+            umaAssertionMade: false
         });
         
         // Add to active markets
@@ -223,15 +284,15 @@ contract EventPool is Ownable {
         
         // Transfer creator deposit and send fee to owner
         if (paymentToken == address(0)) {
-            require(msg.value >= marketCreationFee + creatorDeposit, "EventPool: Insufficient PEPU");
+            require(msg.value >= marketCreationFee + creatorDeposit, "EP: Insufficient PEPU");
             (bool success, ) = owner().call{value: marketCreationFee}("");
-            require(success, "EventPool: Fee transfer to owner failed");
+            require(success, "EP: Fee transfer to owner failed");
             (bool treasurySuccess, ) = treasury.call{value: creatorDeposit}("");
-            require(treasurySuccess, "EventPool: Creator deposit transfer to Treasury failed");
+            require(treasurySuccess, "EP: Creator deposit transfer to Treasury failed");
         } else {
-            require(msg.value >= marketCreationFee, "EventPool: Insufficient PEPU for creation fee");
+            require(msg.value >= marketCreationFee, "EP: Insufficient PEPU for creation fee");
             (bool success, ) = owner().call{value: marketCreationFee}("");
-            require(success, "EventPool: Fee transfer to owner failed");
+            require(success, "EP: Fee transfer to owner failed");
             IERC20(paymentToken).safeTransferFrom(msg.sender, treasury, creatorDeposit);
         }
 
@@ -272,23 +333,23 @@ contract EventPool is Ownable {
      */
     function placeStake(uint256 marketId, uint256 option) external payable notDeleted(marketId) {
         Market storage market = markets[marketId];
-        require(market.state == MarketState.Active, "EventPool: Market not active");
+        require(market.state == MarketState.Active, "EP: Not active");
         
         // Check betting restriction from AdminManager
         if (IAdminManager(adminManager).bettingRestrictionEnabled()) {
             uint256 restrictionMinutes = IAdminManager(adminManager).bettingRestrictionMinutes();
-            require(block.timestamp < market.stakeEndTime - (restrictionMinutes * 1 minutes), "EventPool: Staking period ended");
+            require(block.timestamp < market.stakeEndTime - (restrictionMinutes * 1 minutes), "EP: Staking period ended");
         }
         
-        require(option > 0 && option <= market.maxOptions, "EventPool: Invalid option");
-        require(market.paymentToken == address(0), "EventPool: This market uses tokens, use placeBetWithToken");
+        require(option > 0 && option <= market.maxOptions, "EP: Bad option");
+        require(market.paymentToken == address(0), "EP: This market uses tokens, use placeBetWithToken");
         
         uint256 amount = msg.value;
-        require(amount >= market.minStake, "EventPool: Below minimum stake");
+        require(amount >= market.minStake, "EP: Below min");
         
         // Transfer ETH to Treasury first
         (bool success, ) = treasury.call{value: amount}("");
-        require(success, "EventPool: ETH transfer to Treasury failed");
+        require(success, "EP: ETH transfer to Treasury failed");
         
         // Update user stake tracking
         if (!userHasStaked[marketId][msg.sender]) {
@@ -315,16 +376,16 @@ contract EventPool is Ownable {
      */
     function placeStakeWithToken(uint256 marketId, uint256 option, uint256 amount) external notDeleted(marketId) {
         Market storage market = markets[marketId];
-        require(market.state == MarketState.Active, "EventPool: Market not active");
+        require(market.state == MarketState.Active, "EP: Not active");
         
         if (IAdminManager(adminManager).bettingRestrictionEnabled()) {
             uint256 restrictionMinutes = IAdminManager(adminManager).bettingRestrictionMinutes();
-            require(block.timestamp < market.stakeEndTime - (restrictionMinutes * 1 minutes), "EventPool: Staking period ended");
+            require(block.timestamp < market.stakeEndTime - (restrictionMinutes * 1 minutes), "EP: Staking period ended");
         }
         
-        require(option > 0 && option <= market.maxOptions, "EventPool: Invalid option");
-        require(market.paymentToken != address(0), "EventPool: This market uses PEPU, use placeBet");
-        require(amount >= market.minStake, "EventPool: Below minimum stake");
+        require(option > 0 && option <= market.maxOptions, "EP: Bad option");
+        require(market.paymentToken != address(0), "EP: This market uses PEPU, use placeBet");
+        require(amount >= market.minStake, "EP: Below min");
         
         // Transfer tokens to Treasury
         IERC20(market.paymentToken).safeTransferFrom(msg.sender, treasury, amount);
@@ -354,18 +415,18 @@ contract EventPool is Ownable {
      */
     function supportMarket(uint256 marketId, uint256 amount) external payable notBlacklisted notDeleted(marketId) {
         Market storage market = markets[marketId];
-        require(market.state == MarketState.Active, "EventPool: Market not active");
-        require(block.timestamp < market.stakeEndTime, "EventPool: Support period ended");
-        require(amount > 0, "EventPool: Support amount must be greater than 0");
+        require(market.state == MarketState.Active, "EP: Not active");
+        require(block.timestamp < market.stakeEndTime, "EP: Support period ended");
+        require(amount > 0, "EP: Support amount must be greater than 0");
         
         if (market.paymentToken == address(0)) {
-            require(msg.value == amount, "EventPool: Incorrect ETH amount");
-            require(msg.value > 0, "EventPool: Support amount must be greater than 0");
+            require(msg.value == amount, "EP: Incorrect ETH amount");
+            require(msg.value > 0, "EP: Support amount must be greater than 0");
             
             (bool success, ) = treasury.call{value: msg.value}("");
-            require(success, "EventPool: ETH transfer to treasury failed");
+            require(success, "EP: ETH transfer to treasury failed");
         } else {
-            require(msg.value == 0, "EventPool: No ETH should be sent for token support");
+            require(msg.value == 0, "EP: No ETH should be sent for token support");
             IERC20(market.paymentToken).safeTransferFrom(msg.sender, treasury, amount);
         }
         
@@ -387,18 +448,18 @@ contract EventPool is Ownable {
      */
     function withdrawSupport(uint256 marketId) external {
         Market storage market = markets[marketId];
-        require(userHasSupported[marketId][msg.sender], "EventPool: No support to withdraw");
+        require(userHasSupported[marketId][msg.sender], "EP: No support to withdraw");
         
         if (market.state == MarketState.Active) {
-            require(block.timestamp < market.stakeEndTime - 12 hours, "EventPool: Cannot withdraw within 12 hours of staking end");
+            require(block.timestamp < market.stakeEndTime - 12 hours, "EP: Cannot withdraw within 12 hours of staking end");
         } else if (market.state == MarketState.Deleted || market.state == MarketState.Cancelled) {
             // Can withdraw anytime
         } else {
-            revert("EventPool: Cannot withdraw in current market state");
+            revert("EP: Cannot withdraw in current market state");
         }
         
         uint256 supportAmount = PoolVault(treasury).getUserSupport(marketId, msg.sender, market.paymentToken);
-        require(supportAmount > 0, "EventPool: No support to withdraw");
+        require(supportAmount > 0, "EP: No support to withdraw");
         
         PoolVault(treasury).withdrawSupport(marketId, msg.sender, market.paymentToken, supportAmount);
         userHasSupported[marketId][msg.sender] = false;
@@ -409,8 +470,8 @@ contract EventPool is Ownable {
      */
     function endMarket(uint256 marketId) external {
         Market storage market = markets[marketId];
-        require(market.state == MarketState.Active, "EventPool: Market not active");
-        require(block.timestamp >= market.endTime, "EventPool: Resolution time not reached");
+        require(market.state == MarketState.Active, "EP: Not active");
+        require(block.timestamp >= market.endTime, "EP: Resolution time not reached");
         
         market.state = MarketState.Ended;
         
@@ -420,65 +481,108 @@ contract EventPool is Ownable {
     }
 
     /**
-     * @dev Resolve market with winning option
+     * @dev Resolve price feed market directly (no UMA needed)
+     * Reads price from on-chain feed and resolves immediately
      */
-    function resolveMarket(uint256 marketId, uint256 _winningOption) external {
+    function resolvePriceFeedMarket(uint256 marketId) external {
         Market storage market = markets[marketId];
-        require(market.state == MarketState.Ended, "EventPool: Market not in ended state");
-        require(_winningOption > 0 && _winningOption <= market.maxOptions, "EventPool: Invalid winning option");
-        require(!market.isResolved, "EventPool: Already resolved");
+        require(market.marketType == MarketType.PRICE_FEED, "EP: Not price feed");
+        require(market.state == MarketState.Ended, "EP: Not ended");
+        require(!market.isResolved, "EP: Resolved");
+        require(block.timestamp >= market.resolutionEndTime, "EP: Too early to resolve");
         
-        if (block.timestamp >= market.resolutionEndTime) {
-            _cancelMarket(marketId, "Resolution period expired");
-            return;
-        }
+        // Read price directly from on-chain feed
+        AggregatorV3Interface feed = AggregatorV3Interface(market.priceFeed);
+        (, int256 price, , , ) = feed.latestRoundData();
+        uint256 currentPrice = uint256(price);
         
-        address verification = IAdminManager(adminManager).verification();
-        (bool resolved, uint256 votedOption) = ValidationCore(verification).isResolved(marketId);
-        if (resolved && votedOption == _winningOption) {
-            market.winningOption = _winningOption;
-            market.isResolved = true;
-            market.state = MarketState.Resolved;
-            
-            _trackResolvingVerifiers(marketId, _winningOption);
-            _distributeFees(marketId);
-            
-            address analytics = IAdminManager(adminManager).analytics();
-            if (analytics != address(0)) {
-                MetricsHub(analytics).trackMarketResolution(marketId, _winningOption);
-            }
-            
-            emit MarketResolved(marketId, _winningOption);
-        } else {
-            revert("EventPool: Insufficient verifier votes for this option");
-        }
-    }
-
-    /**
-     * @dev Auto-resolve market when verifier quorum is reached
-     */
-    function autoResolve(uint256 marketId) external {
-        Market storage market = markets[marketId];
-        require(market.state == MarketState.Ended, "EventPool: Market not in ended state");
-        require(!market.isResolved, "EventPool: Already resolved");
-        
-        address verification = IAdminManager(adminManager).verification();
-        (bool resolved, uint256 votedOption) = ValidationCore(verification).isResolved(marketId);
-        require(resolved, "EventPool: No resolution reached");
-        
-        market.winningOption = votedOption;
+        // Determine outcome: Option 1 wins if price >= threshold, else Option 2 wins
+        // For binary markets: option 1 = YES, option 2 = NO
+        market.winningOption = currentPrice >= market.priceThreshold ? 1 : 2;
         market.isResolved = true;
         market.state = MarketState.Resolved;
         
-        _trackResolvingVerifiers(marketId, votedOption);
         _distributeFees(marketId);
         
         address analytics = IAdminManager(adminManager).analytics();
         if (analytics != address(0)) {
-            MetricsHub(analytics).trackMarketResolution(marketId, votedOption);
+            MetricsHub(analytics).trackMarketResolution(marketId, market.winningOption);
         }
         
-        emit MarketResolved(marketId, votedOption);
+        emit MarketResolved(marketId, market.winningOption);
+    }
+
+    /**
+     * @dev Request resolution via UMA Optimistic Oracle (for UMA_MANUAL markets)
+     * @param claim The claim bytes to assert to UMA (e.g., "Team A won the game")
+     */
+    function requestUMAResolution(uint256 marketId, bytes memory claim) external {
+        Market storage market = markets[marketId];
+        require(market.marketType == MarketType.UMA_MANUAL, "EP: Not UMA");
+        require(market.state == MarketState.Ended, "EP: Not ended");
+        require(!market.isResolved, "EP: Resolved");
+        require(block.timestamp >= market.resolutionEndTime, "EP: Too early");
+        require(!market.umaAssertionMade, "EP: Assertion made");
+        require(optimisticOracle != address(0), "EP: OO not set");
+        require(defaultBondCurrency != address(0), "EP: Bond not set");
+        
+        // Make assertion to UMA
+        bytes32 assertionId = OptimisticOracleV3(optimisticOracle).assertTruth(
+            claim,
+            msg.sender,                    // asserter
+            address(this),                 // callback recipient
+            defaultBondCurrency,           // bond currency
+            defaultBond,                   // bond amount
+            defaultIdentifier,             // identifier
+            defaultLiveness,               // liveness period
+            abi.encode(marketId)           // ancillary data (market ID)
+        );
+        
+        market.umaAssertionId = assertionId;
+        market.umaAssertionMade = true;
+        
+        emit ResolutionRequested(marketId, assertionId);
+    }
+
+    /**
+     * @dev Settle market after UMA assertion is resolved
+     * Called after liveness period expires (or manually)
+     * @param winningOption The winning option (1-based)
+     */
+    function settleUMAMarket(uint256 marketId, uint256 winningOption) external {
+        Market storage market = markets[marketId];
+        require(market.marketType == MarketType.UMA_MANUAL, "EP: Not UMA");
+        require(market.umaAssertionMade, "EP: No assertion made");
+        require(!market.isResolved, "EP: Resolved");
+        require(winningOption > 0 && winningOption <= market.maxOptions, "EP: Invalid option");
+        
+        // Get assertion result from UMA
+        bool assertionResult = OptimisticOracleV3(optimisticOracle)
+            .settleAndGetAssertionResult(market.umaAssertionId);
+        
+        // For binary markets: assertionResult = true means option 1 wins
+        // For multi-option: winningOption must be provided and validated
+        if (market.maxOptions == 2) {
+            // Binary market: assertionResult determines outcome
+            market.winningOption = assertionResult ? 1 : 2;
+        } else {
+            // Multi-option: use provided winningOption
+            require(assertionResult, "EP: UMA assertion rejected");
+            market.winningOption = winningOption;
+        }
+        
+        market.isResolved = true;
+        market.state = MarketState.Resolved;
+        
+        _distributeFees(marketId);
+        
+        address analytics = IAdminManager(adminManager).analytics();
+        if (analytics != address(0)) {
+            MetricsHub(analytics).trackMarketResolution(marketId, market.winningOption);
+        }
+        
+        emit MarketResolved(marketId, market.winningOption);
+        emit UMAResolutionSettled(marketId, market.umaAssertionId, assertionResult);
     }
 
     /**
@@ -486,9 +590,9 @@ contract EventPool is Ownable {
      */
     function cancelMarket(uint256 marketId) external {
         Market storage market = markets[marketId];
-        require(market.state == MarketState.Ended, "EventPool: Market not in ended state");
-        require(block.timestamp >= market.resolutionEndTime, "EventPool: Resolution period not ended");
-        require(!market.isResolved, "EventPool: Already resolved");
+        require(market.state == MarketState.Ended, "EP: Not ended");
+        require(block.timestamp >= market.resolutionEndTime, "EP: Resolution period not ended");
+        require(!market.isResolved, "EP: Resolved");
         
         _cancelMarket(marketId, "Resolution period expired");
     }
@@ -498,9 +602,9 @@ contract EventPool is Ownable {
      */
     function creatorCancelMarket(uint256 marketId) external {
         Market storage market = markets[marketId];
-        require(msg.sender == market.creator, "EventPool: Only creator can cancel");
-        require(market.state == MarketState.Active, "EventPool: Market not active");
-        require(block.timestamp < market.stakeEndTime - 12 hours, "EventPool: Too late to cancel");
+        require(msg.sender == market.creator, "EP: Only creator can cancel");
+        require(market.state == MarketState.Active, "EP: Not active");
+        require(block.timestamp < market.stakeEndTime - 12 hours, "EP: Too late to cancel");
         
         _cancelMarket(marketId, "Creator cancelled");
     }
@@ -510,8 +614,8 @@ contract EventPool is Ownable {
      */
     function claimRefund(uint256 marketId) external {
         Market storage market = markets[marketId];
-        require(market.state == MarketState.Cancelled, "EventPool: Market not cancelled");
-        require(userHasStaked[marketId][msg.sender] || userHasSupported[marketId][msg.sender], "EventPool: No stake to refund");
+        require(market.state == MarketState.Cancelled, "EP: Market not cancelled");
+        require(userHasStaked[marketId][msg.sender] || userHasSupported[marketId][msg.sender], "EP: No stake to refund");
         
         uint256 refundAmount = 0;
         
@@ -527,7 +631,7 @@ contract EventPool is Ownable {
             userHasSupported[marketId][msg.sender] = false;
         }
         
-        require(refundAmount > 0, "EventPool: No refund available");
+        require(refundAmount > 0, "EP: No refund available");
         
         PoolVault(treasury).claimRefund(marketId, msg.sender, market.paymentToken, refundAmount);
         emit RefundClaimed(marketId, msg.sender, refundAmount);
@@ -538,10 +642,10 @@ contract EventPool is Ownable {
      */
     function calculateWinnings(uint256 marketId, address user) external view returns (uint256) {
         Market storage market = markets[marketId];
-        require(market.state == MarketState.Resolved, "EventPool: Market not resolved");
-        require(market.winningOption > 0, "EventPool: No winning option");
-        require(userHasStaked[marketId][user], "EventPool: No stake placed");
-        require(!PoolVault(treasury).hasUserClaimed(marketId, user), "EventPool: Already claimed");
+        require(market.state == MarketState.Resolved, "EP: Not resolved");
+        require(market.winningOption > 0, "EP: No winner");
+        require(userHasStaked[marketId][user], "EP: No stake placed");
+        require(!PoolVault(treasury).hasUserClaimed(marketId, user), "EP: Already claimed");
         
         uint256 userStake = PoolVault(treasury).getUserStake(marketId, user, market.paymentToken);
         uint256 totalWinningStake = PoolVault(treasury).getOptionPool(marketId, market.winningOption, market.paymentToken);
@@ -587,10 +691,10 @@ contract EventPool is Ownable {
      */
     function claimWinnings(uint256 marketId) external {
         Market storage market = markets[marketId];
-        require(market.state == MarketState.Resolved, "EventPool: Market not resolved");
-        require(market.winningOption > 0, "EventPool: No winning option");
-        require(userHasStaked[marketId][msg.sender], "EventPool: No stake placed");
-        require(!PoolVault(treasury).hasUserClaimed(marketId, msg.sender), "EventPool: Already claimed");
+        require(market.state == MarketState.Resolved, "EP: Not resolved");
+        require(market.winningOption > 0, "EP: No winner");
+        require(userHasStaked[marketId][msg.sender], "EP: No stake");
+        require(!PoolVault(treasury).hasUserClaimed(marketId, msg.sender), "EP: Claimed");
         
         uint256 userStake = PoolVault(treasury).getUserStake(marketId, msg.sender, market.paymentToken);
         uint256 totalWinningStake = PoolVault(treasury).getOptionPool(marketId, market.winningOption, market.paymentToken);
@@ -641,19 +745,6 @@ contract EventPool is Ownable {
         emit MarketCancelled(marketId, reason);
     }
 
-    /**
-     * @dev Internal function to track which verifiers resolved a market
-     */
-    function _trackResolvingVerifiers(uint256 marketId, uint256 winningOption) internal {
-        address verification = IAdminManager(adminManager).verification();
-        address[] memory allVerifiers = ValidationCore(verification).getVerifiers();
-        
-        for (uint256 i = 0; i < allVerifiers.length; i++) {
-            if (ValidationCore(verification).hasVerifierVoted(marketId, winningOption, allVerifiers[i])) {
-                marketResolvingVerifiers[marketId].push(allVerifiers[i]);
-            }
-        }
-    }
 
     /**
      * @dev Internal function to distribute platform fees to treasury
@@ -675,20 +766,15 @@ contract EventPool is Ownable {
         uint256 totalPool = PoolVault(treasury).getMarketPool(marketId, market.paymentToken);
         
         uint256 creatorFee = (totalPool * CREATOR_FEE_BPS) / 10000;
-        uint256 verifierFee = (totalPool * VERIFIER_FEE_BPS) / 10000;
         uint256 platformFee = (totalPool * PLATFORM_FEE_BPS) / 10000;
         
         if (totalWinningStake == 0) {
-            // All lose scenario - Creator gets stake back, platform gets the rest
-            uint256 totalFees = creatorFee + verifierFee + platformFee;
+            // All lose scenario - Creator gets fee, platform gets the rest
+            uint256 totalFees = creatorFee + platformFee;
             uint256 remainingForPlatform = totalPool - totalFees;
             
             if (creatorFee > 0) {
                 PoolVault(treasury).transferToCreator(market.creator, market.paymentToken, creatorFee);
-            }
-            
-            if (verifierFee > 0) {
-                PoolVault(treasury).distributeVerifierRewards(marketId, market.paymentToken, verifierFee);
             }
             
             uint256 totalPlatformAmount = platformFee + remainingForPlatform;
@@ -696,16 +782,12 @@ contract EventPool is Ownable {
                 PoolVault(treasury).addToPlatformPool(market.paymentToken, totalPlatformAmount);
             }
         } else if (totalLosingPool == 0) {
-            // All win scenario - No fees, no verifier rewards
+            // All win scenario - No fees
             // Everyone gets their stakes back completely
         } else {
             // Normal scenario - Fees from losing pool
             if (creatorFee > 0) {
                 PoolVault(treasury).transferToCreator(market.creator, market.paymentToken, creatorFee);
-            }
-            
-            if (verifierFee > 0) {
-                PoolVault(treasury).distributeVerifierRewards(marketId, market.paymentToken, verifierFee);
             }
             
             if (platformFee > 0) {
@@ -734,7 +816,7 @@ contract EventPool is Ownable {
      * @dev Update AdminManager address (one-time or emergency)
      */
     function setAdminManager(address _adminManager) external onlyOwner {
-        require(_adminManager != address(0), "EventPool: Invalid address");
+        require(_adminManager != address(0), "EP: Bad addr");
         adminManager = _adminManager;
     }
     
@@ -742,10 +824,10 @@ contract EventPool is Ownable {
      * @dev Mark market as deleted (only callable by AdminManager)
      */
     function markMarketDeleted(uint256 marketId) external {
-        require(msg.sender == adminManager, "EventPool: Only AdminManager");
-        require(marketId < nextMarketId, "EventPool: Invalid market ID");
-        require(markets[marketId].creator != address(0), "EventPool: Market does not exist");
-        require(markets[marketId].state != MarketState.Deleted, "EventPool: Already deleted");
+        require(msg.sender == adminManager, "EP: Only AdminManager");
+        require(marketId < nextMarketId, "EP: Bad ID");
+        require(markets[marketId].creator != address(0), "EP: No market");
+        require(markets[marketId].state != MarketState.Deleted, "EP: Already deleted");
         
         markets[marketId].state = MarketState.Deleted;
         
@@ -761,10 +843,10 @@ contract EventPool is Ownable {
      * @dev Mark market as permanently removed (only callable by AdminManager)
      */
     function markMarketPermanentlyRemoved(uint256 marketId) external {
-        require(msg.sender == adminManager, "EventPool: Only AdminManager");
-        require(marketId < nextMarketId, "EventPool: Invalid market ID");
-        require(markets[marketId].creator != address(0), "EventPool: Market does not exist");
-        require(markets[marketId].state == MarketState.Resolved, "EventPool: Market not resolved");
+        require(msg.sender == adminManager, "EP: Only AdminManager");
+        require(marketId < nextMarketId, "EP: Bad ID");
+        require(markets[marketId].creator != address(0), "EP: No market");
+        require(markets[marketId].state == MarketState.Resolved, "EP: Market not resolved");
         
         // Clear market data
         delete markets[marketId];
@@ -775,6 +857,62 @@ contract EventPool is Ownable {
         }
         
         emit MarketCancelled(marketId, "Permanently removed after claim period");
+    }
+
+    // ============ UMA CONFIGURATION FUNCTIONS ============
+    
+    /**
+     * @dev Set UMA Finder address (auto-updates OptimisticOracle from Finder)
+     */
+    function setFinder(address _finder) external onlyOwner {
+        require(_finder != address(0), "EP: Invalid Finder address");
+        finder = _finder;
+        
+        // Auto-update OptimisticOracle from Finder
+        // UMA uses keccak256(abi.encodePacked("OptimisticOracleV3"))
+        bytes32 interfaceName = keccak256(abi.encodePacked("OptimisticOracleV3"));
+        optimisticOracle = Finder(_finder).getImplementationAddress(interfaceName);
+        require(optimisticOracle != address(0), "EP: OptimisticOracle not found in Finder");
+    }
+    
+    /**
+     * @dev Set Finder address without lookup (if lookup fails)
+     */
+    function setFinderOnly(address _finder) external onlyOwner {
+        require(_finder != address(0), "EP: Invalid Finder address");
+        finder = _finder;
+    }
+    
+    /**
+     * @dev Set OptimisticOracle address directly (if not using Finder)
+     */
+    function setOptimisticOracle(address _oo) external onlyOwner {
+        require(_oo != address(0), "EP: Invalid OptimisticOracle address");
+        optimisticOracle = _oo;
+    }
+    
+    /**
+     * @dev Set default bond currency and amount for UMA assertions
+     */
+    function setDefaultBond(address _currency, uint256 _amount) external onlyOwner {
+        require(_currency != address(0), "EP: Invalid bond currency");
+        defaultBondCurrency = _currency;
+        defaultBond = _amount;
+    }
+    
+    /**
+     * @dev Set default liveness period for UMA assertions (in seconds)
+     */
+    function setDefaultLiveness(uint64 _liveness) external onlyOwner {
+        require(_liveness > 0, "EP: Invalid liveness");
+        defaultLiveness = _liveness;
+    }
+    
+    /**
+     * @dev Set default identifier for UMA assertions
+     */
+    function setDefaultIdentifier(bytes32 _identifier) external onlyOwner {
+        defaultIdentifier = _identifier;
     }
 
     // ============ VIEW FUNCTIONS ============
@@ -842,33 +980,8 @@ contract EventPool is Ownable {
         return nextMarketId;
     }
     
-    function getActiveMarkets() external view returns (uint256[] memory) {
-        return activeMarkets;
-    }
-    
-    function getUserMarketHistory(address user) external view returns (uint256[] memory) {
-        return userMarketHistory[user];
-    }
-    
-    function isMarketActive(uint256 marketId) external view returns (bool) {
-        return isActiveMarket[marketId] && markets[marketId].state != MarketState.Deleted;
-    }
-    
-    function getActiveMarketCount() external view returns (uint256) {
-        return activeMarkets.length;
-    }
-    
-    function getAllMarketIds() external view returns (uint256[] memory) {
-        uint256[] memory allIds = new uint256[](nextMarketId - 1);
-        for (uint256 i = 1; i < nextMarketId; i++) {
-            allIds[i - 1] = i;
-        }
-        return allIds;
-    }
+    // Removed some view functions to reduce contract size - can be computed off-chain
 
-    function getMarketResolvingVerifiers(uint256 marketId) external view returns (address[] memory) {
-        return marketResolvingVerifiers[marketId];
-    }
 
     receive() external payable {}
 }

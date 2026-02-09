@@ -7,10 +7,13 @@ module.exports = {
     settings: {
       optimizer: {
         enabled: true,
-        runs: 1  // Minimal runs for smallest bytecode
+        runs: 1  // Minimal runs = smallest bytecode size
       },
       viaIR: true,  // Enable viaIR to fix stack too deep errors
-      evmVersion: 'paris'  // Use Paris EVM version for better optimization
+      evmVersion: 'paris',  // Use Paris EVM version for better optimization
+      metadata: {
+        bytecodeHash: 'none'  // Remove metadata hash to reduce size
+      }
     }
   },
   networks: {

@@ -16,7 +16,8 @@ import {
   Target,
   Receipt,
   Shield,
-  User
+  User,
+  FileText
 } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useBalance, useChainId, useDisconnect } from 'wagmi';
@@ -40,10 +41,12 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse, isDarkMo
   const sidebarItems = [
     { icon: Home, label: "Markets", href: "/", active: pathname === "/" },
     { icon: Target, label: "Resolve", href: "/resolve", active: pathname === "/resolve" },
+    { icon: Shield, label: "Assert", href: "/assert", active: pathname === "/assert" },
     { icon: Receipt, label: "Stakes", href: "/stakes", active: pathname === "/stakes" },
     { icon: Plus, label: "Create Market", href: "/create-market", active: pathname === "/create-market" },
     { icon: User, label: "Profile", href: "/profile", active: pathname === "/profile" },
     { icon: TrendingUp, label: "Analytics", href: "/analytics", active: pathname === "/analytics" },
+    { icon: FileText, label: "Docs", href: "/docs", active: pathname === "/docs" },
     { icon: Shield, label: "Admin", href: "/admin", active: pathname === "/admin" }
   ];
 

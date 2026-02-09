@@ -802,12 +802,12 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
                         <h3 className={`text-sm sm:text-base font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-700'}`}>
                           Resources & Links
                         </h3>
-                        <div className={`text-sm sm:text-base leading-relaxed whitespace-pre-wrap ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
+                        <div className={`text-sm sm:text-base leading-relaxed whitespace-pre-wrap break-words ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                           {marketMetadata.vanityInfo.split('\n').map((line: string, idx: number) => {
                             const urlPattern = /(https?:\/\/[^\s]+)/g;
                             const parts = line.split(urlPattern);
                             return (
-                              <div key={idx} className="mb-2">
+                              <div key={idx} className="mb-2 break-words">
                                 {parts.map((part, partIdx) => {
                                   if (urlPattern.test(part)) {
                                     return (
@@ -816,14 +816,14 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
                                         href={part}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className={`inline-flex items-center gap-1 underline hover:opacity-80 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}
+                                        className={`inline-flex items-center gap-1 underline hover:opacity-80 break-all ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}
                                       >
-                                        {part}
-                                        <ExternalLink size={14} />
+                                        <span className="break-all">{part}</span>
+                                        <ExternalLink size={14} className="flex-shrink-0" />
                                       </a>
                                     );
                                   }
-                                  return <span key={partIdx}>{part}</span>;
+                                  return <span key={partIdx} className="break-words">{part}</span>;
                                 })}
                               </div>
                             );

@@ -732,6 +732,9 @@
           },
           "viaIR": true,
           "evmVersion": "paris",
+          "metadata": {
+            "bytecodeHash": "none"
+          },
           "outputSelection": {
             "*": {
               "*": [
@@ -772,6 +775,9 @@
           },
           "viaIR": true,
           "evmVersion": "paris",
+          "metadata": {
+            "bytecodeHash": "none"
+          },
           "outputSelection": {
             "*": {
               "*": [
@@ -811,6 +817,9 @@
           },
           "viaIR": true,
           "evmVersion": "paris",
+          "metadata": {
+            "bytecodeHash": "none"
+          },
           "outputSelection": {
             "*": {
               "*": [
@@ -848,6 +857,9 @@
           },
           "viaIR": true,
           "evmVersion": "paris",
+          "metadata": {
+            "bytecodeHash": "none"
+          },
           "outputSelection": {
             "*": {
               "*": [
@@ -890,6 +902,9 @@
           },
           "viaIR": true,
           "evmVersion": "paris",
+          "metadata": {
+            "bytecodeHash": "none"
+          },
           "outputSelection": {
             "*": {
               "*": [
@@ -927,6 +942,9 @@
           },
           "viaIR": true,
           "evmVersion": "paris",
+          "metadata": {
+            "bytecodeHash": "none"
+          },
           "outputSelection": {
             "*": {
               "*": [
@@ -966,6 +984,9 @@
           },
           "viaIR": true,
           "evmVersion": "paris",
+          "metadata": {
+            "bytecodeHash": "none"
+          },
           "outputSelection": {
             "*": {
               "*": [
@@ -1005,6 +1026,9 @@
           },
           "viaIR": true,
           "evmVersion": "paris",
+          "metadata": {
+            "bytecodeHash": "none"
+          },
           "outputSelection": {
             "*": {
               "*": [
@@ -1042,6 +1066,9 @@
           },
           "viaIR": true,
           "evmVersion": "paris",
+          "metadata": {
+            "bytecodeHash": "none"
+          },
           "outputSelection": {
             "*": {
               "*": [
@@ -1082,6 +1109,9 @@
           },
           "viaIR": true,
           "evmVersion": "paris",
+          "metadata": {
+            "bytecodeHash": "none"
+          },
           "outputSelection": {
             "*": {
               "*": [
@@ -1119,6 +1149,9 @@
           },
           "viaIR": true,
           "evmVersion": "paris",
+          "metadata": {
+            "bytecodeHash": "none"
+          },
           "outputSelection": {
             "*": {
               "*": [
@@ -1156,6 +1189,9 @@
           },
           "viaIR": true,
           "evmVersion": "paris",
+          "metadata": {
+            "bytecodeHash": "none"
+          },
           "outputSelection": {
             "*": {
               "*": [
@@ -1196,6 +1232,9 @@
           },
           "viaIR": true,
           "evmVersion": "paris",
+          "metadata": {
+            "bytecodeHash": "none"
+          },
           "outputSelection": {
             "*": {
               "*": [
@@ -1226,8 +1265,8 @@
       ]
     },
     "C:\\Users\\USER\\p2p\\p2p\\contracts\\P2PMarketManager.sol": {
-      "lastModificationDate": 1766263562867,
-      "contentHash": "1f4c40c7e14b989f80565a63fbd705c4",
+      "lastModificationDate": 1770588058618,
+      "contentHash": "82e5ac7fe8221d2b4188d9679e2a0ec2",
       "sourceName": "contracts/P2PMarketManager.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -1238,6 +1277,9 @@
           },
           "viaIR": true,
           "evmVersion": "paris",
+          "metadata": {
+            "bytecodeHash": "none"
+          },
           "outputSelection": {
             "*": {
               "*": [
@@ -1259,22 +1301,17 @@
         "@openzeppelin/contracts/token/ERC20/IERC20.sol",
         "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
         "./P2PTreasury.sol",
-        "./P2PVerification.sol",
-        "./P2PAnalytics.sol",
-        "@openzeppelin/contracts/access/Ownable.sol",
-        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
-        "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
-        "./P2PTreasury.sol",
-        "./P2PVerification.sol",
         "./P2PAnalytics.sol"
       ],
       "versionPragmas": [
-        "^0.8.20",
         "^0.8.20"
       ],
       "artifacts": [
+        "AggregatorV3Interface",
         "EventPool",
-        "IAdminManager"
+        "Finder",
+        "IAdminManager",
+        "OptimisticOracleV3"
       ]
     },
     "C:\\Users\\USER\\p2p\\p2p\\contracts\\P2PVerification.sol": {
@@ -1290,6 +1327,9 @@
           },
           "viaIR": true,
           "evmVersion": "paris",
+          "metadata": {
+            "bytecodeHash": "none"
+          },
           "outputSelection": {
             "*": {
               "*": [
@@ -1330,6 +1370,9 @@
           },
           "viaIR": true,
           "evmVersion": "paris",
+          "metadata": {
+            "bytecodeHash": "none"
+          },
           "outputSelection": {
             "*": {
               "*": [
@@ -1370,6 +1413,9 @@
           },
           "viaIR": true,
           "evmVersion": "paris",
+          "metadata": {
+            "bytecodeHash": "none"
+          },
           "outputSelection": {
             "*": {
               "*": [
@@ -1410,6 +1456,9 @@
           },
           "viaIR": true,
           "evmVersion": "paris",
+          "metadata": {
+            "bytecodeHash": "none"
+          },
           "outputSelection": {
             "*": {
               "*": [

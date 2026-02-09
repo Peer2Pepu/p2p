@@ -52,12 +52,24 @@ const MARKET_MANAGER_ABI = [
           {"name": "resolutionEndTime", "type": "uint256"},
           {"name": "state", "type": "uint8"},
           {"name": "winningOption", "type": "uint256"},
-          {"name": "isResolved", "type": "bool"}
+          {"name": "isResolved", "type": "bool"},
+          {"name": "umaAssertionId", "type": "bytes32"},
+          {"name": "priceFeed", "type": "address"},
+          {"name": "priceThreshold", "type": "uint256"},
+          {"name": "marketType", "type": "uint8"},
+          {"name": "umaAssertionMade", "type": "bool"}
         ],
         "name": "",
         "type": "tuple"
       }
     ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getNextMarketId",
+    "outputs": [{"name": "", "type": "uint256"}],
     "stateMutability": "view",
     "type": "function"
   },
@@ -69,10 +81,10 @@ const MARKET_MANAGER_ABI = [
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "getActiveMarkets",
-    "outputs": [{"name": "", "type": "uint256[]"}],
-    "stateMutability": "view",
+    "inputs": [{"name": "marketId", "type": "uint256"}],
+    "name": "resolvePriceFeedMarket",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -147,37 +159,85 @@ class MarketBot {
     console.log('🔍 Checking markets for end time...');
     
     try {
-      // Get all market IDs (you might need to implement getActiveMarkets or track them)
-      const marketIds = await this.getAllMarketIds();
-      console.log(`📊 Found ${marketIds.length} markets to check:`, marketIds);
+      // Get all market IDs (not just active ones)
+      const allMarketIds = await this.getAllMarketIds();
+      console.log(`📊 Found ${allMarketIds.length} markets to check:`, allMarketIds);
       
-      for (const marketId of marketIds) {
+      for (const marketId of allMarketIds) {
         try {
           const market = await this.contract.getMarket(marketId);
           const currentTime = Math.floor(Date.now() / 1000);
           const endTime = Number(market.endTime);
+          const resolutionEndTime = Number(market.resolutionEndTime);
           const state = Number(market.state);
+          const marketType = Number(market.marketType);
+          const isResolved = market.isResolved;
           
-          console.log(`Market ${marketId}: state=${state}, currentTime=${currentTime}, endTime=${endTime}, shouldEnd=${currentTime >= endTime}`);
-          console.log(`Market ${marketId}: state check=${state === 0}, time check=${currentTime >= endTime}, both=${state === 0 && currentTime >= endTime}`);
+          console.log(`Market ${marketId}: state=${state}, type=${marketType}, currentTime=${currentTime}, endTime=${endTime}, resolutionEndTime=${resolutionEndTime}, isResolved=${isResolved}`);
           
-          // Only end active markets that have reached end time; notify only after a successful end
+          // End active markets that have reached end time (works for both PRICE_FEED and UMA_MANUAL)
           if (state === 0 && currentTime >= endTime) {
-            console.log(`⏰ Market ${marketId} reached end time, attempting to end...`);
+            const marketTypeName = marketType === 0 ? 'PRICE_FEED' : 'UMA_MANUAL (Optimistic Oracle)';
+            console.log(`⏰ Market ${marketId} (${marketTypeName}) reached end time, attempting to end...`);
             try {
               const tx = await this.contract.endMarket(marketId);
               console.log(`📝 Transaction sent: ${tx.hash}`);
               await tx.wait();
               console.log(`✅ Market ${marketId} ended successfully!`);
 
-              // Refetch to ensure fresh data and notify once per runtime
+              // Refetch to ensure fresh data
+              const endedMarket = await this.contract.getMarket(marketId);
+              
+              // If this is a PRICE_FEED market, auto-resolve it after ending
+              const endedMarketType = Number(endedMarket.marketType);
+              if (endedMarketType === 0) { // 0 = PRICE_FEED
+                console.log(`💰 Market ${marketId} is a price feed market, attempting auto-resolution...`);
+                try {
+                  // Wait a bit for the endMarket transaction to be fully processed
+                  await new Promise(resolve => setTimeout(resolve, 2000));
+                  
+                  // Check if resolution time has passed
+                  const endedResolutionEndTime = Number(endedMarket.resolutionEndTime);
+                  if (currentTime >= endedResolutionEndTime && !endedMarket.isResolved) {
+                    const resolveTx = await this.contract.resolvePriceFeedMarket(marketId);
+                    console.log(`📝 Resolution transaction sent: ${resolveTx.hash}`);
+                    await resolveTx.wait();
+                    console.log(`✅ Market ${marketId} auto-resolved successfully!`);
+                  } else {
+                    console.log(`⏳ Market ${marketId} resolution time not yet reached or already resolved`);
+                  }
+                } catch (resolveError) {
+                  console.error(`❌ Failed to auto-resolve price feed market ${marketId}:`, resolveError.message);
+                }
+              }
+
+              // Notify once per runtime
               if (!this.processedEndNotices.has(marketId)) {
-                const endedMarket = await this.contract.getMarket(marketId);
                 await this.sendEndNotification(marketId, endedMarket);
                 this.processedEndNotices.add(marketId);
               }
             } catch (endError) {
               console.error(`❌ Failed to end market ${marketId}:`, endError.message);
+            }
+          }
+          
+          // Check for PRICE_FEED markets that are ended but not resolved
+          if (state === 1 && marketType === 0 && !isResolved) {
+            if (currentTime >= resolutionEndTime) {
+              console.log(`💰 Market ${marketId} is an ended price feed market ready for resolution...`);
+              try {
+                const resolveTx = await this.contract.resolvePriceFeedMarket(marketId);
+                console.log(`📝 Resolution transaction sent: ${resolveTx.hash}`);
+                await resolveTx.wait();
+                console.log(`✅ Market ${marketId} auto-resolved successfully!`);
+              } catch (resolveError) {
+                console.error(`❌ Failed to auto-resolve price feed market ${marketId}:`, resolveError.message);
+              }
+            } else {
+              const timeUntilResolution = resolutionEndTime - currentTime;
+              const hoursUntil = Math.floor(timeUntilResolution / 3600);
+              const minutesUntil = Math.floor((timeUntilResolution % 3600) / 60);
+              console.log(`⏳ Market ${marketId} waiting for resolution time (${hoursUntil}h ${minutesUntil}m remaining)`);
             }
           }
         } catch (error) {
@@ -191,12 +251,40 @@ class MarketBot {
 
   async getAllMarketIds() {
     try {
-      // Use the actual contract function to get active markets
-      const activeMarkets = await this.contract.getActiveMarkets();
-      console.log('📊 Active markets from contract:', activeMarkets);
-      return activeMarkets.map(id => Number(id));
+      // Get the next market ID to know how many markets exist
+      const nextMarketId = await this.contract.getNextMarketId();
+      const totalMarkets = Number(nextMarketId);
+      
+      if (totalMarkets === 0) {
+        return [];
+      }
+      
+      // Iterate through all market IDs and return all valid markets
+      const allMarketIds = [];
+      let activeCount = 0;
+      
+      for (let i = 1; i < totalMarkets; i++) {
+        try {
+          const market = await this.contract.getMarket(i);
+          const state = Number(market.state);
+          // State 0 = Active, 1 = Ended, 2 = Resolved, 3 = Cancelled
+          // Include all markets except cancelled ones (we need to check ended ones for resolution)
+          if (state !== 3) { // Not cancelled
+            allMarketIds.push(i);
+            if (state === 0) {
+              activeCount++;
+            }
+          }
+        } catch (error) {
+          // Market might not exist or be deleted, skip it
+          continue;
+        }
+      }
+      
+      console.log(`📊 Found ${activeCount} active markets out of ${allMarketIds.length} total markets`);
+      return allMarketIds;
     } catch (error) {
-      console.error('Error getting active markets:', error);
+      console.error('Error getting all markets:', error);
       return [];
     }
   }
