@@ -202,7 +202,7 @@ export default function CreateMarketPage() {
           // Build price string
           let priceStr: string;
           
-          if (wholePart === 0n) {
+          if (wholePart === BigInt(0)) {
             // For prices < 1: count leading zeros, then show next 3 digits
             // e.g., 0.000196141642653553 -> 0.000196 (3 leading zeros + 3 digits)
             const leadingZeros = fractionalStr.match(/^0*/)?.[0].length || 0;
