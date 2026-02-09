@@ -274,11 +274,13 @@ export default function AssertPage() {
     
     try {
       const claimBytes = new TextEncoder().encode(claimText);
+      // Convert Uint8Array to hex string (0x prefix required)
+      const claimBytesHex = `0x${Array.from(claimBytes).map(b => b.toString(16).padStart(2, '0')).join('')}` as `0x${string}`;
       await writeContract({
         address: MARKET_MANAGER_ADDRESS,
         abi: MARKET_MANAGER_ABI,
         functionName: 'requestUMAResolution',
-        args: [BigInt(marketId), claimBytes],
+        args: [BigInt(marketId), claimBytesHex],
       });
       setSuccess('Assertion submitted! Waiting for confirmation...');
       setError('');
