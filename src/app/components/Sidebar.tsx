@@ -13,7 +13,6 @@ import {
   TrendingUp,
   Lock,
   Wallet,
-  Target,
   Receipt,
   Shield,
   User,
@@ -40,7 +39,6 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse, isDarkMo
   
   const sidebarItems = [
     { icon: Home, label: "Markets", href: "/", active: pathname === "/" },
-    { icon: Target, label: "Resolve", href: "/resolve", active: pathname === "/resolve" },
     { icon: Shield, label: "Assert", href: "/assert", active: pathname === "/assert" },
     { icon: Receipt, label: "Stakes", href: "/stakes", active: pathname === "/stakes" },
     { icon: Plus, label: "Create Market", href: "/create-market", active: pathname === "/create-market" },

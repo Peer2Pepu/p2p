@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useReadContract, useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { Sidebar } from '../../components/Sidebar';
+import { HeaderWallet } from '@/components/HeaderWallet';
 import { useTheme } from '../../context/ThemeContext';
 import Image from 'next/image';
 import { 
@@ -17,7 +18,6 @@ import {
   TrendingUp,
   ExternalLink,
   User,
-  Shield,
   Crown
 } from 'lucide-react';
 import Link from 'next/link';
@@ -35,6 +35,50 @@ const supabase = createClient(
 
 // Explorer URL
 const EXPLORER_URL = 'https://explorer-pepu-v2-mainnet-0.t.conduit.xyz';
+
+// Price feed to chart URL mapping
+// TradingView widgets for major coins, Gecko Terminal for PEPU
+// Keys are lowercase to match the converted priceFeed address
+const PRICE_FEED_TO_CHART_CONFIG: Record<string, { symbol: string; type: 'tradingview' | 'gecko'; geckoUrl?: string }> = {
+  '0x20d9bbeae75d9e17176520ad473234be293e4c5d': {
+    symbol: 'CRYPTOCAP:ETH',
+    type: 'tradingview'
+  }, // ETH/USD
+  '0xa74ccee7759c7bb2ce3f0b1599428fed08fab8ce': {
+    symbol: 'CRYPTOCAP:BTC',
+    type: 'tradingview'
+  }, // BTC/USD
+  '0x786be298cfff15c49727c0998392ff38e45f99b3': {
+    symbol: 'CRYPTOCAP:SOL',
+    type: 'tradingview'
+  }, // SOL/USD
+  '0x51c17e20994c6c0ee787fe1604ef14ebafdb7ce9': {
+    symbol: '',
+    type: 'gecko',
+    geckoUrl: 'https://www.geckoterminal.com/eth/pools/0xb1b10b05aa043dd8d471d4da999782bc694993e3ecbe8e7319892b261b412ed5'
+  } // PEPU/USD - Gecko Terminal
+};
+
+// Helper function to get chart URL based on config and theme
+const getChartUrl = (config: { symbol: string; type: 'tradingview' | 'gecko'; geckoUrl?: string } | null, isDarkMode: boolean): string | null => {
+  if (!config) return null;
+  
+  if (config.type === 'gecko' && config.geckoUrl) {
+    // Gecko Terminal doesn't support simple iframe embeds
+    // Return the direct URL - we'll show it as a link or use their widget
+    return config.geckoUrl;
+  }
+  
+  if (config.type === 'tradingview') {
+    const theme = isDarkMode ? 'dark' : 'light';
+    const bgColor = isDarkMode ? '%23111417' : '%23FFFFFF';
+    const toolbarBg = isDarkMode ? '%23111417' : '%23FFFFFF';
+    // Use TradingView's advanced chart widget which is more reliable
+    return `https://www.tradingview.com/widgetembed/?symbol=${config.symbol}&interval=D&theme=${theme}&style=1&locale=en&backgroundColor=${bgColor}&hide_top_toolbar=0&hide_legend=0&save_image=0&toolbar_bg=${toolbarBg}&studies=%5B%5D&hide_volume=0&withdateranges=0&range=1M&allow_symbol_change=0`;
+  }
+  
+  return null;
+};
 
 // Contract ABI
 const MARKET_MANAGER_ABI = [
@@ -58,7 +102,10 @@ const MARKET_MANAGER_ABI = [
           {"name": "resolutionEndTime", "type": "uint256"},
           {"name": "state", "type": "uint8"},
           {"name": "winningOption", "type": "uint256"},
-          {"name": "isResolved", "type": "bool"}
+          {"name": "isResolved", "type": "bool"},
+          {"name": "marketType", "type": "uint8"},
+          {"name": "priceFeed", "type": "address"},
+          {"name": "priceThreshold", "type": "uint256"}
         ],
         "name": "",
         "type": "tuple"
@@ -142,18 +189,7 @@ interface StakerInfo {
   username?: string;
   displayName?: string;
   isCreator?: boolean;
-  isValidator?: boolean;
 }
-
-const VALIDATION_CORE_ABI = [
-  {
-    "inputs": [],
-    "name": "getVerifiers",
-    "outputs": [{"name": "", "type": "address[]"}],
-    "stateMutability": "view",
-    "type": "function"
-  }
-];
 
 export default function MarketDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const [marketId, setMarketId] = useState<number | null>(null);
@@ -177,11 +213,13 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
   const [stakers, setStakers] = useState<StakerInfo[]>([]);
   const [loadingStakers, setLoadingStakers] = useState(true);
   const [creatorProfile, setCreatorProfile] = useState<any>(null);
-  const [validators, setValidators] = useState<Set<string>>(new Set());
   const [betAmount, setBetAmount] = useState('');
   const [selectedOption, setSelectedOption] = useState(1);
   const [isStaking, setIsStaking] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
+  const [chartType, setChartType] = useState<'activity' | 'price'>('activity');
+  const [resolvedPrice, setResolvedPrice] = useState<string | null>(null);
+  const [priceDecimals, setPriceDecimals] = useState<number>(8);
 
   const MARKET_MANAGER_ADDRESS = (process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS || process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS) as `0x${string}`;
 
@@ -196,6 +234,105 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
       refetchInterval: 10000,
     }
   }) as { data: any; isLoading: boolean; error: any };
+
+  // Determine if this is a price feed market
+  // Handle both possible marketType values: 0 (PRICE_FEED) or undefined/null (legacy markets)
+  const marketTypeValue = market?.marketType !== undefined ? Number(market.marketType) : null;
+  const isPriceFeedMarket = market && marketTypeValue === 0; // 0 = PRICE_FEED
+  const priceFeedAddress = market?.priceFeed?.toLowerCase();
+  const chartConfig = priceFeedAddress ? PRICE_FEED_TO_CHART_CONFIG[priceFeedAddress] : null;
+  const chartUrl = getChartUrl(chartConfig, isDarkMode);
+
+  // Fetch resolved price for price feed markets
+  useEffect(() => {
+    const fetchResolvedPrice = async () => {
+      if (!isPriceFeedMarket || !market?.isResolved || !priceFeedAddress) {
+        setResolvedPrice(null);
+        return;
+      }
+
+      try {
+        const provider = new ethers.JsonRpcProvider('https://rpc-pepu-v2-mainnet-0.t.conduit.xyz');
+        
+        // Get price feed contract
+        const priceFeedContract = new ethers.Contract(
+          priceFeedAddress,
+          [
+            {
+              "inputs": [],
+              "name": "decimals",
+              "outputs": [{"name": "", "type": "uint8"}],
+              "stateMutability": "view",
+              "type": "function"
+            },
+            {
+              "inputs": [],
+              "name": "latestRoundData",
+              "outputs": [
+                {"name": "roundId", "type": "uint80"},
+                {"name": "answer", "type": "int256"},
+                {"name": "startedAt", "type": "uint256"},
+                {"name": "updatedAt", "type": "uint256"},
+                {"name": "answeredInRound", "type": "uint80"}
+              ],
+              "stateMutability": "view",
+              "type": "function"
+            }
+          ],
+          provider
+        );
+
+        // Get decimals
+        const decimals = await priceFeedContract.decimals();
+        setPriceDecimals(Number(decimals));
+
+        // Get latest price (approximation of resolution price)
+        const roundData = await priceFeedContract.latestRoundData();
+        const priceValue = BigInt(roundData.answer.toString());
+        
+        // Convert to human-readable price
+        const divisor = BigInt(10 ** Number(decimals));
+        const wholePart = priceValue / divisor;
+        const fractionalPart = priceValue % divisor;
+        const fractionalStr = fractionalPart.toString().padStart(Number(decimals), '0');
+        
+        // Format price
+        let priceStr: string;
+        if (wholePart === BigInt(0)) {
+          const leadingZeros = fractionalStr.match(/^0*/)?.[0].length || 0;
+          const totalDigits = leadingZeros + 3;
+          priceStr = `0.${fractionalStr.substring(0, totalDigits)}`;
+        } else {
+          priceStr = `${wholePart}.${fractionalStr.substring(0, 2)}`;
+        }
+        
+        setResolvedPrice(priceStr);
+      } catch (error) {
+        console.error('Error fetching resolved price:', error);
+        setResolvedPrice(null);
+      }
+    };
+
+    fetchResolvedPrice();
+  }, [isPriceFeedMarket, market?.isResolved, priceFeedAddress]);
+
+  // Debug logging
+  useEffect(() => {
+    if (market) {
+      console.log('Market data:', {
+        marketType: market.marketType,
+        marketTypeValue,
+        priceFeed: market.priceFeed,
+        priceFeedLower: priceFeedAddress,
+        isPriceFeedMarket,
+        chartConfig,
+        chartUrl,
+        chartType,
+        resolvedPrice,
+        availablePriceFeeds: Object.keys(PRICE_FEED_TO_CHART_CONFIG)
+      });
+    }
+  }, [market, marketTypeValue, priceFeedAddress, isPriceFeedMarket, chartConfig, chartUrl, chartType, resolvedPrice]);
 
   // Fetch market statistics
   const { data: totalVolume } = useReadContract({
@@ -311,26 +448,6 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
     }
   }, [market]);
 
-  // Fetch validators
-  useEffect(() => {
-    const fetchValidators = async () => {
-      const VALIDATION_CORE_ADDRESS = process.env.NEXT_PUBLIC_P2P_VERIFICATION_ADDRESS as `0x${string}`;
-      if (!VALIDATION_CORE_ADDRESS) return;
-
-      try {
-        const provider = new ethers.JsonRpcProvider('https://rpc-pepu-v2-mainnet-0.t.conduit.xyz');
-        const contract = new ethers.Contract(VALIDATION_CORE_ADDRESS, VALIDATION_CORE_ABI, provider);
-        const verifiers = await contract.getVerifiers() as string[];
-        const validatorSet = new Set<string>(verifiers.map((v: string) => v.toLowerCase()));
-        setValidators(validatorSet);
-      } catch (error) {
-        console.error('Error fetching validators:', error);
-      }
-    };
-
-    fetchValidators();
-  }, []);
-
   // Fetch stakers from events
   useEffect(() => {
     const fetchStakers = async () => {
@@ -400,7 +517,7 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
           }
         }
 
-        // Fetch profiles for all stakers and mark creator/validator
+        // Fetch profiles for all stakers and mark creator
         const stakerList: StakerInfo[] = [];
         const creatorAddress = market.creator?.toLowerCase();
         
@@ -413,16 +530,14 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
               amount: data.amount,
               username: profile?.username,
               displayName: profile?.display_name,
-              isCreator: addr === creatorAddress,
-              isValidator: validators.has(addr)
+              isCreator: addr === creatorAddress
             });
           } catch {
             stakerList.push({
               address: addr,
               option: data.option,
               amount: data.amount,
-              isCreator: addr === creatorAddress,
-              isValidator: validators.has(addr)
+              isCreator: addr === creatorAddress
             });
           }
         }
@@ -436,10 +551,12 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
       }
     };
 
-    if (market && marketId && validators.size > 0) {
+    if (market && marketId) {
       fetchStakers();
+    } else if (!market || !marketId) {
+      setLoadingStakers(false);
     }
-  }, [marketId, market, MARKET_MANAGER_ADDRESS, validators]);
+  }, [marketId, market, MARKET_MANAGER_ADDRESS]);
 
   // Fetch chart data from StakePlaced events
   useEffect(() => {
@@ -711,28 +828,7 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
                 >
                   {isDarkMode ? <Sun size={20} className="text-white" /> : <Moon size={20} className="text-gray-600" />}
                 </button>
-                {isConnected ? (
-                  <div className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 rounded text-xs sm:text-sm font-medium ${
-                    isDarkMode 
-                      ? 'bg-[#39FF14]/10 text-white border border-[#39FF14]/30' 
-                      : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                  }`}>
-                    <Wallet size={16} />
-                    <span className="font-mono hidden sm:inline">
-                      {address?.slice(0, 6)}...{address?.slice(-4)}
-                    </span>
-                    <span className="font-mono sm:hidden">
-                      {address?.slice(0, 4)}...{address?.slice(-2)}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1 sm:gap-2">
-                    <Wallet size={16} className={isDarkMode ? 'text-white/60' : 'text-gray-400'} />
-                    <div className="scale-90 sm:scale-100">
-                      <ConnectButton />
-                    </div>
-                  </div>
-                )}
+                <HeaderWallet isDarkMode={isDarkMode} />
               </div>
             </div>
           </div>
@@ -835,19 +931,100 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
                 )}
               </div>
 
-              {/* Activity Chart */}
+              {/* Activity Chart / Price Chart */}
               <div className={`rounded-xl shadow-sm p-4 sm:p-6 border ${
                 isDarkMode ? 'bg-black border-gray-800' : 'bg-[#F5F3F0] border-gray-300'
               }`}>
-                <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
-                  <TrendingUp className={`${isDarkMode ? 'text-[#39FF14]' : 'text-emerald-600'}`} size={24} />
-                  <h3 className={`text-base sm:text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                    Market Activity
-                  </h3>
+                <div className="flex items-center justify-between mb-4 sm:mb-6">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <TrendingUp className={`${isDarkMode ? 'text-[#39FF14]' : 'text-[#39FF14]'}`} size={24} />
+                    <h3 className={`text-base sm:text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                      {chartType === 'activity' ? 'Market Activity' : 'Price Chart'}
+                    </h3>
+                  </div>
+                  {isPriceFeedMarket && chartConfig && (
+                    <div className={`flex items-center gap-2 rounded-lg p-1 ${
+                      isDarkMode ? 'bg-gray-800' : 'bg-gray-100'
+                    }`}>
+                      <button
+                        onClick={() => setChartType('activity')}
+                        className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                          chartType === 'activity'
+                            ? 'bg-[#39FF14] text-black'
+                            : isDarkMode
+                              ? 'text-gray-400 hover:text-white'
+                              : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        Activity
+                      </button>
+                      <button
+                        onClick={() => setChartType('price')}
+                        className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                          chartType === 'price'
+                            ? 'bg-[#39FF14] text-black'
+                            : isDarkMode
+                              ? 'text-gray-400 hover:text-white'
+                              : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        Price
+                      </button>
+                    </div>
+                  )}
                 </div>
-                {loadingChart ? (
+                {chartType === 'price' && isPriceFeedMarket && chartUrl ? (
+                  chartConfig?.type === 'gecko' ? (
+                    // Gecko Terminal - show as a card with link since iframe embedding isn't supported
+                    <div className={`h-64 sm:h-80 w-full rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-4 p-6 ${
+                      isDarkMode 
+                        ? 'border-[#39FF14]/30 bg-[#39FF14]/5' 
+                        : 'border-emerald-300 bg-emerald-50/50'
+                    }`}>
+                      <div className="text-center">
+                        <TrendingUp className={`mx-auto mb-3 ${isDarkMode ? 'text-[#39FF14]' : 'text-emerald-600'}`} size={48} />
+                        <h4 className={`text-lg font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                          PEPU/USD Price Chart
+                        </h4>
+                        <p className={`text-sm mb-4 ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
+                          View the live price chart on Gecko Terminal
+                        </p>
+                        <a
+                          href={chartUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                            isDarkMode
+                              ? 'bg-[#39FF14] text-black hover:bg-[#39FF14]/90'
+                              : 'bg-[#39FF14] text-black hover:bg-[#39FF14]/90'
+                          }`}
+                        >
+                          Open Gecko Terminal
+                          <ExternalLink size={16} />
+                        </a>
+                      </div>
+                    </div>
+                  ) : (
+                    // TradingView charts
+                    <div className="h-64 sm:h-80 w-full rounded-lg overflow-hidden border border-gray-300 dark:border-gray-700">
+                      <iframe
+                        src={chartUrl}
+                        className="w-full h-full border-0"
+                        title="Price Chart"
+                        allow="clipboard-read; clipboard-write"
+                        loading="lazy"
+                        referrerPolicy="no-referrer-when-downgrade"
+                        sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+                      />
+                    </div>
+                  )
+                ) : chartType === 'price' && isPriceFeedMarket && !chartUrl ? (
+                  <div className={`h-64 flex items-center justify-center ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
+                    <p>Price chart not available for this market</p>
+                  </div>
+                ) : loadingChart ? (
                   <div className="h-64 flex items-center justify-center">
-                    <div className={`animate-spin rounded-full h-8 w-8 border-b-2 ${isDarkMode ? 'border-[#39FF14]' : 'border-emerald-600'}`}></div>
+                    <div className={`animate-spin rounded-full h-8 w-8 border-b-2 ${isDarkMode ? 'border-[#39FF14]' : 'border-[#39FF14]'}`}></div>
                   </div>
                 ) : chartData.length > 0 ? (
                   <div className="h-64 sm:h-80">
@@ -931,6 +1108,33 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
                       {Number(market?.state) === 0 ? 'Active' : Number(market?.state) === 1 ? 'Ended' : 'Resolved'}
                     </p>
                   </div>
+                  {isPriceFeedMarket && market?.isResolved && (
+                    <div>
+                      <span className={`text-xs sm:text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>Resolved Price</span>
+                      <p className={`text-lg sm:text-xl font-bold mt-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        {resolvedPrice ? `$${resolvedPrice}` : 'Loading...'}
+                      </p>
+                    </div>
+                  )}
+                  {isPriceFeedMarket && market?.priceThreshold && (
+                    <div>
+                      <span className={`text-xs sm:text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>Price Threshold</span>
+                      <p className={`text-lg sm:text-xl font-bold mt-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        ${(() => {
+                          try {
+                            const thresholdBigInt = BigInt(market.priceThreshold.toString());
+                            const divisor = BigInt(10 ** priceDecimals);
+                            const wholePart = thresholdBigInt / divisor;
+                            const fractionalPart = thresholdBigInt % divisor;
+                            const fractionalStr = fractionalPart.toString().padStart(priceDecimals, '0');
+                            return `${wholePart}.${fractionalStr.substring(0, 2)}`;
+                          } catch {
+                            return 'N/A';
+                          }
+                        })()}
+                      </p>
+                    </div>
+                  )}
                   <div>
                     <span className={`text-xs sm:text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>Stake End Time</span>
                     <p className={`text-sm sm:text-base font-medium mt-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
@@ -1010,16 +1214,6 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
                             }`}>
                               <Crown size={12} />
                               Creator
-                            </span>
-                          )}
-                          {staker.isValidator && (
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                              isDarkMode 
-                                ? 'bg-blue-900/40 text-blue-300 border border-blue-700/50' 
-                                : 'bg-blue-100 text-blue-800 border border-blue-300'
-                            }`}>
-                              <Shield size={12} />
-                              Validator
                             </span>
                           )}
                         </div>

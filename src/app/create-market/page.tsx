@@ -522,6 +522,21 @@ export default function CreateMarketPage() {
     "Finance", "Entertainment", "Science", "Gaming"
   ];
 
+  // Filter categories based on market type
+  const availableCategories = useMemo(() => {
+    if (marketType === 'PRICE_FEED') {
+      return ["Crypto"];
+    }
+    return categories;
+  }, [marketType]);
+
+  // Auto-select Crypto category when market type is PRICE_FEED
+  useEffect(() => {
+    if (marketType === 'PRICE_FEED') {
+      setSelectedCategories(['Crypto']);
+    }
+  }, [marketType]);
+
   // Refetch allowance when approval is confirmed
   useEffect(() => {
     if (isApprovalConfirmed) {
@@ -1708,14 +1723,19 @@ export default function CreateMarketPage() {
                     {/* Categories */}
                     <div className="space-y-3">
                     <h2 className={`text-base lg:text-lg font-semibold ${
-                      isDarkMode ? 'text-[#39FF14]' : 'text-emerald-600'
+                      isDarkMode ? 'text-[#39FF14]' : 'text-[#39FF14]'
                     }`}>Categories</h2>
                       
                       <div className="flex flex-wrap gap-2">
-                        {categories.map((category) => (
+                        {availableCategories.map((category) => (
                           <button
                             key={category}
-                            onClick={() => handleCategoryToggle(category)}
+                            onClick={() => {
+                              if (marketType !== 'PRICE_FEED') {
+                                handleCategoryToggle(category);
+                              }
+                            }}
+                            disabled={marketType === 'PRICE_FEED'}
                             className={`
                               px-3 py-1.5 rounded-full text-xs font-medium transition-colors flex items-center gap-1.5 border
                               ${selectedCategories.includes(category)
@@ -1726,6 +1746,7 @@ export default function CreateMarketPage() {
                                 ? 'bg-black text-white border-gray-700 hover:bg-gray-900'
                                 : 'bg-[#F5F3F0] text-gray-900 border-gray-300 hover:bg-gray-200'
                               }
+                              ${marketType === 'PRICE_FEED' ? 'cursor-not-allowed opacity-75' : ''}
                             `}
                           >
                             {selectedCategories.includes(category) && <Minus size={14} />}

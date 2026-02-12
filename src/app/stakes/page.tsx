@@ -140,6 +140,20 @@ const TREASURY_ABI = [
     "outputs": [{"name": "", "type": "bool"}],
     "stateMutability": "view",
     "type": "function"
+  },
+  {
+    "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "option", "type": "uint256"}, {"name": "token", "type": "address"}],
+    "name": "getOptionPool",
+    "outputs": [{"name": "", "type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "token", "type": "address"}],
+    "name": "getSupportPool",
+    "outputs": [{"name": "", "type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
   }
 ];
 
@@ -185,14 +199,15 @@ function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate, onSt
     args: [BigInt(marketId), userAddress],
   });
 
-  // Calculate user winnings for resolved markets (only works if user staked and hasn't claimed)
+  // Calculate user winnings for resolved markets
+  // Note: calculateWinnings only works if user hasn't claimed, but we'll try for all resolved markets
   const { data: userWinnings } = useReadContract({
     address: MARKET_MANAGER_ADDRESS,
     abi: MARKET_MANAGER_ABI,
     functionName: 'calculateWinnings',
     args: [BigInt(marketId), userAddress],
     query: {
-      enabled: !!market && !!userStakeAmount && userStakeAmount !== BigInt(0) && (market as any)?.state === 2 && (market as any)?.isResolved && hasClaimed === false
+      enabled: !!market && !!userStakeAmount && userStakeAmount !== BigInt(0) && (market as any)?.state === 2 && (market as any)?.isResolved
     }
   }) as { data: bigint | undefined };
 
@@ -226,6 +241,99 @@ function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate, onSt
 
   const [marketMetadata, setMarketMetadata] = useState<any>(null);
   const [loadingMetadata, setLoadingMetadata] = useState(false);
+  const [calculatedWinnings, setCalculatedWinnings] = useState<bigint | null>(null);
+
+  // Calculate winnings manually using Treasury pool data (works for both claimed and unclaimed)
+  useEffect(() => {
+    async function calculateWinningsManually() {
+      // Calculate isWinningStake here since it's defined later
+      const isWinning = userStakeOption && marketData?.winningOption 
+        ? Number(userStakeOption) === Number(marketData.winningOption) 
+        : false;
+
+      if (
+        !marketData ||
+        marketData.state !== 2 ||
+        !marketData.isResolved ||
+        !userStakeAmount ||
+        userStakeAmount === BigInt(0) ||
+        userStakeOption === undefined ||
+        !isWinning ||
+        !TREASURY_ADDRESS
+      ) {
+        if (marketData?.state === 2 && marketData?.isResolved && !isWinning) {
+          setCalculatedWinnings(BigInt(0));
+        } else {
+          setCalculatedWinnings(null);
+        }
+        return;
+      }
+
+      try {
+        const { createPublicClient, http } = await import('viem');
+        const publicClient = createPublicClient({
+          transport: http('https://rpc-pepu-v2-mainnet-0.t.conduit.xyz'),
+        });
+
+        const paymentToken = marketData.paymentToken || '0x0000000000000000000000000000000000000000';
+        const winningOption = Number(marketData.winningOption);
+        const maxOptions = Number(marketData.maxOptions);
+
+        // Fetch winning option pool
+        const totalWinningStake = await publicClient.readContract({
+          address: TREASURY_ADDRESS,
+          abi: TREASURY_ABI,
+          functionName: 'getOptionPool',
+          args: [BigInt(marketId), BigInt(winningOption), paymentToken],
+        }) as bigint;
+
+        // Fetch all losing option pools
+        let totalLosingPool = BigInt(0);
+        for (let i = 1; i <= maxOptions; i++) {
+          if (i !== winningOption) {
+            const pool = await publicClient.readContract({
+              address: TREASURY_ADDRESS,
+              abi: TREASURY_ABI,
+              functionName: 'getOptionPool',
+              args: [BigInt(marketId), BigInt(i), paymentToken],
+            }) as bigint;
+            totalLosingPool += pool || BigInt(0);
+          }
+        }
+
+        // Fetch support pool
+        const supportPool = await publicClient.readContract({
+          address: TREASURY_ADDRESS,
+          abi: TREASURY_ABI,
+          functionName: 'getSupportPool',
+          args: [BigInt(marketId), paymentToken],
+        }) as bigint;
+        totalLosingPool += supportPool || BigInt(0);
+
+        // Calculate winnings using the same formula as the contract
+        const userStake = userStakeAmount;
+        let calculated: bigint;
+
+        if (totalWinningStake === BigInt(0)) {
+          calculated = BigInt(0);
+        } else if (totalLosingPool === BigInt(0)) {
+          calculated = userStake;
+        } else {
+          // Formula: userStake + (userStake * winningsPool) / totalWinningStake
+          // where winningsPool = (totalLosingPool * 9000) / 10000
+          const winningsPool = (totalLosingPool * BigInt(9000)) / BigInt(10000);
+          calculated = userStake + (userStake * winningsPool) / totalWinningStake;
+        }
+
+        setCalculatedWinnings(calculated);
+      } catch (error) {
+        console.error('Error calculating winnings:', error);
+        setCalculatedWinnings(null);
+      }
+    }
+
+    calculateWinningsManually();
+  }, [marketData, userStakeAmount, userStakeOption, marketId, TREASURY_ADDRESS]);
 
   // Write contract for claiming
   const { writeContract, data: hash, error: writeError, isPending: isClaiming } = useWriteContract();
@@ -468,6 +576,39 @@ function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate, onSt
             ? (canClaim ? (isDarkMode ? 'text-[#39FF14]' : 'text-emerald-600') : (isDarkMode ? 'text-red-400' : 'text-red-600'))
             : (isDarkMode ? 'text-white/60' : 'text-gray-500')
         }`}>{getWinningOptionText()}</span>
+      </div>
+      {/* Total Winnings */}
+      <div className={`flex justify-between text-xs mb-1 sm:mb-1.5 p-1.5 rounded ${
+        marketData.state === 2 && marketData.isResolved && isWinningStake
+          ? (hasClaimed 
+              ? (isDarkMode ? 'bg-blue-900/20 border border-blue-800/30' : 'bg-blue-100 border border-blue-300')
+              : (isDarkMode ? 'bg-[#39FF14]/10 border border-[#39FF14]/30' : 'bg-[#39FF14]/10 border border-black'))
+          : (isDarkMode ? 'bg-gray-900/50 border border-gray-800' : 'bg-gray-200 border border-gray-300')
+      }`}>
+        <span className={isDarkMode ? 'text-white/60' : 'text-gray-600'}>Total Winnings: </span>
+        <span className={`font-semibold ${
+          marketData.state === 2 && marketData.isResolved
+            ? (isWinningStake
+                ? (hasClaimed 
+                    ? (isDarkMode ? 'text-blue-300' : 'text-blue-700')
+                    : (isDarkMode ? 'text-[#39FF14]' : 'text-emerald-600'))
+                : (isDarkMode ? 'text-red-400' : 'text-red-600'))
+            : (isDarkMode ? 'text-white/60' : 'text-gray-500')
+        }`}>
+          {marketData.state === 2 && marketData.isResolved
+            ? (isWinningStake
+                ? (hasClaimed
+                    ? (calculatedWinnings !== null
+                        ? `${formatEther(calculatedWinnings)} ${tokenSymbol ? String(tokenSymbol) : 'P2P'} (Claimed)`
+                        : 'Claimed')
+                    : (userWinnings !== undefined
+                        ? `${formatEther(userWinnings)} ${tokenSymbol ? String(tokenSymbol) : 'P2P'}`
+                        : calculatedWinnings !== null
+                        ? `${formatEther(calculatedWinnings)} ${tokenSymbol ? String(tokenSymbol) : 'P2P'}`
+                        : 'Calculating...'))
+                : `0 ${tokenSymbol ? String(tokenSymbol) : 'P2P'}`)
+            : '-'}
+        </span>
       </div>
       {marketData.state === 2 && marketData.isResolved && !hasClaimed && userWinnings !== undefined && (
         <div className={`flex justify-between text-xs mb-1 sm:mb-1.5 p-1.5 rounded ${
