@@ -246,12 +246,21 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
   // Fetch resolved price for price feed markets
   useEffect(() => {
     const fetchResolvedPrice = async () => {
-      if (!isPriceFeedMarket || !market?.isResolved || !priceFeedAddress) {
+      const isResolved = market && Number(market.state) === 2;
+      
+      if (!isPriceFeedMarket || !isResolved || !priceFeedAddress) {
+        console.log('Skipping resolved price fetch:', {
+          isPriceFeedMarket,
+          isResolved,
+          priceFeedAddress,
+          marketState: market?.state
+        });
         setResolvedPrice(null);
         return;
       }
 
       try {
+        console.log('Fetching resolved price for:', priceFeedAddress);
         const provider = new ethers.JsonRpcProvider('https://rpc-pepu-v2-mainnet-0.t.conduit.xyz');
         
         // Get price feed contract
@@ -306,15 +315,16 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
           priceStr = `${wholePart}.${fractionalStr.substring(0, 2)}`;
         }
         
+        console.log('Resolved price fetched:', priceStr);
         setResolvedPrice(priceStr);
       } catch (error) {
         console.error('Error fetching resolved price:', error);
-        setResolvedPrice(null);
+        setResolvedPrice('Error');
       }
     };
 
     fetchResolvedPrice();
-  }, [isPriceFeedMarket, market?.isResolved, priceFeedAddress]);
+  }, [isPriceFeedMarket, market, priceFeedAddress]);
 
   // Debug logging
   useEffect(() => {
@@ -1108,11 +1118,11 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
                       {Number(market?.state) === 0 ? 'Active' : Number(market?.state) === 1 ? 'Ended' : 'Resolved'}
                     </p>
                   </div>
-                  {isPriceFeedMarket && market?.isResolved && (
+                  {isPriceFeedMarket && market && Number(market.state) === 2 && (
                     <div>
                       <span className={`text-xs sm:text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>Resolved Price</span>
                       <p className={`text-lg sm:text-xl font-bold mt-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        {resolvedPrice ? `$${resolvedPrice}` : 'Loading...'}
+                        {resolvedPrice ? `$${resolvedPrice}` : resolvedPrice === 'Error' ? 'Error loading price' : 'Loading...'}
                       </p>
                     </div>
                   )}
