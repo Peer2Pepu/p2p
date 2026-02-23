@@ -1,51 +1,88 @@
 {
   "_format": "hh-sol-artifact-1",
-  "contractName": "P2POptimisticOracle",
-  "sourceName": "contracts/P2PMarketManager.sol",
+  "contractName": "IOptimisticOracle",
+  "sourceName": "contracts/IOptimisticOracle.sol",
   "abi": [
     {
+      "anonymous": false,
       "inputs": [
         {
-          "internalType": "bytes",
-          "name": "claim",
-          "type": "bytes"
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "assertionId",
+          "type": "bytes32"
         },
         {
+          "indexed": true,
+          "internalType": "address",
+          "name": "disputer",
+          "type": "address"
+        }
+      ],
+      "name": "AssertionDisputed",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "assertionId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
           "internalType": "address",
           "name": "asserter",
           "type": "address"
         },
         {
-          "internalType": "uint64",
-          "name": "liveness",
-          "type": "uint64"
+          "indexed": false,
+          "internalType": "bytes",
+          "name": "claim",
+          "type": "bytes"
         },
         {
-          "internalType": "contract IERC20",
-          "name": "currency",
-          "type": "address"
+          "indexed": false,
+          "internalType": "bytes",
+          "name": "callbackData",
+          "type": "bytes"
         },
         {
+          "indexed": false,
           "internalType": "uint256",
-          "name": "bond",
+          "name": "expirationTime",
           "type": "uint256"
-        },
-        {
-          "internalType": "bytes32",
-          "name": "identifier",
-          "type": "bytes32"
         }
       ],
-      "name": "assertTruth",
-      "outputs": [
+      "name": "AssertionMade",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
         {
+          "indexed": true,
           "internalType": "bytes32",
           "name": "assertionId",
           "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "bool",
+          "name": "result",
+          "type": "bool"
+        },
+        {
+          "indexed": false,
+          "internalType": "bool",
+          "name": "hadDispute",
+          "type": "bool"
         }
       ],
-      "stateMutability": "nonpayable",
-      "type": "function"
+      "name": "AssertionSettled",
+      "type": "event"
     },
     {
       "inputs": [
@@ -60,12 +97,12 @@
           "type": "address"
         },
         {
-          "internalType": "uint256",
-          "name": "optionId",
-          "type": "uint256"
+          "internalType": "bytes",
+          "name": "callbackData",
+          "type": "bytes"
         }
       ],
-      "name": "assertTruthWithDefaults",
+      "name": "assertTruth",
       "outputs": [
         {
           "internalType": "bytes32",
@@ -155,19 +192,14 @@
           "type": "uint256"
         },
         {
-          "internalType": "bytes32",
-          "name": "identifier",
-          "type": "bytes32"
-        },
-        {
           "internalType": "bytes",
-          "name": "ancillaryData",
+          "name": "callbackData",
           "type": "bytes"
         },
         {
-          "internalType": "uint256",
-          "name": "optionId",
-          "type": "uint256"
+          "internalType": "bytes32",
+          "name": "voteRequestId",
+          "type": "bytes32"
         }
       ],
       "stateMutability": "view",
@@ -189,9 +221,9 @@
           "type": "bool"
         },
         {
-          "internalType": "uint256",
-          "name": "optionId",
-          "type": "uint256"
+          "internalType": "bytes",
+          "name": "callbackData",
+          "type": "bytes"
         }
       ],
       "stateMutability": "view",

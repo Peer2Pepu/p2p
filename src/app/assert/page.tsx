@@ -1,261 +1,362 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+// @p2p-oracle-system
+// Updated to match: P2PVoting.sol, P2POptimisticOracle.sol, EventPool.sol (rewritten)
+//
+// Key contract changes reflected here:
+//  - requestP2PResolution(marketId, optionId, claim)  ← arg order changed
+//  - getAssertion() returns callbackData instead of identifier+ancillaryData
+//  - P2PVoting: RequestState enum 0=Pending 1=Resolved 2=NoConsensus
+//  - Voting: vote(requestId, value) where 1=accept assertion, 2=reject
+//  - voteRequestId stored on oracle assertion; used to look up voting data
+//  - canDispute(assertionId) / canSettle(assertionId) on oracle
+//  - No-consensus fallback: oracle accepts assertion, both bonds returned
+
+import React, { useState, useEffect, useCallback } from "react";
 import { 
   AlertCircle,
   CheckCircle,
   Clock,
-  ChevronDown,
-  ChevronUp,
   Sun,
   Moon,
   Menu,
   FileText,
-  Loader2
-} from 'lucide-react';
-import { HeaderWallet } from '@/components/HeaderWallet';
-import { useAccount, useReadContract, useWriteContract, usePublicClient, useBalance } from 'wagmi';
-import { formatEther, stringToBytes, bytesToString, keccak256, encodePacked } from 'viem';
-import { Sidebar } from '../components/Sidebar';
-import { useTheme } from '../context/ThemeContext';
-import { useRouter } from 'next/navigation';
+  Loader2,
+  ShieldAlert,
+  ThumbsUp,
+  ThumbsDown,
+  Coins,
+} from "lucide-react";
+import { HeaderWallet } from "@/components/HeaderWallet";
+import {
+  useAccount,
+  useReadContract,
+  useWriteContract,
+  usePublicClient,
+  useBalance,
+} from "wagmi";
+import {
+  formatEther,
+  stringToBytes,
+  bytesToString,
+  decodeAbiParameters,
+  parseAbiParameters,
+} from "viem";
+import { Sidebar } from "../components/Sidebar";
+import { useTheme } from "../context/ThemeContext";
+import { useRouter } from "next/navigation";
 
-const MARKET_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS as `0x${string}`;
+const MARKET_MANAGER_ADDRESS = process.env
+  .NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS as `0x${string}`;
+
+// ─── ABIs ─────────────────────────────────────────────────────────────────────
 
 const MARKET_MANAGER_ABI = [
   {
-    "inputs": [{"name": "marketId", "type": "uint256"}],
-    "name": "getMarket",
-    "outputs": [
+    inputs: [{ name: "marketId", type: "uint256" }],
+    name: "getMarket",
+    outputs: [
       {
-        "components": [
-          {"name": "creator", "type": "address"},
-          {"name": "ipfsHash", "type": "string"},
-          {"name": "isMultiOption", "type": "bool"},
-          {"name": "maxOptions", "type": "uint256"},
-          {"name": "paymentToken", "type": "address"},
-          {"name": "minStake", "type": "uint256"},
-          {"name": "creatorDeposit", "type": "uint256"},
-          {"name": "creatorOutcome", "type": "uint256"},
-          {"name": "startTime", "type": "uint256"},
-          {"name": "stakeEndTime", "type": "uint256"},
-          {"name": "endTime", "type": "uint256"},
-          {"name": "resolutionEndTime", "type": "uint256"},
-          {"name": "state", "type": "uint8"},
-          {"name": "winningOption", "type": "uint256"},
-          {"name": "isResolved", "type": "bool"},
-          {"name": "marketType", "type": "uint8"},
-          {"name": "priceFeed", "type": "address"},
-          {"name": "priceThreshold", "type": "uint256"},
-          {"name": "p2pAssertionId", "type": "bytes32"},
-          {"name": "p2pAssertionMade", "type": "bool"}
+        components: [
+          { name: "creator", type: "address" },
+          { name: "ipfsHash", type: "string" },
+          { name: "isMultiOption", type: "bool" },
+          { name: "maxOptions", type: "uint256" },
+          { name: "paymentToken", type: "address" },
+          { name: "minStake", type: "uint256" },
+          { name: "creatorDeposit", type: "uint256" },
+          { name: "creatorOutcome", type: "uint256" },
+          { name: "startTime", type: "uint256" },
+          { name: "stakeEndTime", type: "uint256" },
+          { name: "endTime", type: "uint256" },
+          { name: "resolutionEndTime", type: "uint256" },
+          { name: "state", type: "uint8" },
+          { name: "winningOption", type: "uint256" },
+          { name: "isResolved", type: "bool" },
+          { name: "marketType", type: "uint8" },
+          { name: "priceFeed", type: "address" },
+          { name: "priceThreshold", type: "uint256" },
+          { name: "p2pAssertionId", type: "bytes32" },
+          { name: "p2pAssertionMade", type: "bool" },
         ],
-        "name": "",
-        "type": "tuple"
-      }
+        name: "",
+        type: "tuple",
+      },
     ],
-    "stateMutability": "view",
-    "type": "function"
+    stateMutability: "view",
+    type: "function",
   },
   {
-    "inputs": [],
-    "name": "getNextMarketId",
-    "outputs": [{"name": "", "type": "uint256"}],
-    "stateMutability": "view",
-    "type": "function"
+    inputs: [],
+    name: "getNextMarketId",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
   },
+  // NEW signature: (marketId, optionId, claim)
   {
-    "inputs": [
-      {"name": "marketId", "type": "uint256"},
-      {"name": "claim", "type": "bytes"},
-      {"name": "optionId", "type": "uint256"}
+    inputs: [
+      { name: "marketId", type: "uint256" },
+      { name: "optionId", type: "uint256" },
+      { name: "claim", type: "bytes" },
     ],
-    "name": "requestP2PResolution",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    name: "requestP2PResolution",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [{"name": "marketId", "type": "uint256"}],
-    "name": "disputeOracle",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    inputs: [{ name: "marketId", type: "uint256" }],
+    name: "disputeOracle",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [{"name": "marketId", "type": "uint256"}],
-    "name": "settleOracle",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    inputs: [{ name: "marketId", type: "uint256" }],
+    name: "settleOracle",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [
-      {"name": "marketId", "type": "uint256"}
-    ],
-    "name": "resolveP2PMarket",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    inputs: [{ name: "marketId", type: "uint256" }],
+    name: "resolveP2PMarket",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [],
-    "name": "optimisticOracle",
-    "outputs": [{"name": "", "type": "address"}],
-    "stateMutability": "view",
-    "type": "function"
+    inputs: [{ name: "marketId", type: "uint256" }],
+    name: "cancelMarketNoAssertion",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    "inputs": [],
-    "name": "defaultBondCurrency",
-    "outputs": [{"name": "", "type": "address"}],
-    "stateMutability": "view",
-    "type": "function"
-  }
+    inputs: [],
+    name: "optimisticOracle",
+    outputs: [{ name: "", type: "address" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "defaultBondCurrency",
+    outputs: [{ name: "", type: "address" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "assertionGracePeriod",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
 ] as const;
 
-const P2P_ORACLE_ABI = [
+// New getAssertion: 12 fields (includes voteRequestId as 12th field)
+const ORACLE_ABI = [
   {
-    "inputs": [{"name": "assertionId", "type": "bytes32"}],
-    "name": "getAssertion",
-    "outputs": [
-      {"name": "claim", "type": "bytes"},
-      {"name": "asserter", "type": "address"},
-      {"name": "disputer", "type": "address"},
-      {"name": "assertionTime", "type": "uint256"},
-      {"name": "assertionDeadline", "type": "uint256"},
-      {"name": "expirationTime", "type": "uint256"},
-      {"name": "settled", "type": "bool"},
-      {"name": "result", "type": "bool"},
-      {"name": "currency", "type": "address"},
-      {"name": "bond", "type": "uint256"},
-      {"name": "identifier", "type": "bytes32"},
-      {"name": "ancillaryData", "type": "bytes"}
+    inputs: [{ name: "assertionId", type: "bytes32" }],
+    name: "getAssertion",
+    outputs: [
+      { name: "claim", type: "bytes" },
+      { name: "asserter", type: "address" },
+      { name: "disputer", type: "address" },
+      { name: "assertionTime", type: "uint256" },
+      { name: "assertionDeadline", type: "uint256" },
+      { name: "expirationTime", type: "uint256" },
+      { name: "settled", type: "bool" },
+      { name: "result", type: "bool" },
+      { name: "currency", type: "address" },
+      { name: "bond", type: "uint256" },
+      { name: "callbackData", type: "bytes" },
+      { name: "voteRequestId", type: "bytes32" },
     ],
-    "stateMutability": "view",
-    "type": "function"
+    stateMutability: "view",
+    type: "function",
   },
   {
-    "inputs": [{"name": "currency", "type": "address"}],
-    "name": "getMinimumBond",
-    "outputs": [{"name": "", "type": "uint256"}],
-    "stateMutability": "view",
-    "type": "function"
+    inputs: [{ name: "currency", type: "address" }],
+    name: "getMinimumBond",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  // canDispute / canSettle helpers (new in rewritten oracle)
+  {
+    inputs: [{ name: "assertionId", type: "bytes32" }],
+    name: "canDispute",
+    outputs: [{ name: "", type: "bool" }],
+    stateMutability: "view",
+    type: "function",
   },
   {
-    "inputs": [],
-    "name": "defaultBondCurrency",
-    "outputs": [{"name": "", "type": "address"}],
-    "stateMutability": "view",
-    "type": "function"
-  }
+    inputs: [{ name: "assertionId", type: "bytes32" }],
+    name: "canSettle",
+    outputs: [{ name: "", type: "bool" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "voting",
+    outputs: [{ name: "", type: "address" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "assertionWindow",
+    outputs: [{ name: "", type: "uint64" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "defaultLiveness",
+    outputs: [{ name: "", type: "uint64" }],
+    stateMutability: "view",
+    type: "function",
+  },
+] as const;
+
+// VoteRequest struct: identifier, time, ancillaryData, deadline, state(uint8), result, totalVotes
+// RequestState: 0=Pending, 1=Resolved, 2=NoConsensus
+const VOTING_ABI = [
+  {
+    inputs: [{ name: "requestId", type: "bytes32" }],
+    name: "getRequest",
+    outputs: [
+      {
+        components: [
+          { name: "identifier", type: "bytes32" },
+          { name: "time", type: "uint256" },
+          { name: "ancillaryData", type: "bytes" },
+          { name: "deadline", type: "uint256" },
+          { name: "state", type: "uint8" }, // 0=Pending 1=Resolved 2=NoConsensus
+          { name: "result", type: "int256" },
+          { name: "totalVotes", type: "uint256" },
+        ],
+        name: "",
+        type: "tuple",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "amount", type: "uint256" }],
+    name: "stake",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "amount", type: "uint256" }],
+    name: "unstake",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  // vote(requestId, value): value=1 to ACCEPT assertion, value=2 to REJECT it
+  {
+    inputs: [
+      { name: "requestId", type: "bytes32" },
+      { name: "value", type: "int256" },
+    ],
+    name: "vote",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "requestId", type: "bytes32" }],
+    name: "resolveVote",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "voter", type: "address" }],
+    name: "stakedBalance",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "requestId", type: "bytes32" },
+      { name: "voter", type: "address" },
+    ],
+    name: "hasVoted",
+    outputs: [{ name: "", type: "bool" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "requestId", type: "bytes32" },
+      { name: "voter", type: "address" },
+    ],
+    name: "voterChoice",
+    outputs: [{ name: "", type: "int256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  // voteWeight(requestId, value) → total weight for that value
+  {
+    inputs: [
+      { name: "requestId", type: "bytes32" },
+      { name: "value", type: "int256" },
+    ],
+    name: "voteWeight",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "minParticipation",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "totalStaked",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
 ] as const;
 
 const ERC20_ABI = [
   {
-    "inputs": [
-      {"name": "owner", "type": "address"},
-      {"name": "spender", "type": "address"}
+    inputs: [
+      { name: "owner", type: "address" },
+      { name: "spender", type: "address" },
     ],
-    "name": "allowance",
-    "outputs": [{"name": "", "type": "uint256"}],
-    "stateMutability": "view",
-    "type": "function"
+    name: "allowance",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
   },
   {
-    "inputs": [
-      {"name": "spender", "type": "address"},
-      {"name": "amount", "type": "uint256"}
+    inputs: [
+      { name: "spender", type: "address" },
+      { name: "amount", type: "uint256" },
     ],
-    "name": "approve",
-    "outputs": [{"name": "", "type": "bool"}],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  }
+    name: "approve",
+    outputs: [{ name: "", type: "bool" }],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
 ] as const;
 
-const P2P_ORACLE_ABI_FULL = [
-  ...P2P_ORACLE_ABI,
-  {
-    "inputs": [],
-    "name": "voting",
-    "outputs": [{"name": "", "type": "address"}],
-    "stateMutability": "view",
-    "type": "function"
-  }
-] as const;
-
-const VOTING_ABI = [
-  {
-    "inputs": [{"name": "requestId", "type": "bytes32"}],
-    "name": "requests",
-    "outputs": [
-      {"name": "identifier", "type": "bytes32"},
-      {"name": "time", "type": "uint256"},
-      {"name": "ancillaryData", "type": "bytes"},
-      {"name": "deadline", "type": "uint256"},
-      {"name": "totalVotes", "type": "uint256"},
-      {"name": "resolved", "type": "bool"},
-      {"name": "result", "type": "int256"}
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [{"name": "amount", "type": "uint256"}],
-    "name": "stake",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {"name": "requestId", "type": "bytes32"},
-      {"name": "price", "type": "int256"}
-    ],
-    "name": "vote",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [{"name": "requestId", "type": "bytes32"}],
-    "name": "resolveVote",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [{"name": "voter", "type": "address"}],
-    "name": "voterStakes",
-    "outputs": [
-      {"name": "stake", "type": "uint256"},
-      {"name": "exists", "type": "bool"}
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {"name": "requestId", "type": "bytes32"},
-      {"name": "voter", "type": "address"}
-    ],
-    "name": "hasVoted",
-    "outputs": [{"name": "", "type": "bool"}],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {"name": "requestId", "type": "bytes32"},
-      {"name": "price", "type": "int256"}
-    ],
-    "name": "voteCounts",
-    "outputs": [{"name": "", "type": "uint256"}],
-    "stateMutability": "view",
-    "type": "function"
-  }
-] as const;
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface MarketData {
   creator: `0x${string}`;
@@ -280,39 +381,56 @@ interface MarketData {
   p2pAssertionMade: boolean;
 }
 
-interface AssertionTiming {
+// RequestState from P2PVoting
+const RequestState = {
+  Pending: 0,
+  Resolved: 1,
+  NoConsensus: 2,
+} as const;
+
+interface AssertionInfo {
+  asserter: `0x${string}`;
+  disputer: `0x${string}`;
   assertionTime: bigint;
   assertionDeadline: bigint;
   expirationTime: bigint;
   settled: boolean;
-  disputed: boolean;
-  assertionWindowRemaining: number; // seconds
-  disputeWindowRemaining: number; // seconds
-  canSettle: boolean;
-  canDispute: boolean;
+  result: boolean;
+  bond: bigint;
+  callbackData: `0x${string}`;
+  claimText: string;
+  // decoded from callbackData
+  assertedOptionId: number; // the optionId asserter claimed won
+  // oracle helpers
+  canDisputeNow: boolean;
+  canSettleNow: boolean;
 }
 
-interface VotingData {
+interface VotingInfo {
   requestId: `0x${string}`;
   deadline: bigint;
-  resolved: boolean;
+  state: number; // 0=Pending 1=Resolved 2=NoConsensus
   result: bigint;
   totalVotes: bigint;
-  userStake: bigint;
-  hasVoted: boolean;
-  userVote: bigint | null;
-  yesVotes: bigint;
-  noVotes: bigint;
+  // current vote weights
+  acceptWeight: bigint; // weight voted "1" = accept
+  rejectWeight: bigint; // weight voted "2" = reject
+  // user state
+  userStakedBalance: bigint;
+  userHasVoted: boolean;
+  userVoteChoice: bigint | null; // 1=accept 2=reject
+  // participation info
+  minParticipation: bigint;
 }
 
 interface MarketWithMetadata extends MarketData {
   marketId: number;
-  metadata?: any;
-  loading?: boolean;
-  assertionTiming?: AssertionTiming;
-  votingData?: VotingData;
-  currentAssertionClaim?: string; // The current assertion claim text
+  metadata: any;
+  assertion: AssertionInfo | null;
+  voting: VotingInfo | null;
 }
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function AssertPage() {
   const { isDarkMode, toggleTheme } = useTheme();
@@ -320,764 +438,629 @@ export default function AssertPage() {
   const { writeContract } = useWriteContract();
   const publicClient = usePublicClient();
   const router = useRouter();
-  const [pendingAction, setPendingAction] = useState<string | null>(null);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [expandedMarketId, setExpandedMarketId] = useState<number | null>(null);
-  const [selectedOptions, setSelectedOptions] = useState<Record<number, number>>({});
-  const [winningOptions, setWinningOptions] = useState<Record<number, string>>({});
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [markets, setMarkets] = useState<MarketWithMetadata[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [currentTime, setCurrentTime] = useState<bigint>(BigInt(0));
   const [isApproving, setIsApproving] = useState(false);
-  const [votingStakeAmounts, setVotingStakeAmounts] = useState<Record<number, string>>({});
+  const [selectedOptions, setSelectedOptions] = useState<Record<number, number>>({});
+  const [stakeInputs, setStakeInputs] = useState<Record<number, string>>({});
+  const [selectedVotes, setSelectedVotes] = useState<Record<number, bigint>>({});
 
-  // Fetch P2P Oracle configuration
-  const { data: optimisticOracle, isLoading: isLoadingOracle } = useReadContract({
+  // Oracle address
+  const { data: oracleAddress, isLoading: isLoadingOracle } = useReadContract({
     address: MARKET_MANAGER_ADDRESS,
     abi: MARKET_MANAGER_ABI,
-    functionName: 'optimisticOracle',
+    functionName: "optimisticOracle",
   });
 
-  const { data: defaultBondCurrency } = useReadContract({
+  const { data: bondCurrency } = useReadContract({
     address: MARKET_MANAGER_ADDRESS,
     abi: MARKET_MANAGER_ABI,
-    functionName: 'defaultBondCurrency',
-    query: {
-      enabled: !!optimisticOracle,
-    },
+    functionName: "defaultBondCurrency",
+    query: { enabled: !!oracleAddress },
   });
 
   const { data: minimumBond } = useReadContract({
-    address: optimisticOracle as `0x${string}`,
-    abi: P2P_ORACLE_ABI,
-    functionName: 'getMinimumBond',
-    args: [defaultBondCurrency as `0x${string}`],
-    query: {
-      enabled: !!optimisticOracle && !!defaultBondCurrency,
-    },
+    address: oracleAddress as `0x${string}`,
+    abi: ORACLE_ABI,
+    functionName: "getMinimumBond",
+    args: [bondCurrency as `0x${string}`],
+    query: { enabled: !!oracleAddress && !!bondCurrency },
   });
 
   const { data: bondBalance } = useBalance({
-    address: address,
-    token: defaultBondCurrency as `0x${string}`,
-    query: {
-      enabled: !!address && !!defaultBondCurrency,
-    },
+    address,
+    token: bondCurrency as `0x${string}`,
+    query: { enabled: !!address && !!bondCurrency },
   });
 
-  // Check token allowance - User must approve MarketManager (oracle bug: uses msg.sender not asserter)
-  // MarketManager will pull tokens from user, then approve oracle
   const { data: tokenAllowance, refetch: refetchAllowance } = useReadContract({
-    address: defaultBondCurrency as `0x${string}`,
+    address: bondCurrency as `0x${string}`,
     abi: ERC20_ABI,
-    functionName: 'allowance',
-    args: address && MARKET_MANAGER_ADDRESS && defaultBondCurrency 
-      ? [address, MARKET_MANAGER_ADDRESS] // user approves MarketManager
-      : undefined,
-    query: {
-      enabled: !!address && !!MARKET_MANAGER_ADDRESS && !!defaultBondCurrency,
-    },
+    functionName: "allowance",
+    args: address && MARKET_MANAGER_ADDRESS ? [address, MARKET_MANAGER_ADDRESS] : undefined,
+    query: { enabled: !!address && !!MARKET_MANAGER_ADDRESS && !!bondCurrency },
   });
 
-  // Fetch markets function (can be called to refetch)
-  const fetchMarkets = React.useCallback(async () => {
-      if (!publicClient) return;
-      
+  // Get voting contract address
+  const { data: votingContractAddress } = useReadContract({
+    address: oracleAddress as `0x${string}`,
+    abi: ORACLE_ABI,
+    functionName: "voting",
+    query: { enabled: !!oracleAddress },
+  }) as { data: `0x${string}` | undefined };
+
+  // Check allowance for voting contract
+  const { data: votingAllowance, refetch: refetchVotingAllowance } = useReadContract({
+    address: bondCurrency as `0x${string}`,
+    abi: ERC20_ABI,
+    functionName: "allowance",
+    args: address && votingContractAddress ? [address, votingContractAddress] : undefined,
+    query: { enabled: !!address && !!votingContractAddress && !!bondCurrency },
+  });
+
+  // ─── Helpers ─────────────────────────────────────────────────────────────
+
+  const decodeClaimBytes = (claimHex: string): string => {
+    try {
+      const hex = claimHex.startsWith("0x") ? claimHex.slice(2) : claimHex;
+      if (!hex || hex.length === 0) return "Unknown";
+      const bytes = new Uint8Array(hex.length / 2);
+      for (let i = 0; i < hex.length; i += 2) {
+        bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+      }
+      return bytesToString(bytes);
+    } catch {
+      return "Unknown";
+    }
+  };
+
+  // callbackData = abi.encode(marketId, optionId) — both uint256
+  const decodeCallbackData = (callbackHex: string): number => {
+    try {
+      const decoded = decodeAbiParameters(
+        parseAbiParameters("uint256 marketId, uint256 optionId"),
+        callbackHex as `0x${string}`
+      );
+      return Number(decoded[1]); // optionId
+    } catch {
+      return 0;
+    }
+  };
+
+  const formatCountdown = (seconds: number): string => {
+    if (seconds <= 0) return "Expired";
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    if (h > 0) return `${h}h ${m}m ${s}s`;
+    if (m > 0) return `${m}m ${s}s`;
+    return `${s}s`;
+  };
+
+  const isOracleConfigured =
+    !isLoadingOracle &&
+    oracleAddress &&
+    oracleAddress !== "0x0000000000000000000000000000000000000000";
+
+  // ─── Fetch markets ────────────────────────────────────────────────────────
+
+  const fetchMarkets = useCallback(async () => {
+    if (!publicClient) return;
       setLoading(true);
       try {
-        // Get next market ID
-        const nextMarketId = await publicClient.readContract({
+      const nextId = await publicClient.readContract({
           address: MARKET_MANAGER_ADDRESS,
           abi: MARKET_MANAGER_ABI,
-          functionName: 'getNextMarketId',
-        });
+        functionName: "getNextMarketId",
+      });
 
-        const totalMarkets = Number(nextMarketId);
-        const endedMarkets: MarketWithMetadata[] = [];
+      const result: MarketWithMetadata[] = [];
 
-        // Fetch all markets and filter for Ended + UMA_MANUAL
-        console.log(`🔍 Checking ${totalMarkets - 1} markets for assert page...`);
-        for (let i = 1; i < totalMarkets; i++) {
-          try {
-            const marketData = await publicClient.readContract({
+      for (let i = 1; i < Number(nextId); i++) {
+        const market = await publicClient.readContract({
               address: MARKET_MANAGER_ADDRESS,
               abi: MARKET_MANAGER_ABI,
-              functionName: 'getMarket',
+          functionName: "getMarket",
               args: [BigInt(i)],
             }) as MarketData;
 
-            // Debug logging for market 4 specifically
-            if (i === 4) {
-              console.log(`📊 Market 4 details:`, {
-                state: marketData.state,
-                marketType: marketData.marketType,
-                endTime: marketData.endTime.toString(),
-                currentTime: Date.now() / 1000,
-                isEnded: marketData.state === 1,
-                isP2P: marketData.marketType === 1,
-                willShow: marketData.state === 1 && marketData.marketType === 1
-              });
-            }
+        // Only show: state=1 (Ended) + marketType=1 (P2POPTIMISTIC)
+        if (market.state !== 1 || market.marketType !== 1) continue;
 
-            // Filter: state === 1 (Ended) and marketType === 1 (P2POPTIMISTIC)
-            if (marketData.state === 1 && marketData.marketType === 1) {
-              console.log(`✅ Market ${i} passed filter (Ended + P2POPTIMISTIC)`);
-              // Fetch metadata
-              let metadata = null;
+        // Fetch IPFS metadata
+        let metadata: any = null;
+        try {
+          const res = await fetch(`https://gateway.lighthouse.storage/ipfs/${market.ipfsHash}`);
+          if (res.ok) metadata = await res.json();
+        } catch {}
+
+        // Fetch assertion data if one was made
+        let assertion: AssertionInfo | null = null;
+        let voting: VotingInfo | null = null;
+
+        if (market.p2pAssertionMade && market.p2pAssertionId && oracleAddress) {
+          try {
+            const aData = await publicClient.readContract({
+              address: oracleAddress as `0x${string}`,
+              abi: ORACLE_ABI,
+              functionName: "getAssertion",
+              args: [market.p2pAssertionId],
+            }) as readonly [
+              `0x${string}`, // claim (bytes)
+              `0x${string}`, // asserter
+              `0x${string}`, // disputer
+              bigint,        // assertionTime
+              bigint,        // assertionDeadline
+              bigint,        // expirationTime
+              boolean,       // settled
+              boolean,       // result
+              `0x${string}`, // currency
+              bigint,        // bond
+              `0x${string}`, // callbackData
+              `0x${string}`  // voteRequestId
+            ];
+
+            const [
+              claimBytes, asserter, disputer, assertionTime,
+              assertionDeadline, expirationTime, settled, result,
+              , bond, callbackData, voteRequestId
+            ] = aData;
+
+            // canDispute / canSettle from oracle (uses block.timestamp on-chain)
+            const [canDisputeNow, canSettleNow] = await Promise.all([
+              publicClient.readContract({
+                address: oracleAddress as `0x${string}`,
+                abi: ORACLE_ABI,
+                functionName: "canDispute",
+                args: [market.p2pAssertionId],
+              }) as Promise<boolean>,
+              publicClient.readContract({
+                address: oracleAddress as `0x${string}`,
+                abi: ORACLE_ABI,
+                functionName: "canSettle",
+                args: [market.p2pAssertionId],
+              }) as Promise<boolean>,
+            ]);
+
+            assertion = {
+              asserter,
+              disputer,
+              assertionTime,
+              assertionDeadline,
+              expirationTime,
+              settled,
+              result,
+              bond,
+              callbackData,
+              claimText: decodeClaimBytes(claimBytes),
+              assertedOptionId: decodeCallbackData(callbackData),
+              canDisputeNow,
+              canSettleNow,
+            };
+
+            const isDisputed =
+              disputer !== "0x0000000000000000000000000000000000000000";
+
+            // If disputed, load voting data using voteRequestId from oracle
+            if (isDisputed && !settled && voteRequestId && voteRequestId !== "0x0000000000000000000000000000000000000000000000000000000000000000") {
               try {
-                const response = await fetch(`https://gateway.lighthouse.storage/ipfs/${marketData.ipfsHash}`);
-                if (response.ok) {
-                  metadata = await response.json();
+                const votingAddr = await publicClient.readContract({
+                  address: oracleAddress as `0x${string}`,
+                  abi: ORACLE_ABI,
+                  functionName: "voting",
+                }) as `0x${string}`;
+
+                console.log(`Fetching vote data for requestId: ${voteRequestId}, votingAddr: ${votingAddr}`);
+
+                const voteReq = await publicClient.readContract({
+                  address: votingAddr,
+                  abi: VOTING_ABI,
+                  functionName: "getRequest",
+                  args: [voteRequestId],
+                }) as {
+                  identifier: `0x${string}`;
+                  time: bigint;
+                  ancillaryData: `0x${string}`;
+                  deadline: bigint;
+                  state: number;
+                  result: bigint;
+                  totalVotes: bigint;
+                };
+
+                console.log(`Vote request found:`, voteReq);
+
+                // Fetch vote weights for accept(1) and reject(2)
+                const [acceptWeight, rejectWeight] = await Promise.all([
+                  publicClient.readContract({
+                    address: votingAddr,
+                    abi: VOTING_ABI,
+                    functionName: "voteWeight",
+                    args: [voteRequestId, BigInt(1)],
+                  }) as Promise<bigint>,
+                  publicClient.readContract({
+                    address: votingAddr,
+                    abi: VOTING_ABI,
+                    functionName: "voteWeight",
+                    args: [voteRequestId, BigInt(2)],
+                  }) as Promise<bigint>,
+                ]);
+
+                const minPart = await publicClient.readContract({
+                  address: votingAddr,
+                  abi: VOTING_ABI,
+                  functionName: "minParticipation",
+                }) as bigint;
+
+                let userStaked = BigInt(0);
+                let userHasVoted = false;
+                let userVoteChoice: bigint | null = null;
+
+                if (address) {
+                  const [staked, voted] = await Promise.all([
+                    publicClient.readContract({
+                      address: votingAddr,
+                      abi: VOTING_ABI,
+                      functionName: "stakedBalance",
+                      args: [address],
+                    }) as Promise<bigint>,
+                    publicClient.readContract({
+                      address: votingAddr,
+                      abi: VOTING_ABI,
+                      functionName: "hasVoted",
+                      args: [voteRequestId, address],
+                    }) as Promise<boolean>,
+                  ]);
+                  userStaked = staked;
+                  userHasVoted = voted;
+
+                  if (voted) {
+                    userVoteChoice = await publicClient.readContract({
+                      address: votingAddr,
+                      abi: VOTING_ABI,
+                      functionName: "voterChoice",
+                      args: [voteRequestId, address],
+                    }) as bigint;
+                  }
                 }
+
+                voting = {
+                  requestId: voteRequestId,
+                  deadline: voteReq.deadline,
+                  state: voteReq.state,
+                  result: voteReq.result,
+                  totalVotes: voteReq.totalVotes,
+                  acceptWeight,
+                  rejectWeight,
+                  userStakedBalance: userStaked,
+                  userHasVoted,
+                  userVoteChoice,
+                  minParticipation: minPart,
+                };
               } catch (e) {
-                console.error(`Error fetching metadata for market ${i}:`, e);
+                console.error(`Voting data fetch error for market ${i}:`, e);
+                // Set voting to null so UI knows it failed
+                voting = null;
               }
-
-              // Fetch assertion timing if assertion was made
-              let assertionTiming: AssertionTiming | undefined = undefined;
-              let currentAssertionClaim: string | undefined = undefined;
-              let votingData: VotingData | undefined = undefined;
-              if (marketData.p2pAssertionMade && marketData.p2pAssertionId && optimisticOracle) {
-                try {
-                  const assertionData = await publicClient.readContract({
-                    address: optimisticOracle as `0x${string}`,
-                    abi: P2P_ORACLE_ABI,
-                    functionName: 'getAssertion',
-                    args: [marketData.p2pAssertionId],
-                  }) as readonly [`0x${string}`, `0x${string}`, `0x${string}`, bigint, bigint, bigint, boolean, boolean, `0x${string}`, bigint, `0x${string}`, `0x${string}`];
-                  
-                  const block = await publicClient.getBlock({ blockTag: 'latest' });
-                  const now = BigInt(block.timestamp);
-                  
-                  // getAssertion returns: claim, asserter, disputer, assertionTime, assertionDeadline, expirationTime, settled, result, currency, bond, identifier, ancillaryData
-                  const claimBytes = assertionData[0];
-                  const disputer = assertionData[2];
-                  const assertionTime = assertionData[3];
-                  const assertionDeadline = assertionData[4];
-                  const expirationTime = assertionData[5];
-                  const settled = assertionData[6];
-                  const disputed = disputer !== '0x0000000000000000000000000000000000000000';
-                  
-                  // Decode claim bytes to text
-                  try {
-                    // claimBytes from contract is hex string, convert to bytes array then decode
-                    if (typeof claimBytes === 'string') {
-                      // Remove 0x prefix and convert hex to bytes
-                      const hex = claimBytes.startsWith('0x') ? claimBytes.slice(2) : claimBytes;
-                      const bytes = new Uint8Array(hex.length / 2);
-                      for (let i = 0; i < hex.length; i += 2) {
-                        bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
-                      }
-                      currentAssertionClaim = bytesToString(bytes);
-                    } else {
-                      // Already bytes array
-                      currentAssertionClaim = bytesToString(claimBytes as any);
-                    }
-                  } catch (e) {
-                    console.error('Error decoding claim:', e, 'claimBytes:', claimBytes);
-                    currentAssertionClaim = 'Unknown';
-                  }
-                  
-                  // Store the deadline/expiration times, we'll calculate remaining dynamically
-                  assertionTiming = {
-                    assertionTime,
-                    assertionDeadline,
-                    expirationTime,
-                    settled,
-                    disputed,
-                    // These will be calculated dynamically based on currentTime
-                    assertionWindowRemaining: 0,
-                    disputeWindowRemaining: 0,
-                    canSettle: false,
-                    canDispute: false,
-                  };
-                  
-                  // If disputed, fetch voting data
-                  if (disputed && optimisticOracle) {
-                    try {
-                      // Get voting contract address
-                      const votingAddress = await publicClient.readContract({
-                        address: optimisticOracle as `0x${string}`,
-                        abi: P2P_ORACLE_ABI_FULL,
-                        functionName: 'voting',
-                      }) as `0x${string}`;
-                      
-                      // Calculate request ID: keccak256(abi.encodePacked(identifier, time, ancillaryData))
-                      const identifier = assertionData[10];
-                      const ancillaryData = assertionData[11];
-                      const requestId = keccak256(
-                        encodePacked(
-                          ['bytes32', 'uint256', 'bytes'],
-                          [identifier, assertionTime, ancillaryData]
-                        )
-                      ) as `0x${string}`;
-                      
-                      // Fetch vote request
-                      // Returns: identifier, time, ancillaryData, deadline, totalVotes, resolved, result
-                      const voteRequest = await publicClient.readContract({
-                        address: votingAddress,
-                        abi: VOTING_ABI,
-                        functionName: 'requests',
-                        args: [requestId],
-                      }) as readonly [`0x${string}`, bigint, `0x${string}`, bigint, bigint, boolean, bigint];
-                      
-                      const deadline = voteRequest[3]; // deadline
-                      const totalVotes = voteRequest[4]; // totalVotes
-                      const resolved = voteRequest[5]; // resolved
-                      const result = voteRequest[6]; // result
-                      
-                      // Get vote counts (always fetch)
-                      const yesVotes = await publicClient.readContract({
-                        address: votingAddress,
-                        abi: VOTING_ABI,
-                        functionName: 'voteCounts',
-                        args: [requestId, BigInt(1)],
-                      }) as bigint;
-                      
-                      const noVotes = await publicClient.readContract({
-                        address: votingAddress,
-                        abi: VOTING_ABI,
-                        functionName: 'voteCounts',
-                        args: [requestId, BigInt(0)],
-                      }) as bigint;
-                      
-                      // Fetch user's stake and vote status
-                      let userStake = BigInt(0);
-                      let hasVoted = false;
-                      
-                      if (address) {
-                        const voterStake = await publicClient.readContract({
-                          address: votingAddress,
-                          abi: VOTING_ABI,
-                          functionName: 'voterStakes',
-                          args: [address],
-                        }) as readonly [bigint, boolean];
-                        userStake = voterStake[0];
-                        
-                        hasVoted = await publicClient.readContract({
-                          address: votingAddress,
-                          abi: VOTING_ABI,
-                          functionName: 'hasVoted',
-                          args: [requestId, address],
-                        }) as boolean;
-                      }
-                      
-                      votingData = {
-                        requestId,
-                        deadline,
-                        resolved,
-                        result,
-                        totalVotes,
-                        userStake,
-                        hasVoted,
-                        userVote: null,
-                        yesVotes,
-                        noVotes,
-                      };
-                    } catch (e) {
-                      console.error(`Error fetching voting data for market ${i}:`, e);
-                    }
-                  }
-                } catch (e) {
-                  console.error(`Error fetching assertion timing for market ${i}:`, e);
-                }
-              }
-
-              endedMarkets.push({
-                ...marketData,
-                marketId: i,
-                metadata,
-                assertionTiming,
-                votingData,
-                currentAssertionClaim,
-              });
             }
           } catch (e) {
-            // Market might not exist, skip
-            continue;
+            console.error(`Assertion data fetch error for market ${i}:`, e);
           }
         }
 
-      console.log(`📊 Found ${endedMarkets.length} ended P2POPTIMISTIC markets:`, endedMarkets.map(m => m.marketId));
-        setMarkets(endedMarkets);
-      } catch (error) {
-        console.error('Error fetching markets:', error);
-        setError('Failed to load markets');
+        result.push({ ...market, marketId: i, metadata, assertion, voting });
+      }
+
+      setMarkets(result);
+    } catch (e) {
+      console.error("fetchMarkets error:", e);
+      setError("Failed to load markets");
       } finally {
         setLoading(false);
       }
-  }, [publicClient, optimisticOracle, address]);
+  }, [publicClient, oracleAddress, address]);
 
-  // Initial fetch - also refetch when optimisticOracle loads
   useEffect(() => {
-    if (publicClient) {
-      fetchMarkets();
-    }
-  }, [fetchMarkets, publicClient, optimisticOracle]);
+    if (publicClient && oracleAddress !== undefined) fetchMarkets();
+  }, [fetchMarkets, publicClient, oracleAddress]);
 
-  // Update current time every second for countdown timers
+  // Block-synced clock
   useEffect(() => {
-    // Initial fetch from blockchain
-    const fetchBlockTime = async () => {
-      if (!publicClient) return;
+    if (!publicClient) return;
+    const syncBlock = async () => {
       try {
-        const block = await publicClient.getBlock({ blockTag: 'latest' });
+        const block = await publicClient.getBlock({ blockTag: "latest" });
         setCurrentTime(BigInt(block.timestamp));
-      } catch (e) {
-        console.error('Error fetching block time:', e);
-        // Fallback to local time if blockchain fetch fails
+      } catch {
         setCurrentTime(BigInt(Math.floor(Date.now() / 1000)));
       }
     };
-    
-    // Fetch block time initially and every 30 seconds to sync
-    fetchBlockTime();
-    const blockTimeInterval = setInterval(fetchBlockTime, 30000);
-    
-    // Update local time every second (faster updates for countdown)
-    const localTimeInterval = setInterval(() => {
-      setCurrentTime(prev => {
-        // Increment by 1 second if we have a valid time
-        if (prev > BigInt(0)) {
-          return prev + BigInt(1);
-        }
-        // Otherwise use current timestamp
-        return BigInt(Math.floor(Date.now() / 1000));
-      });
-    }, 1000);
-    
+    syncBlock();
+    const blockInterval = setInterval(syncBlock, 30_000);
+    const tickInterval = setInterval(
+      () => setCurrentTime((p) => (p > BigInt(0) ? p + BigInt(1) : BigInt(Math.floor(Date.now() / 1000)))),
+      1000
+    );
     return () => {
-      clearInterval(blockTimeInterval);
-      clearInterval(localTimeInterval);
+      clearInterval(blockInterval);
+      clearInterval(tickInterval);
     };
   }, [publicClient]);
 
-  const handleApproveToken = async () => {
-    if (!isConnected || !address || !optimisticOracle || !defaultBondCurrency || !minimumBond) {
-      setError('Missing required data for approval');
-      return;
-    }
+  // ─── Tx helpers ──────────────────────────────────────────────────────────
 
-    setIsApproving(true);
-    setError('');
+  const isUserRejection = (err: any) => {
+    const msg = (err?.message || err?.toString() || "").toLowerCase();
+    return (
+      msg.includes("user rejected") ||
+      msg.includes("user denied") ||
+      msg.includes("rejected the request") ||
+      msg.includes("4001")
+    );
+  };
+
+  const withTx = async (
+    key: string,
+    fn: () => Promise<void>,
+    successMsg: string
+  ) => {
+    setPendingAction(key);
+    setError("");
     try {
-      // Approve max uint256 to avoid needing multiple approvals
-      // User approves MarketManager (oracle bug: MarketManager pulls tokens, then approves oracle)
-      const maxApproval = BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff');
-      console.log('🔐 Approving tokens:', {
-        token: defaultBondCurrency,
-        spender: MARKET_MANAGER_ADDRESS, // MarketManager needs approval
-        user: address,
-        amount: maxApproval.toString(),
-      });
-      await writeContract({
-        address: defaultBondCurrency as `0x${string}`,
-        abi: ERC20_ABI,
-        functionName: 'approve',
-        args: [MARKET_MANAGER_ADDRESS, maxApproval], // Approve MarketManager
-        gas: BigInt(300000), // Gas limit for approval
-      });
-      setSuccess('Approval transaction submitted...');
-      // Refetch allowance after a delay
-      setTimeout(() => {
-        refetchAllowance();
-      }, 3000);
+      await fn();
+      setSuccess(successMsg);
     } catch (err: any) {
-      console.error('Approval error:', err);
-      setError(err.message || 'Failed to approve tokens');
-      setSuccess('');
+      if (!isUserRejection(err)) setError(err?.message || "Transaction failed");
     } finally {
-      setIsApproving(false);
+      setPendingAction(null);
     }
   };
 
-  const handleMakeAssertion = async (marketId: number) => {
-    if (!isConnected || !address) {
-      setError('Please connect your wallet');
-      return;
-    }
+  // ─── Actions ─────────────────────────────────────────────────────────────
 
-    if (!optimisticOracle || !defaultBondCurrency || !minimumBond) {
-      setError('Oracle configuration not loaded');
-      return;
-    }
+  const handleApprove = () =>
+    withTx("approve", async () => {
+      setIsApproving(true);
+      try {
+        await writeContract({
+          address: bondCurrency as `0x${string}`,
+          abi: ERC20_ABI,
+          functionName: "approve",
+          args: [
+            MARKET_MANAGER_ADDRESS,
+            BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"),
+          ],
+        });
+        setTimeout(() => refetchAllowance(), 3000);
+      } finally {
+        setIsApproving(false);
+      }
+    }, "Approval submitted");
 
-    const market = markets.find(m => m.marketId === marketId);
-    if (!market || !market.metadata) {
-      setError('Market data not loaded');
-      return;
-    }
+  const handleMakeAssertion = (marketId: number) => {
+    const market = markets.find((m) => m.marketId === marketId)!;
+    const optionId = selectedOptions[marketId];
+    if (!optionId) { setError("Select an option first"); return; }
+    if (!market.metadata) { setError("Market metadata not loaded"); return; }
+    const options: string[] = market.metadata.options || ["Yes", "No"];
+    const claimText = options[optionId - 1] || `Option ${optionId} wins`;
+    const claimBytes =
+      (`0x` +
+        Array.from(stringToBytes(claimText))
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("")) as `0x${string}`;
 
-    // Check if user is the creator (creators cannot make assertions)
-    if (address && market.creator && address.toLowerCase() === market.creator.toLowerCase()) {
-      setError('Market creators cannot make assertions on their own markets');
-      return;
-    }
-
-    const selectedOption = selectedOptions[marketId] || 0;
-    if (selectedOption === 0) {
-      setError('Please select an option');
-      return;
-    }
-
-    // Check if user has sufficient balance
-    if (!bondBalance || bondBalance.value < minimumBond) {
-      setError(`Insufficient P2P balance. Required: ${formatEther(minimumBond)} P2P`);
-      return;
-    }
-
-    // Check if user has sufficient allowance
-    console.log('Checking allowance:', {
-      userAddress: address,
-      tokenAllowance: tokenAllowance?.toString(),
-      minimumBond: minimumBond.toString(),
-      hasEnough: tokenAllowance && tokenAllowance >= minimumBond,
-      optimisticOracle: optimisticOracle,
-    });
-    if (!tokenAllowance || tokenAllowance < minimumBond) {
-      setError(`Please approve P2P tokens first. The connected wallet (${address?.slice(0, 6)}...${address?.slice(-4)}) needs to approve the OptimisticOracle contract.`);
-      return;
-    }
-
-    // Encode option text as bytes (e.g., "Yes", "No", "Option 1")
-    const options = market.metadata.options || (market.isMultiOption ? [] : ['Yes', 'No']);
-    const selectedOptionText = options[selectedOption - 1];
-    const claimText = selectedOptionText || `Option ${selectedOption} wins`;
-    
-    setPendingAction(`assert-${marketId}`);
-    setError(''); // Clear any previous errors
-    try {
-      // Use viem's stringToBytes to encode the option text, then convert to hex
-      const claimBytes = stringToBytes(claimText);
-      // Convert ByteArray to hex string for contract
-      const claimBytesHex = `0x${Array.from(claimBytes).map(b => b.toString(16).padStart(2, '0')).join('')}` as `0x${string}`;
+    return withTx(
+      `assert-${marketId}`,
+      async () => {
       await writeContract({
         address: MARKET_MANAGER_ADDRESS,
         abi: MARKET_MANAGER_ABI,
-        functionName: 'requestP2PResolution',
-        args: [BigInt(marketId), claimBytesHex, BigInt(selectedOption)],
-        gas: BigInt(500000), // Gas limit for assertion
-      });
-      
-      setSuccess('Assertion submitted! Waiting for confirmation...');
-      setSelectedOptions(prev => ({ ...prev, [marketId]: 0 }));
-      setPendingAction(null);
-      // Don't refetch immediately - let user see the success message
-    } catch (err: any) {
-      console.error('Assertion error:', err);
-      
-      // Don't show error if user rejected the transaction
-      const errorMessage = err.message || err.toString() || '';
-      if (errorMessage.includes('User rejected') || 
-          errorMessage.includes('User denied') || 
-          errorMessage.includes('rejected the request') ||
-          errorMessage.includes('4001')) {
-        // User rejected - just clear state, don't show error
-        setError('');
-        setSuccess('');
-        setPendingAction(null);
-        return;
-      }
-      
-      setError(err.message || 'Failed to make assertion');
-      setSuccess('');
-      setPendingAction(null);
-    }
+          functionName: "requestP2PResolution",
+          // NEW order: (marketId, optionId, claim)
+          args: [BigInt(marketId), BigInt(optionId), claimBytes],
+          gas: BigInt(500_000),
+        });
+      },
+      "Assertion submitted!"
+    );
   };
 
-  const handleDisputeOracle = async (marketId: number) => {
-    if (!isConnected || !address) {
-      setError('Please connect your wallet');
-      return;
-    }
+  const handleDispute = (marketId: number) =>
+    withTx(
+      `dispute-${marketId}`,
+      async () => {
+        await writeContract({
+          address: MARKET_MANAGER_ADDRESS,
+          abi: MARKET_MANAGER_ABI,
+          functionName: "disputeOracle",
+          args: [BigInt(marketId)],
+          gas: BigInt(500_000),
+        });
+      },
+      "Dispute submitted!"
+    );
 
-    if (!optimisticOracle || !defaultBondCurrency || !minimumBond) {
-      setError('Oracle configuration not loaded');
-      return;
-    }
+  const handleApproveVoting = async (marketId: number) => {
+    if (!votingContractAddress || !bondCurrency) return;
+    const amtStr = stakeInputs[marketId];
+    if (!amtStr || parseFloat(amtStr) <= 0) { setError("Enter a stake amount first"); return; }
+    const amount = BigInt(Math.floor(parseFloat(amtStr) * 1e18));
 
-    // Check if user has sufficient balance
-    if (!bondBalance || bondBalance.value < minimumBond) {
-      setError(`Insufficient P2P balance. Required: ${formatEther(minimumBond)} P2P`);
-      return;
-    }
-
-    // Check if user has sufficient allowance
-    console.log('Checking allowance for dispute:', {
-      userAddress: address,
-      tokenAllowance: tokenAllowance?.toString(),
-      minimumBond: minimumBond.toString(),
-      hasEnough: tokenAllowance && tokenAllowance >= minimumBond,
-    });
-    if (!tokenAllowance || tokenAllowance < minimumBond) {
-      setError(`Please approve P2P tokens first. The connected wallet (${address?.slice(0, 6)}...${address?.slice(-4)}) needs to approve the MarketManager contract.`);
-      return;
-    }
-
-    setPendingAction(`dispute-${marketId}`);
-    setError(''); // Clear any previous errors
-    try {
-      await writeContract({
-        address: MARKET_MANAGER_ADDRESS,
-        abi: MARKET_MANAGER_ABI,
-        functionName: 'disputeOracle',
-        args: [BigInt(marketId)],
-        gas: BigInt(500000), // Gas limit for dispute
-      });
-      
-      setSuccess('Dispute submitted! Waiting for confirmation...');
-      setPendingAction(null);
-      // Don't refetch immediately - let user see the success message
-    } catch (err: any) {
-      console.error('Dispute error:', err);
-      
-      // Don't show error if user rejected the transaction
-      const errorMessage = err.message || err.toString() || '';
-      if (errorMessage.includes('User rejected') || 
-          errorMessage.includes('User denied') || 
-          errorMessage.includes('rejected the request') ||
-          errorMessage.includes('4001')) {
-        // User rejected - just clear state, don't show error
-        setError('');
-        setSuccess('');
-        setPendingAction(null);
-        return;
-      }
-
-      setError(err.message || 'Failed to dispute assertion');
-      setSuccess('');
-      setPendingAction(null);
-    }
-  };
-
-  const formatTimeRemaining = (seconds: number): string => {
-    if (seconds <= 0) return 'Expired';
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    if (hours > 0) {
-      return `${hours}h ${minutes}m ${secs}s`;
-    } else if (minutes > 0) {
-      return `${minutes}m ${secs}s`;
-    } else {
-      return `${secs}s`;
-    }
+    return withTx(
+      `approve-voting-${marketId}`,
+      async () => {
+        await writeContract({
+          address: bondCurrency as `0x${string}`,
+          abi: ERC20_ABI,
+          functionName: "approve",
+          args: [votingContractAddress, amount],
+        });
+        setTimeout(() => refetchVotingAllowance(), 2000);
+      },
+      "Approval submitted!"
+    );
   };
 
   const handleStakeForVoting = async (marketId: number) => {
-    if (!isConnected || !address || !optimisticOracle) {
-      setError('Please connect your wallet');
+    if (!votingContractAddress) return;
+    const amtStr = stakeInputs[marketId];
+    if (!amtStr || parseFloat(amtStr) <= 0) { setError("Enter a stake amount"); return; }
+    const amount = BigInt(Math.floor(parseFloat(amtStr) * 1e18));
+
+    // Check if allowance is sufficient
+    if (!votingAllowance || votingAllowance < amount) {
+      setError("Please approve the voting contract first");
       return;
     }
 
-    const market = markets.find(m => m.marketId === marketId);
-    if (!market || !market.votingData) {
-      setError('Voting data not available');
-      return;
-    }
-
-    const stakeAmountStr = votingStakeAmounts[marketId] || '0';
-    const stakeAmount = BigInt(Math.floor(parseFloat(stakeAmountStr) * 1e18));
-    
-    if (stakeAmount <= 0) {
-      setError('Please enter a valid stake amount');
-      return;
-    }
-
-    if (!bondBalance || bondBalance.value < stakeAmount) {
-      setError(`Insufficient balance. You have ${formatEther(bondBalance?.value || BigInt(0))} P2P`);
-      return;
-    }
-
-    // Get voting contract address
-    const votingAddress = await publicClient?.readContract({
-      address: optimisticOracle as `0x${string}`,
-      abi: P2P_ORACLE_ABI_FULL,
-      functionName: 'voting',
-    }) as `0x${string}`;
-
-    // Approve voting contract
-    const approveTx = await writeContract({
-      address: defaultBondCurrency as `0x${string}`,
-      abi: ERC20_ABI,
-      functionName: 'approve',
-      args: [votingAddress, stakeAmount],
-    });
-
-    setPendingAction(`stake-${marketId}`);
-    setError('');
-    try {
-      await writeContract({
-        address: votingAddress,
-        abi: VOTING_ABI,
-        functionName: 'stake',
-        args: [stakeAmount],
-        gas: BigInt(300000),
-      });
-      
-      setSuccess('Staked successfully!');
-      setVotingStakeAmounts(prev => ({ ...prev, [marketId]: '' }));
-      setPendingAction(null);
-      setTimeout(() => fetchMarkets(), 3000);
-    } catch (err: any) {
-      if (!err.message?.includes('User rejected') && !err.message?.includes('4001')) {
-        setError(err.message || 'Failed to stake');
-      }
-      setPendingAction(null);
-    }
+    return withTx(
+      `stake-${marketId}`,
+      async () => {
+        await writeContract({
+          address: votingContractAddress,
+          abi: VOTING_ABI,
+          functionName: "stake",
+          args: [amount],
+          gas: BigInt(300_000),
+        });
+        setStakeInputs((p) => ({ ...p, [marketId]: "" }));
+      },
+      "Staked for voting!"
+    );
   };
 
-  const handleVote = async (marketId: number, voteValue: bigint) => {
-    if (!isConnected || !address || !optimisticOracle) {
-      setError('Please connect your wallet');
-      return;
-    }
-
-    const market = markets.find(m => m.marketId === marketId);
-    if (!market || !market.votingData) {
-      setError('Voting data not available');
-      return;
-    }
-
-    if (market.votingData.hasVoted) {
-      setError('You have already voted');
-      return;
-    }
-
-    if (market.votingData.userStake <= 0) {
-      setError('You must stake tokens before voting');
-      return;
-    }
-
-    const votingAddress = await publicClient?.readContract({
-      address: optimisticOracle as `0x${string}`,
-      abi: P2P_ORACLE_ABI_FULL,
-      functionName: 'voting',
-    }) as `0x${string}`;
-
-    setPendingAction(`vote-${marketId}`);
-    setError('');
-    try {
-      await writeContract({
-        address: votingAddress,
-        abi: VOTING_ABI,
-        functionName: 'vote',
-        args: [market.votingData!.requestId, voteValue],
-        gas: BigInt(300000),
-      });
-      
-      setSuccess('Vote submitted!');
-      setPendingAction(null);
-      setTimeout(() => fetchMarkets(), 3000);
-    } catch (err: any) {
-      if (!err.message?.includes('User rejected') && !err.message?.includes('4001')) {
-        setError(err.message || 'Failed to vote');
-      }
-      setPendingAction(null);
-    }
+  // value: 1n = accept assertion, 2n = reject assertion
+  const handleVote = (marketId: number, value: bigint) => {
+    const market = markets.find((m) => m.marketId === marketId)!;
+    if (!market.voting) return;
+    return withTx(
+      `vote-${marketId}`,
+      async () => {
+        if (!oracleAddress) throw new Error("Oracle not set");
+        const votingAddr = await publicClient!.readContract({
+          address: oracleAddress as `0x${string}`,
+          abi: ORACLE_ABI,
+          functionName: "voting",
+        }) as `0x${string}`;
+        await writeContract({
+          address: votingAddr,
+          abi: VOTING_ABI,
+          functionName: "vote",
+          args: [market.voting!.requestId, value],
+          gas: BigInt(300_000),
+        });
+      },
+      `Vote submitted (${value === BigInt(1) ? "Accept" : "Reject"})`
+    );
   };
 
-  const handleSettleOracle = async (marketId: number) => {
-    if (!isConnected || !address) {
-      setError('Please connect your wallet');
-      return;
-    }
-
-    setPendingAction(`settle-${marketId}`);
-    setError(''); // Clear any previous errors
-    try {
+  const handleSettle = (marketId: number) =>
+    withTx(
+      `settle-${marketId}`,
+      async () => {
       await writeContract({
         address: MARKET_MANAGER_ADDRESS,
         abi: MARKET_MANAGER_ABI,
-        functionName: 'settleOracle',
-        args: [BigInt(marketId)],
-        gas: BigInt(300000), // Gas limit for settle
-      });
-      
-      setSuccess('Oracle settlement submitted! Waiting for confirmation...');
-      setPendingAction(null);
-      // Don't refetch immediately - let user see the success message
-    } catch (err: any) {
-      console.error('Settle error:', err);
-      
-      // Don't show error if user rejected the transaction
-      const errorMessage = err.message || err.toString() || '';
-      if (errorMessage.includes('User rejected') || 
-          errorMessage.includes('User denied') || 
-          errorMessage.includes('rejected the request') ||
-          errorMessage.includes('4001')) {
-        // User rejected - just clear state, don't show error
-      setError('');
-        setSuccess('');
-        setPendingAction(null);
-        return;
-      }
-      
-      setError(err.message || 'Failed to settle oracle');
-      setSuccess('');
-      setPendingAction(null);
+          functionName: "settleOracle",
+          args: [BigInt(marketId)],
+          gas: BigInt(400_000),
+        });
+      },
+      "Oracle settled!"
+    );
+
+  const handleResolve = (marketId: number) =>
+    withTx(
+      `resolve-${marketId}`,
+      async () => {
+        await writeContract({
+          address: MARKET_MANAGER_ADDRESS,
+          abi: MARKET_MANAGER_ABI,
+          functionName: "resolveP2PMarket",
+          args: [BigInt(marketId)],
+          gas: BigInt(400_000),
+        });
+      },
+      "Market resolved!"
+    );
+
+  const handleCancelNoAssertion = (marketId: number) =>
+    withTx(
+      `cancel-${marketId}`,
+      async () => {
+        await writeContract({
+          address: MARKET_MANAGER_ADDRESS,
+          abi: MARKET_MANAGER_ABI,
+          functionName: "cancelMarketNoAssertion",
+          args: [BigInt(marketId)],
+          gas: BigInt(200_000),
+        });
+        setTimeout(() => fetchMarkets(), 3000);
+      },
+      "Market cancelled — refunds available"
+    );
+
+  // ─── Derived per-market state ─────────────────────────────────────────────
+
+  const getMarketPhase = (market: MarketWithMetadata) => {
+    const now = Number(currentTime) || Math.floor(Date.now() / 1000);
+    const { assertion, voting: voteData } = market;
+
+    if (!market.p2pAssertionMade) {
+      const gracePassed =
+        now >= Number(market.endTime) + 48 * 3600; // assertionGracePeriod default
+      return { phase: "no-assertion" as const, gracePassed };
     }
+
+    if (!assertion) return { phase: "loading" as const };
+
+    if (assertion.settled) {
+      return { phase: "settled" as const, oracleAccepted: assertion.result };
+    }
+
+    const inAssertionWindow = now < Number(assertion.assertionDeadline);
+    const inDisputeWindow =
+      !inAssertionWindow && now < Number(assertion.expirationTime);
+    const isDisputed =
+      assertion.disputer !== "0x0000000000000000000000000000000000000000";
+
+    if (inAssertionWindow) return { phase: "assertion-window" as const, remaining: Number(assertion.assertionDeadline) - now };
+    if (isDisputed && voteData) {
+      const votingActive = now < Number(voteData.deadline) && voteData.state === RequestState.Pending;
+      const votingEnded = now >= Number(voteData.deadline) && voteData.state === RequestState.Pending;
+      if (votingActive) return { phase: "voting-active" as const, remaining: Number(voteData.deadline) - now };
+      if (votingEnded) return { phase: "voting-ended" as const };
+      if (voteData.state === RequestState.NoConsensus) return { phase: "no-consensus" as const };
+      if (voteData.state === RequestState.Resolved) return { phase: "vote-resolved" as const };
+    }
+    // When disputed but voteData not loaded yet - vote request is created immediately on dispute
+    // UI will show voting options once voteData loads (see voting UI condition)
+    if (isDisputed && !voteData) return { phase: "disputed" as const };
+    if (inDisputeWindow && !isDisputed) return { phase: "dispute-window" as const, remaining: Number(assertion.expirationTime) - now };
+    if (assertion.canSettleNow) return { phase: "ready-to-settle" as const };
+
+    return { phase: "unknown" as const };
   };
 
-  const handleResolveMarket = async (marketId: number) => {
-    if (!isConnected || !address) {
-      setError('Please connect your wallet');
-      return;
-    }
+  const hasSufficientAllowance =
+    !!tokenAllowance && !!minimumBond && tokenAllowance >= minimumBond;
 
-    // Contract auto-resolves using optionId from oracle, no need to select option
-    setPendingAction(`resolve-${marketId}`);
-    setError(''); // Clear any previous errors
-    try {
-      await writeContract({
-        address: MARKET_MANAGER_ADDRESS,
-        abi: MARKET_MANAGER_ABI,
-        functionName: 'resolveP2PMarket',
-        args: [BigInt(marketId)],
-        gas: BigInt(400000), // Gas limit for resolve
-      });
-      
-      setSuccess('Market resolution submitted! Waiting for confirmation...');
-      setPendingAction(null);
-      // Don't refetch immediately - let user see the success message
-    } catch (err: any) {
-      console.error('Resolve error:', err);
-      
-      // Don't show error if user rejected the transaction
-      const errorMessage = err.message || err.toString() || '';
-      if (errorMessage.includes('User rejected') || 
-          errorMessage.includes('User denied') || 
-          errorMessage.includes('rejected the request') ||
-          errorMessage.includes('4001')) {
-        // User rejected - just clear state, don't show error
-        setError('');
-      setSuccess('');
-        setPendingAction(null);
-        return;
-      }
-      
-      setError(err.message || 'Failed to resolve market');
-      setSuccess('');
-      setPendingAction(null);
-    }
-  };
+  // ─── Render ───────────────────────────────────────────────────────────────
 
-  const toggleExpand = (marketId: number) => {
-    if (expandedMarketId === marketId) {
-      setExpandedMarketId(null);
-    } else {
-      setExpandedMarketId(marketId);
-    }
-  };
+  const cls = (...args: (string | false | undefined)[]) =>
+    args.filter(Boolean).join(" ");
 
-  const isP2POracleConfigured = optimisticOracle && optimisticOracle !== '0x0000000000000000000000000000000000000000' && optimisticOracle !== '0x';
+  const dark = (d: string, l: string) => (isDarkMode ? d : l);
 
   return (
-    <div className={`min-h-screen ${isDarkMode ? 'bg-black' : 'bg-[#F5F3F0]'}`}>
+    <div className={`min-h-screen ${dark("bg-black", "bg-[#F5F3F0]")}`}>
       <Sidebar 
         isOpen={sidebarOpen} 
         onClose={() => setSidebarOpen(false)} 
@@ -1086,36 +1069,43 @@ export default function AssertPage() {
         isDarkMode={isDarkMode}
       />
 
-      <div className={`transition-all duration-300 lg:${sidebarCollapsed ? 'ml-16' : 'ml-64'}`}>
-        <header className={`sticky top-0 z-30 border-b backdrop-blur-sm ${isDarkMode ? 'bg-black border-[#39FF14]/20' : 'bg-[#F5F3F0] border-gray-200'}`}>
+      <div className={`transition-all duration-300 lg:${sidebarCollapsed ? "ml-16" : "ml-64"}`}>
+        {/* Header */}
+        <header
+          className={`sticky top-0 z-30 border-b backdrop-blur-sm ${dark(
+            "bg-black border-[#39FF14]/20",
+            "bg-[#F5F3F0] border-gray-200"
+          )}`}
+        >
           <div className="px-4 lg:px-6 py-1.5 lg:py-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setSidebarOpen(true)}
-                  className={`lg:hidden p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-[#39FF14]/10 text-white' : 'hover:bg-gray-200'}`}
+                  className={`lg:hidden p-2 rounded-lg ${dark("hover:bg-[#39FF14]/10 text-white", "hover:bg-gray-200")}`}
                 >
-                  <Menu size={20} className={isDarkMode ? 'text-white' : 'text-gray-900'} />
+                  <Menu size={20} className={dark("text-white", "text-gray-900")} />
                 </button>
-                
                 <div className="hidden lg:block">
-                  <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  <h1 className={`text-2xl font-bold ${dark("text-white", "text-gray-900")}`}>
                     Resolve Markets
                   </h1>
-                  <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
-                    Assert outcomes for ended markets that require manual resolution
+                  <p className={`text-sm ${dark("text-white/70", "text-gray-600")}`}>
+                    Assert, dispute, vote, settle, and resolve ended P2P markets
                   </p>
                 </div>
               </div>
-              
               <div className="flex items-center gap-2 lg:gap-4">
                 <button
                   onClick={toggleTheme}
-                  className={`p-1.5 lg:p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-[#39FF14]/10 text-white' : 'hover:bg-gray-200'}`}
+                  className={`p-1.5 lg:p-2 rounded-lg ${dark("hover:bg-[#39FF14]/10", "hover:bg-gray-200")}`}
                 >
-                  {isDarkMode ? <Sun className="w-4 h-4 lg:w-5 lg:h-5 text-white" /> : <Moon className="w-4 h-4 lg:w-5 lg:h-5 text-gray-600" />}
+                  {isDarkMode ? (
+                    <Sun className="w-4 h-4 lg:w-5 lg:h-5 text-white" />
+                  ) : (
+                    <Moon className="w-4 h-4 lg:w-5 lg:h-5 text-gray-600" />
+                  )}
                 </button>
-                
                 <HeaderWallet isDarkMode={isDarkMode} />
               </div>
             </div>
@@ -1123,612 +1113,671 @@ export default function AssertPage() {
         </header>
 
         <main className="p-4 lg:p-6">
-          {/* Mobile Header */}
+          {/* Mobile title */}
           <div className="lg:hidden mb-6">
-            <h1 className={`text-2xl font-bold mb-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            <h1 className={`text-2xl font-bold mb-1 ${dark("text-white", "text-gray-900")}`}>
               Resolve Markets
             </h1>
-            <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
-              Assert outcomes for ended markets that require manual resolution
+            <p className={`text-sm ${dark("text-white/70", "text-gray-600")}`}>
+              Assert, dispute, vote, settle, and resolve ended P2P markets
             </p>
           </div>
 
-          {error && (
-            <div className={`mb-6 p-4 rounded-lg border flex items-center gap-3 ${
-              isDarkMode ? 'bg-red-900/20 border-red-800 text-red-300' : 'bg-red-50 border-red-200 text-red-800'
-            }`}>
-              <AlertCircle size={20} className="flex-shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          {success && (
-            <div className={`mb-6 p-4 rounded-lg border flex items-center gap-3 ${
-              isDarkMode ? 'bg-green-900/20 border-green-800 text-green-300' : 'bg-green-50 border-green-200 text-green-800'
-            }`}>
-              <CheckCircle size={20} className="flex-shrink-0" />
-              <span>{success}</span>
-            </div>
-          )}
-
-          {!isLoadingOracle && !isP2POracleConfigured && (
-            <div className={`mb-6 p-4 rounded-lg border flex items-start gap-3 ${
-              isDarkMode ? 'bg-yellow-900/20 border-yellow-800 text-yellow-300' : 'bg-yellow-50 border-yellow-200 text-yellow-800'
-            }`}>
+          {/* Oracle not configured warning - only show if actually not configured (not loading) */}
+          {!isLoadingOracle && !isOracleConfigured && (
+            <div className={`mb-6 p-4 rounded-lg border flex items-start gap-3 ${dark("bg-yellow-900/20 border-yellow-800 text-yellow-300", "bg-yellow-50 border-yellow-200 text-yellow-800")}`}>
               <AlertCircle size={20} className="flex-shrink-0 mt-0.5" />
               <div>
-                <div className="font-medium mb-1">Optimistic Oracle Not Configured</div>
-                <p className="text-sm opacity-90">
-                  Optimistic Oracle is not configured. Please configure it first.
-                </p>
+                <div className="font-medium mb-1">Oracle Not Configured</div>
+                <p className="text-sm">Set the OptimisticOracle address on the EventPool contract first.</p>
               </div>
             </div>
           )}
 
+          {/* Error / Success */}
+          {error && (
+            <div className={`mb-4 p-4 rounded-lg border flex items-center gap-3 ${dark("bg-red-900/20 border-red-800 text-red-300", "bg-red-50 border-red-200 text-red-800")}`}>
+              <AlertCircle size={20} className="flex-shrink-0" />
+              <span className="text-sm">{error}</span>
+              <button onClick={() => setError("")} className="ml-auto text-xs opacity-70 hover:opacity-100">✕</button>
+            </div>
+          )}
+          {success && (
+            <div className={`mb-4 p-4 rounded-lg border flex items-center gap-3 ${dark("bg-green-900/20 border-green-800 text-green-300", "bg-green-50 border-green-200 text-green-800")}`}>
+              <CheckCircle size={20} className="flex-shrink-0" />
+              <span className="text-sm">{success}</span>
+              <button onClick={() => setSuccess("")} className="ml-auto text-xs opacity-70 hover:opacity-100">✕</button>
+            </div>
+          )}
+
+          {/* Loading */}
           {loading ? (
-            <div className={`flex flex-col items-center justify-center py-20 ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
+            <div className={`flex flex-col items-center justify-center py-20 ${dark("text-white/70", "text-gray-600")}`}>
               <Loader2 className="w-8 h-8 animate-spin mb-4" />
-              <p className="text-lg">Loading markets...</p>
+              <p>Loading markets...</p>
             </div>
           ) : markets.length === 0 ? (
-            <div className={`flex flex-col items-center justify-center py-20 ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
+            <div className={`flex flex-col items-center justify-center py-20 ${dark("text-white/70", "text-gray-600")}`}>
               <FileText className="w-16 h-16 mb-4 opacity-50" />
               <h3 className="text-xl font-semibold mb-2">No Markets to Resolve</h3>
               <p className="text-center max-w-md">
-                There are currently no ended P2P Optimistic Oracle markets waiting for resolution.
+                No ended P2P Optimistic Oracle markets are awaiting resolution.
               </p>
             </div>
           ) : (
-            <div className={`grid gap-4 transition-all duration-300 ${
-              sidebarCollapsed 
-                ? 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5' 
-                : 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3'
-            }`}>
+            <div className={cls(
+              "grid gap-4",
+              sidebarCollapsed
+                ? "sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+                : "sm:grid-cols-2 lg:grid-cols-3"
+            )}>
               {markets.map((market) => {
-                const isExpanded = expandedMarketId === market.marketId;
-                const options = market.metadata?.options || (market.isMultiOption ? [] : ['Yes', 'No']);
+                const options: string[] =
+                  market.metadata?.options || (market.isMultiOption ? [] : ["Yes", "No"]);
+                const phase = getMarketPhase(market);
+                const now = Number(currentTime) || Math.floor(Date.now() / 1000);
+                const isCreator =
+                  address &&
+                  market.creator &&
+                  address.toLowerCase() === market.creator.toLowerCase();
 
                 return (
                   <div
                     key={market.marketId}
-                    className={`w-full max-w-sm border rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg flex flex-col ${
-                      isDarkMode 
-                        ? 'bg-black border-gray-800 hover:border-[#39FF14]/30 hover:shadow-[#39FF14]/20 hover:bg-gray-900/50' 
-                        : 'bg-[#F5F3F0] border-gray-300 hover:shadow-gray-900/20'
-                      }`}
-                    >
-                    <div className="p-4 flex flex-col">
-                      <div className="flex items-start justify-between gap-3 mb-3 flex-shrink-0">
-                        <div className="flex items-start gap-3 flex-1 min-w-0">
-                          {market.metadata?.imageUrl && (
-                            <div className="flex-shrink-0">
-                              <img
-                                src={market.metadata.imageUrl}
-                                alt=""
-                                className={`w-12 h-12 rounded-lg object-cover border ${isDarkMode ? 'border-gray-800' : 'border-gray-400'}`}
-                                onError={(e) => {
-                                  e.currentTarget.style.display = 'none';
-                                }}
-                              />
-                        </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <h3 
-                              onClick={() => router.push(`/market/${market.marketId}`)}
-                              className={`font-semibold text-base leading-tight cursor-pointer hover:underline transition-all ${
-                                isDarkMode ? 'text-white hover:text-[#39FF14]' : 'text-gray-900 hover:text-[#39FF14]'
-                              }`}
-                            >
-                              {market.metadata?.title || 'Loading...'}
-                            </h3>
-                            <div className="flex items-center gap-1.5 mt-1">
-                              <span className={`text-xs px-1.5 py-0.5 rounded ${isDarkMode ? 'bg-gray-900 text-gray-300' : 'bg-gray-200 text-gray-600'}`}>
-                                #{market.marketId}
+                    className={cls(
+                      "border rounded-xl overflow-hidden flex flex-col transition-all duration-200 hover:shadow-lg",
+                      dark(
+                        "bg-black border-gray-800 hover:border-[#39FF14]/30 hover:bg-gray-900/50",
+                        "bg-[#F5F3F0] border-gray-300"
+                      )
+                    )}
+                  >
+                    {/* Card header */}
+                    <div className="p-4">
+                      <div className="flex items-start gap-3 mb-3">
+                        {market.metadata?.imageUrl && (
+                          <img
+                            src={market.metadata.imageUrl}
+                            alt=""
+                            className={`w-12 h-12 rounded-lg object-cover border flex-shrink-0 ${dark("border-gray-800", "border-gray-400")}`}
+                            onError={(e) => (e.currentTarget.style.display = "none")}
+                          />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <h3
+                            onClick={() => router.push(`/market/${market.marketId}`)}
+                            className={cls(
+                              "font-semibold text-base leading-tight cursor-pointer hover:underline",
+                              dark("text-white hover:text-[#39FF14]", "text-gray-900 hover:text-[#39FF14]")
+                            )}
+                          >
+                            {market.metadata?.title || `Market #${market.marketId}`}
+                          </h3>
+                          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                            <span className={`text-xs px-1.5 py-0.5 rounded ${dark("bg-gray-900 text-gray-300", "bg-gray-200 text-gray-600")}`}>
+                              #{market.marketId}
+                          </span>
+                            {/* Phase badge */}
+                            {phase.phase === "no-assertion" && (
+                              <span className={`text-xs px-1.5 py-0.5 rounded ${dark("text-yellow-400 bg-yellow-900/30", "text-yellow-700 bg-yellow-100")}`}>
+                                Awaiting assertion
+                          </span>
+                            )}
+                            {phase.phase === "assertion-window" && (
+                              <span className={`text-xs px-1.5 py-0.5 rounded ${dark("text-blue-400 bg-blue-900/30", "text-blue-700 bg-blue-100")}`}>
+                                Assertion window
                               </span>
-                              {!market.p2pAssertionMade && (
-                                <span className={`text-xs px-1.5 py-0.5 rounded ${isDarkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>
-                                  No assertion
-                                </span>
-                              )}
-                              {market.assertionTiming?.settled && (
-                                <span className={`text-xs px-1.5 py-0.5 rounded ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>
-                                  Ready
-                                </span>
-                              )}
-                                </div>
-                            </div>
-                          </div>
+                            )}
+                            {phase.phase === "dispute-window" && (
+                              <span className={`text-xs px-1.5 py-0.5 rounded ${dark("text-orange-400 bg-orange-900/30", "text-orange-700 bg-orange-100")}`}>
+                                Dispute window
+                              </span>
+                            )}
+                            {(phase.phase === "voting-active" || phase.phase === "voting-ended" || phase.phase === "disputed") && (
+                              <span className={`text-xs px-1.5 py-0.5 rounded ${dark("text-red-400 bg-red-900/30", "text-red-700 bg-red-100")}`}>
+                                Disputed
+                              </span>
+                            )}
+                            {phase.phase === "no-consensus" && (
+                              <span className={`text-xs px-1.5 py-0.5 rounded ${dark("text-purple-400 bg-purple-900/30", "text-purple-700 bg-purple-100")}`}>
+                                No consensus
+                              </span>
+                            )}
+                            {phase.phase === "ready-to-settle" && (
+                              <span className={`text-xs px-1.5 py-0.5 rounded ${dark("text-green-400 bg-green-900/30", "text-green-700 bg-green-100")}`}>
+                                Ready to settle
+                              </span>
+                            )}
+                            {phase.phase === "settled" && (
+                              <span className={`text-xs px-1.5 py-0.5 rounded ${dark("text-green-400 bg-green-900/30", "text-green-700 bg-green-100")}`}>
+                                Settled ✓
+                              </span>
+                            )}
+                        </div>
+                        </div>
                       </div>
 
-                      {!market.p2pAssertionMade && (() => {
-                        // Check if user is the creator
-                        const isCreator = address && market.creator && address.toLowerCase() === market.creator.toLowerCase();
-                        
-                        if (isCreator) {
-                          return (
-                            <div className="flex-shrink-0 mt-auto">
-                              <div className={`text-xs px-3 py-2 rounded mb-2 ${isDarkMode ? 'bg-yellow-900/30 text-yellow-400 border border-yellow-800' : 'bg-yellow-100 text-yellow-800 border border-yellow-300'}`}>
-                                <div className="font-medium mb-0.5">Creator Restriction</div>
-                                <div>Market creators cannot make assertions on their own markets.</div>
-                              </div>
+                      {/* ── PHASE: NO ASSERTION ── */}
+                      {phase.phase === "no-assertion" && (
+                        <div className="space-y-2">
+                          {isCreator ? (
+                            <div className={`text-xs px-3 py-2 rounded ${dark("bg-yellow-900/30 text-yellow-400 border border-yellow-800", "bg-yellow-100 text-yellow-800 border border-yellow-300")}`}>
+                              <div className="font-medium mb-0.5">Creator Restriction</div>
+                              Market creators cannot assert outcomes on their own markets.
                             </div>
-                          );
-                        }
-                        
-                        return (
-                          <div className="flex-shrink-0 mt-auto">
-                            <div className="space-y-2 mb-3">
+                          ) : (
+                            <>
+                              <p className={`text-xs mb-2 ${dark("text-gray-400", "text-gray-600")}`}>
+                                Select the winning option and post an assertion bond ({minimumBond ? formatEther(minimumBond) : "..."} P2P):
+                              </p>
+                              <div className="space-y-1.5">
+                                {options.map((opt, idx) => {
+                                  const optNum = idx + 1;
+                                  const sel = selectedOptions[market.marketId] === optNum;
+                                  return (
+                                    <button
+                                      key={idx}
+                                      onClick={() => setSelectedOptions((p) => ({ ...p, [market.marketId]: optNum }))}
+                                      className={cls(
+                                        "w-full text-left px-3 py-2 rounded text-sm border transition-colors",
+                                        sel
+                                          ? dark("border-[#39FF14] bg-[#39FF14]/10 text-[#39FF14]", "border-[#39FF14] bg-[#39FF14]/10 text-green-700")
+                                          : dark("border-gray-700 hover:border-gray-600 text-white", "border-gray-300 hover:border-gray-400 text-gray-900")
+                                      )}
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <input type="radio" checked={sel} readOnly className="w-3 h-3" />
+                                        <span className="text-xs">{opt}</span>
+                      </div>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+
+                              {/* Balance / allowance info */}
+                              {bondBalance && minimumBond && (
+                                <div className={`text-xs px-3 py-1.5 rounded ${bondBalance.value >= minimumBond ? dark("bg-green-900/30 text-green-400", "bg-green-100 text-green-600") : dark("bg-red-900/30 text-red-400", "bg-red-100 text-red-600")}`}>
+                                  Balance: {formatEther(bondBalance.value)} P2P
+                                  {bondBalance.value < minimumBond && " (insufficient)"}
+                                </div>
+                              )}
+                              {minimumBond && tokenAllowance !== undefined && (
+                                <div className={`text-xs px-3 py-1.5 rounded ${hasSufficientAllowance ? dark("bg-green-900/30 text-green-400", "bg-green-100 text-green-600") : dark("bg-yellow-900/30 text-yellow-400", "bg-yellow-100 text-yellow-700")}`}>
+                                  {hasSufficientAllowance ? "Approved ✓" : `Allowance: ${formatEther(tokenAllowance)} P2P (needs approval)`}
+                                </div>
+                              )}
+
+                              {!hasSufficientAllowance && minimumBond && bondBalance && bondBalance.value >= minimumBond && (
+                                <button
+                                  onClick={handleApprove}
+                                  disabled={isApproving}
+                                  className={cls(
+                                    "w-full py-2 px-4 rounded text-sm font-medium transition-colors",
+                                    isApproving
+                                      ? dark("bg-gray-800 text-gray-500 cursor-not-allowed", "bg-gray-300 text-gray-500 cursor-not-allowed")
+                                      : "bg-blue-600 hover:bg-blue-700 text-white"
+                                  )}
+                                >
+                                  {isApproving ? "Approving..." : "Approve P2P"}
+                    </button>
+                              )}
+
+                              <button
+                                onClick={() => handleMakeAssertion(market.marketId)}
+                                disabled={
+                                  !isConnected ||
+                                  !selectedOptions[market.marketId] ||
+                                  pendingAction === `assert-${market.marketId}` ||
+                                  !isOracleConfigured ||
+                                  !hasSufficientAllowance ||
+                                  !bondBalance ||
+                                  !minimumBond ||
+                                  bondBalance.value < minimumBond
+                                }
+                                className={cls(
+                                  "w-full py-2 px-4 rounded text-sm font-medium transition-colors",
+                                  !isConnected || !selectedOptions[market.marketId] || !hasSufficientAllowance || !bondBalance || !minimumBond || bondBalance.value < minimumBond
+                                    ? dark("bg-gray-800 text-gray-500 cursor-not-allowed", "bg-gray-300 text-gray-500 cursor-not-allowed")
+                                    : dark("bg-[#39FF14] hover:bg-[#39FF14]/80 text-black", "bg-[#39FF14] hover:bg-[#39FF14]/80 text-black")
+                                )}
+                              >
+                                {pendingAction === `assert-${market.marketId}` ? "Submitting..." : "Assert Outcome"}
+                              </button>
+                            </>
+                          )}
+
+                          {/* Cancel if grace period passed and no assertion */}
+                          {(phase as any).gracePassed && (
+                            <button
+                              onClick={() => handleCancelNoAssertion(market.marketId)}
+                              disabled={pendingAction === `cancel-${market.marketId}`}
+                              className={cls(
+                                "w-full py-2 px-3 rounded text-xs font-medium transition-colors mt-1",
+                                dark("bg-gray-800 hover:bg-gray-700 text-gray-300", "bg-gray-200 hover:bg-gray-300 text-gray-700")
+                              )}
+                            >
+                              {pendingAction === `cancel-${market.marketId}` ? "Cancelling..." : "Cancel Market (No Assertion)"}
+                            </button>
+                          )}
+                                </div>
+                      )}
+
+                      {/* ── PHASE: ASSERTION WINDOW ── */}
+                      {phase.phase === "assertion-window" && market.assertion && (
+                        <div className="space-y-2">
+                          <div className={`text-xs px-3 py-2 rounded ${dark("bg-blue-900/30 text-blue-300 border border-blue-800", "bg-blue-100 text-blue-800 border border-blue-300")}`}>
+                            <div className="font-medium mb-0.5">Asserted: {market.assertion.claimText}</div>
+                            <div className="flex items-center gap-1 mt-1">
+                              <Clock size={12} />
+                              Dispute opens in {formatCountdown((phase as any).remaining)}
+                            </div>
+                            </div>
+                          </div>
+                        )}
+
+                      {/* ── PHASE: DISPUTE WINDOW ── */}
+                      {phase.phase === "dispute-window" && market.assertion && (
+                        <div className="space-y-2">
+                          <div className={`text-xs px-3 py-2 rounded ${dark("bg-gray-900/50 text-gray-300 border border-gray-700", "bg-gray-100 text-gray-700 border border-gray-300")}`}>
+                            <div className="font-medium mb-0.5">
+                              Dispute window open
+                            </div>
+                            <div>Asserted option: <span className="font-medium">{options[market.assertion.assertedOptionId - 1] || `Option ${market.assertion.assertedOptionId}`}</span></div>
+                            <div className="flex items-center gap-1 mt-1">
+                              <Clock size={12} />
+                              {formatCountdown((phase as any).remaining)} remaining
+                            </div>
+                          </div>
+
+                          {/* Dispute with option selection */}
+                          <div>
+                            <label className={`block text-xs font-medium mb-1.5 ${dark("text-gray-300", "text-gray-700")}`}>
+                              Dispute with:
+                            </label>
+                            <div className="space-y-1.5">
                               {options.map((option: string, index: number) => {
-                                const optionNum = index + 1;
-                              const isSelected = (selectedOptions[market.marketId] || 0) === optionNum;
+                                const optionId = index + 1;
+                                const assertedOptionId = market.assertion?.assertedOptionId || 0;
+                                const isAssertedOption = optionId === assertedOptionId;
+                                const isSelected = selectedOptions[market.marketId] === optionId;
+                                
                                 return (
                                   <button
                                     key={index}
-                                  onClick={() => setSelectedOptions(prev => ({ ...prev, [market.marketId]: optionNum }))}
-                                  className={`w-full text-left px-3 py-2 rounded text-sm border transition-colors ${
-                                      isSelected
-                                        ? isDarkMode 
-                                          ? 'border-[#39FF14] bg-[#39FF14]/10 text-[#39FF14]' 
-                                        : 'border-[#39FF14] bg-[#39FF14]/10 text-green-700'
-                                        : isDarkMode
-                                          ? 'border-gray-700 hover:border-gray-600 text-white'
-                                          : 'border-gray-300 hover:border-gray-400 text-gray-900'
-                                    }`}
+                                    onClick={() => {
+                                      if (!isAssertedOption) {
+                                        setSelectedOptions(prev => ({ ...prev, [market.marketId]: optionId }));
+                                      }
+                                    }}
+                                    disabled={isAssertedOption}
+                                    className={cls(
+                                      "w-full text-left px-3 py-2 rounded text-xs border transition-colors",
+                                      isAssertedOption
+                                        ? dark("bg-gray-800 text-gray-500 cursor-not-allowed border-gray-700", "bg-gray-200 text-gray-400 cursor-not-allowed border-gray-300")
+                                        : isSelected
+                                          ? dark("border-[#39FF14] bg-[#39FF14]/10 text-[#39FF14]", "border-[#39FF14] bg-[#39FF14]/10 text-green-700")
+                                          : dark("border-gray-700 hover:border-gray-600 text-white", "border-gray-300 hover:border-gray-400 text-gray-900")
+                                    )}
                                   >
                                     <div className="flex items-center gap-2">
                                       <input
                                         type="radio"
                                         checked={isSelected}
-                                      onChange={() => setSelectedOptions(prev => ({ ...prev, [market.marketId]: optionNum }))}
-                                      className="w-3 h-3"
+                                        onChange={() => {}}
+                                        className="w-3 h-3"
+                                        disabled={isAssertedOption}
                                       />
-                                    <span className="text-xs">{option}</span>
+                                      <span>{option}</span>
+                                      {isAssertedOption && (
+                                        <span className={`text-[10px] ml-auto ${dark("text-gray-500", "text-gray-400")}`}>
+                                          (asserted)
+                                        </span>
+                                      )}
                                     </div>
                                   </button>
                                 );
                               })}
                             </div>
+                          </div>
+
                           {minimumBond && (
-                            <div className={`text-xs mb-2 px-3 py-1.5 rounded ${isDarkMode ? 'bg-gray-900 text-gray-400' : 'bg-gray-100 text-gray-600'}`}>
-                              Required bond: {formatEther(minimumBond)} P2P
+                            <div className={`text-xs px-3 py-1.5 rounded ${dark("bg-gray-900 text-gray-400", "bg-gray-100 text-gray-600")}`}>
+                              Dispute bond: {formatEther(minimumBond)} P2P
                             </div>
                           )}
-                          {bondBalance && minimumBond && (
-                            <div className={`text-xs mb-2 px-3 py-1.5 rounded ${
-                              bondBalance.value >= minimumBond
-                                ? (isDarkMode ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-600')
-                                : (isDarkMode ? 'bg-red-900/30 text-red-400' : 'bg-red-100 text-red-600')
-                            }`}>
-                              Your balance: {formatEther(bondBalance.value)} P2P
-                              {bondBalance.value < minimumBond && ' (Insufficient)'}
-                            </div>
-                          )}
-                          {tokenAllowance !== undefined && minimumBond && (
-                            <div className={`text-xs mb-2 px-3 py-1.5 rounded ${
-                              tokenAllowance >= minimumBond
-                                ? (isDarkMode ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-600')
-                                : (isDarkMode ? 'bg-yellow-900/30 text-yellow-400' : 'bg-yellow-100 text-yellow-600')
-                            }`}>
-                              {tokenAllowance >= minimumBond ? (
-                                <span>Approved ✓</span>
-                              ) : (
-                                <span>Approved: {formatEther(tokenAllowance)} P2P (Need approval)</span>
-                              )}
-                            </div>
-                          )}
-                          {tokenAllowance === undefined && minimumBond && isConnected && (
-                            <div className={`text-xs mb-2 px-3 py-1.5 rounded ${isDarkMode ? 'bg-yellow-900/30 text-yellow-400' : 'bg-yellow-100 text-yellow-600'}`}>
-                              Checking allowance...
-                            </div>
-                          )}
-                          {(() => {
-                            // Same logic as create market page
-                            // hasSufficientAllowance = allowance !== undefined && creatorDeposit ? allowance >= requiredAmount : false
-                            const hasSufficientAllowance = tokenAllowance !== undefined && minimumBond ? tokenAllowance >= minimumBond : false;
-                            const needsApproval = minimumBond && !hasSufficientAllowance;
-                            const hasBalance = bondBalance && minimumBond && bondBalance.value >= minimumBond;
-                            const canShow = hasBalance && needsApproval && isConnected && isP2POracleConfigured;
-                            
-                            // Debug logging
-                            if (minimumBond && bondBalance) {
-                              console.log('🔍 Approval check:', {
-                                userBalance: formatEther(bondBalance.value),
-                                tokenAllowance: tokenAllowance !== undefined ? formatEther(tokenAllowance) : 'undefined',
-                                minimumBond: formatEther(minimumBond),
-                                hasSufficientAllowance,
-                                needsApproval,
-                                hasBalance,
-                                canShow,
-                                isConnected,
-                                isP2POracleConfigured,
-                              });
-                            }
-                            
-                            if (canShow) {
-                              return (
-                                <button
-                                  onClick={handleApproveToken}
-                                  disabled={isApproving}
-                                  className={`w-full py-2 px-4 rounded text-sm font-medium transition-colors mb-2 ${
-                                    isApproving
-                                      ? (isDarkMode ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-gray-300 text-gray-500 cursor-not-allowed')
-                                      : isDarkMode 
-                                        ? 'bg-blue-600 hover:bg-blue-700 text-white' 
-                                        : 'bg-blue-600 hover:bg-blue-700 text-white'
-                                  }`}
-                                >
-                                  {isApproving ? 'Approving...' : 'Approve P2P Tokens'}
-                                </button>
-                              );
-                            }
-                            return null;
-                          })()}
+
+                          {!hasSufficientAllowance && bondBalance && minimumBond && bondBalance.value >= minimumBond && (
                             <button
-                              onClick={() => handleMakeAssertion(market.marketId)}
-                            disabled={
-                              !isConnected || 
-                              (selectedOptions[market.marketId] || 0) === 0 || 
-                              pendingAction === `assert-${market.marketId}` || 
-                              !isP2POracleConfigured || 
-                              (bondBalance && minimumBond ? bondBalance.value < minimumBond : false) || 
-                              (tokenAllowance !== undefined && minimumBond ? tokenAllowance < minimumBond : tokenAllowance === undefined) ||
-                              (address && market.creator && address.toLowerCase() === market.creator.toLowerCase())
-                            }
-                            className={`w-full py-2 px-4 rounded text-sm font-medium transition-colors ${
-                              !isConnected || 
-                              (selectedOptions[market.marketId] || 0) === 0 || 
-                              pendingAction === `assert-${market.marketId}` || 
-                              !isP2POracleConfigured || 
-                              (bondBalance && minimumBond && bondBalance.value < minimumBond) || 
-                              (tokenAllowance !== undefined && minimumBond && tokenAllowance < minimumBond) ||
-                              tokenAllowance === undefined
-                                  ? (isDarkMode ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-gray-300 text-gray-500 cursor-not-allowed')
-                                  : isDarkMode 
-                                    ? 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black' 
-                                  : 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black'
-                              }`}
+                              onClick={handleApprove}
+                              disabled={isApproving}
+                              className="w-full py-2 px-4 rounded text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors"
                             >
-                            {pendingAction === `assert-${market.marketId}` ? 'Submitting...' : 'Make Assertion'}
+                              {isApproving ? "Approving..." : "Approve P2P"}
+                            </button>
+                          )}
+
+                          <button
+                            onClick={() => handleDispute(market.marketId)}
+                            disabled={
+                              !isConnected ||
+                              !selectedOptions[market.marketId] ||
+                              pendingAction === `dispute-${market.marketId}` ||
+                              !hasSufficientAllowance ||
+                              !bondBalance ||
+                              !minimumBond ||
+                              bondBalance.value < minimumBond
+                            }
+                            className={cls(
+                              "w-full py-2 px-4 rounded text-sm font-medium transition-colors",
+                              !isConnected || !selectedOptions[market.marketId] || !hasSufficientAllowance || !bondBalance || !minimumBond || bondBalance.value < minimumBond
+                                ? dark("bg-gray-800 text-gray-500 cursor-not-allowed", "bg-gray-300 text-gray-500 cursor-not-allowed")
+                                : "bg-red-600 hover:bg-red-700 text-white"
+                            )}
+                          >
+                            {pendingAction === `dispute-${market.marketId}` ? "Disputing..." : "Dispute Assertion"}
                             </button>
                           </div>
-                        );
-                      })()}
+                        )}
 
-                      {market.p2pAssertionMade && market.assertionTiming && (() => {
-                        // Calculate remaining times dynamically based on currentTime
-                        // Use currentTime if available, otherwise use current timestamp as fallback
-                        const now = currentTime && currentTime > BigInt(0) 
-                          ? Number(currentTime) 
-                          : Math.floor(Date.now() / 1000);
-                        const assertionDeadline = Number(market.assertionTiming.assertionDeadline);
-                        const expirationTime = Number(market.assertionTiming.expirationTime);
-                        const assertionWindowRemaining = Math.max(0, assertionDeadline - now);
-                        const disputeWindowRemaining = Math.max(0, expirationTime - now);
-                        const canSettle = !market.assertionTiming.settled && now >= expirationTime;
-                        const canDispute = !market.assertionTiming.settled && !market.assertionTiming.disputed && now >= assertionDeadline && now < expirationTime;
-                        
-                        return (
-                          <div className="flex-shrink-0 mb-3">
-                            {market.assertionTiming.settled ? (
-                              <div className={`text-xs px-3 py-2 rounded ${isDarkMode ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-600'}`}>
-                                Ready to resolve
-                              </div>
-                            ) : (
-                              <div className="space-y-1 text-xs">
-                                {(() => {
-                                  // Determine which state to show based on timing
-                                  const isInAssertionWindow = assertionWindowRemaining > 0;
-                                  const isInDisputeWindow = !isInAssertionWindow && disputeWindowRemaining > 0 && !market.assertionTiming.settled;
-                                  const isReadyToSettle = !isInAssertionWindow && disputeWindowRemaining <= 0 && !market.assertionTiming.settled;
-                                  
-                                  if (isInAssertionWindow) {
-                                    return (
-                                      <div className={`px-3 py-2 rounded ${isDarkMode ? 'bg-yellow-900/30 text-yellow-400' : 'bg-yellow-100 text-yellow-600'}`}>
-                                        Assertion Window: {formatTimeRemaining(assertionWindowRemaining)}
-                                      </div>
-                                    );
-                                  }
-                                  
-                                  if (isInDisputeWindow) {
-                                    return (
-                                      <div className={market.assertionTiming.disputed 
-                                        ? `${isDarkMode ? 'bg-red-900/30 text-red-400' : 'bg-red-100 text-red-600'} px-3 py-2 rounded`
-                                        : `${isDarkMode ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-600'} px-3 py-2 rounded`
-                                      }>
-                                        {market.assertionTiming.disputed 
-                                          ? 'Disputed' 
-                                          : `Dispute Window: ${formatTimeRemaining(disputeWindowRemaining)}`
-                                        }
-                                      </div>
-                                    );
-                                  }
-                                  
-                                  if (isReadyToSettle) {
-                                    return (
-                                      <div className={`px-3 py-2 rounded ${isDarkMode ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-600'}`}>
-                                        Ready to Settle
-                                      </div>
-                                    );
-                                  }
-                                  
-                                  return null;
-                                })()}
+                      {/* ── PHASE: VOTING ACTIVE ── */}
+                      {(phase.phase === "voting-active" || phase.phase === "voting-ended" || (phase.phase === "disputed" && market.voting)) && market.assertion && market.voting && (
+                        <div className="space-y-2">
+                          <div className={`text-xs px-3 py-2 rounded ${dark("bg-red-900/30 text-red-300 border border-red-800", "bg-red-100 text-red-800 border border-red-300")}`}>
+                            <div className="font-medium mb-0.5">
+                              Claim disputed — token holders vote
+                            </div>
+                            <div>Claim: <span className="font-medium">{market.assertion.claimText}</span></div>
+                            {phase.phase === "voting-active" && (
+                              <div className="flex items-center gap-1 mt-1">
+                                <Clock size={12} />
+                                Voting closes in {formatCountdown((phase as any).remaining)}
                               </div>
                             )}
+                            {phase.phase === "voting-ended" && (
+                              <div className="mt-1 text-yellow-400">Voting ended — needs resolving</div>
+                            )}
                           </div>
-                        );
-                      })()}
 
-                      {market.p2pAssertionMade && (() => {
-                        // Calculate timing dynamically based on currentTime
-                        // Use currentTime if available, otherwise use current timestamp as fallback
-                        const now = currentTime && currentTime > BigInt(0) 
-                          ? Number(currentTime) 
-                          : Math.floor(Date.now() / 1000);
-                        const assertionDeadline = market.assertionTiming ? Number(market.assertionTiming.assertionDeadline) : 0;
-                        const expirationTime = market.assertionTiming ? Number(market.assertionTiming.expirationTime) : 0;
-                        const canDispute = market.assertionTiming && !market.assertionTiming.settled && !market.assertionTiming.disputed && now >= assertionDeadline && now < expirationTime;
-                        const canSettle = market.assertionTiming && !market.assertionTiming.settled && now >= expirationTime;
-                        
-                        return (
-                          <div className="flex-shrink-0 space-y-2 mt-auto">
-                            {/* Always show current assertion */}
-                            <div className={`text-xs px-3 py-2 rounded mb-2 ${isDarkMode ? 'bg-blue-900/30 text-blue-400 border border-blue-800' : 'bg-blue-100 text-blue-800 border border-blue-300'}`}>
-                              <div className="font-medium mb-0.5">Current Assertion:</div>
-                              <div>{market.currentAssertionClaim || 'Loading...'}</div>
-                            </div>
+                          {/* Vote results */}
+                          {(() => {
+                            const total = market.voting.acceptWeight + market.voting.rejectWeight;
+                            const acceptPct = total > BigInt(0) ? Number((market.voting.acceptWeight * BigInt(100)) / total) : 0;
+                            const rejectPct = total > BigInt(0) ? Number((market.voting.rejectWeight * BigInt(100)) / total) : 0;
+                            const assertionText = market.assertion.claimText;
+                            const assertedOptionId = market.assertion.assertedOptionId;
+                            const otherOptions = options.filter((_, idx) => idx + 1 !== Number(assertedOptionId));
+                            const disputeText = otherOptions.length > 0 ? otherOptions[0] : "Reject assertion";
                             
-                            {/* Show dispute options only during dispute window */}
-                            {market.assertionTiming && !market.assertionTiming.settled && canDispute && !market.assertionTiming.disputed && (
-                            <div className="space-y-1.5 mb-2">
-                              <div className={`text-sm font-semibold mb-2 px-3 py-2 rounded ${isDarkMode ? 'bg-blue-900/30 text-blue-300 border border-blue-700' : 'bg-blue-100 text-blue-800 border border-blue-300'}`}>
-                                ⚠️ Dispute Window Open
+                            return (
+                              <div className="space-y-1">
+                                <div className={`text-xs px-3 py-1.5 rounded flex justify-between ${market.voting.userHasVoted && market.voting.userVoteChoice === BigInt(1) ? dark("bg-[#39FF14]/10 border border-[#39FF14] text-[#39FF14]", "bg-green-100 border border-green-400 text-green-700") : dark("bg-gray-900 text-gray-300", "bg-gray-100 text-gray-700")}`}>
+                                  <span>{assertionText} {market.voting.userHasVoted && market.voting.userVoteChoice === BigInt(1) && "✓"}</span>
+                                  <span>{formatEther(market.voting.acceptWeight)} P2P ({acceptPct}%)</span>
+                                </div>
+                                <div className={`text-xs px-3 py-1.5 rounded flex justify-between ${market.voting.userHasVoted && market.voting.userVoteChoice === BigInt(2) ? dark("bg-[#39FF14]/10 border border-[#39FF14] text-[#39FF14]", "bg-green-100 border border-green-400 text-green-700") : dark("bg-gray-900 text-gray-300", "bg-gray-100 text-gray-700")}`}>
+                                  <span>{disputeText} {market.voting.userHasVoted && market.voting.userVoteChoice === BigInt(2) && "✓"}</span>
+                                  <span>{formatEther(market.voting.rejectWeight)} P2P ({rejectPct}%)</span>
+                                </div>
                               </div>
+                            );
+                          })()}
+
+                          {/* User stake display */}
+                          {market.voting.userStakedBalance > BigInt(0) && (
+                            <div className={`text-xs px-3 py-1.5 rounded ${dark("bg-gray-900 text-gray-300", "bg-gray-100 text-gray-700")}`}>
+                              <Coins size={12} className="inline mr-1" />
+                              Your stake: {formatEther(market.voting.userStakedBalance)} P2P
+                            </div>
+                          )}
+
+                          {/* Stake to vote */}
+                          {phase.phase === "voting-active" && !market.voting.userHasVoted && market.voting.userStakedBalance === BigInt(0) && (
+                            <div className="space-y-1.5">
+                              <p className={`text-xs ${dark("text-gray-400", "text-gray-600")}`}>
+                                Step 1: Stake P2P tokens to vote
+                              </p>
+                              <input
+                                type="number"
+                                step="0.1"
+                                min="0"
+                                placeholder="Amount (P2P)"
+                                value={stakeInputs[market.marketId] || ""}
+                                onChange={(e) => setStakeInputs((p) => ({ ...p, [market.marketId]: e.target.value }))}
+                                className={cls(
+                                  "w-full px-3 py-1.5 rounded text-xs border",
+                                  dark("bg-gray-800 border-gray-700 text-white", "bg-white border-gray-300 text-gray-900")
+                                )}
+                              />
+                              
+                              {/* Check if approval is needed */}
                               {(() => {
-                                // Current assertion is the option text (e.g., "Yes", "No")
-                                const currentClaim = market.currentAssertionClaim?.toLowerCase().trim();
+                                const stakeAmount = stakeInputs[market.marketId] 
+                                  ? BigInt(Math.floor(parseFloat(stakeInputs[market.marketId]) * 1e18))
+                                  : BigInt(0);
+                                const needsApproval = votingAllowance === undefined || (stakeAmount > BigInt(0) && votingAllowance < stakeAmount);
                                 
-                                // Filter options: exclude the current assertion text
-                                const availableOptions = options.filter((option: string) => {
-                                  const optionText = option.toLowerCase().trim();
-                                  return !currentClaim || optionText !== currentClaim;
-                                });
-                                
-                                if (availableOptions.length === 0) {
-                                  return null;
+                                if (needsApproval && stakeAmount > BigInt(0)) {
+                                return (
+                                  <button
+                                      onClick={() => handleApproveVoting(market.marketId)}
+                                      disabled={pendingAction === `approve-voting-${market.marketId}` || isApproving}
+                                      className={cls(
+                                        "w-full py-1.5 px-3 rounded text-xs font-medium transition-colors",
+                                        pendingAction === `approve-voting-${market.marketId}` || isApproving
+                                          ? dark("bg-gray-800 text-gray-500 cursor-not-allowed", "bg-gray-300 text-gray-500 cursor-not-allowed")
+                                          : "bg-blue-600 hover:bg-blue-700 text-white"
+                                      )}
+                                    >
+                                      {pendingAction === `approve-voting-${market.marketId}` || isApproving ? "Approving..." : "Approve Voting Contract"}
+                                    </button>
+                                  );
                                 }
                                 
-                                // Show available dispute options
                                 return (
-                                  <>
-                                    {availableOptions.map((option: string) => {
-                                      const optionIndex = options.indexOf(option);
-                                      const optionNum = optionIndex + 1;
-                                      const isSelected = (winningOptions[market.marketId] || '') === optionNum.toString();
-                                      return (
-                                        <button
-                                          key={optionIndex}
-                                          onClick={() => setWinningOptions(prev => ({ ...prev, [market.marketId]: optionNum.toString() }))}
-                                          className={`w-full text-left px-3 py-1.5 rounded text-xs border transition-colors mb-1.5 ${
-                                            isSelected
-                                              ? isDarkMode 
-                                                  ? 'border-red-500 bg-red-900/30 text-red-400' 
-                                                  : 'border-red-500 bg-red-100 text-red-700'
-                                              : isDarkMode
-                                                ? 'border-gray-700 hover:border-gray-600 text-white'
-                                                : 'border-gray-300 hover:border-gray-400 text-gray-900'
-                                          }`}
-                                        >
-                                          <div className="flex items-center gap-1.5">
-                                            <input
-                                              type="radio"
-                                              checked={isSelected}
-                                              onChange={() => setWinningOptions(prev => ({ ...prev, [market.marketId]: optionNum.toString() }))}
-                                              className="w-3 h-3"
-                                            />
-                                            <span>{option}</span>
-                                          </div>
-                                        </button>
-                                      );
-                                    })}
-                                    {(() => {
-                                      const hasSufficientAllowance = tokenAllowance !== undefined && minimumBond ? tokenAllowance >= minimumBond : false;
-                                      const needsApproval = minimumBond && !hasSufficientAllowance;
-                                      const hasBalance = bondBalance && minimumBond && bondBalance.value >= minimumBond;
-                                      const canShowApprove = hasBalance && needsApproval && isConnected && isP2POracleConfigured;
-                                      
-                                      if (canShowApprove) {
-                                        return (
-                                          <button
-                                            onClick={handleApproveToken}
-                                            disabled={isApproving}
-                                            className={`w-full py-1.5 px-3 rounded text-xs font-medium transition-colors mb-1.5 ${
-                                              isApproving
-                                                ? (isDarkMode ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-gray-300 text-gray-500 cursor-not-allowed')
-                                                : isDarkMode 
-                                                  ? 'bg-blue-600 hover:bg-blue-700 text-white' 
-                                                  : 'bg-blue-600 hover:bg-blue-700 text-white'
-                                            }`}
-                                          >
-                                            {isApproving ? 'Approving...' : 'Approve P2P Tokens'}
-                                          </button>
-                                        );
-                                      }
-                                      return null;
-                                    })()}
-                                    <button
-                                      onClick={() => handleDisputeOracle(market.marketId)}
-                                      disabled={
-                                        !isConnected || 
-                                        pendingAction === `dispute-${market.marketId}` || 
-                                        !(winningOptions[market.marketId] || '') ||
-                                        !isP2POracleConfigured ||
-                                        (bondBalance && minimumBond ? bondBalance.value < minimumBond : false) ||
-                                        (tokenAllowance !== undefined && minimumBond ? tokenAllowance < minimumBond : tokenAllowance === undefined)
-                                      }
-                                      className={`w-full py-1.5 px-3 rounded text-xs font-medium transition-colors ${
-                                        !isConnected || 
-                                        pendingAction === `dispute-${market.marketId}` || 
-                                        !(winningOptions[market.marketId] || '') ||
-                                        !isP2POracleConfigured ||
-                                        (bondBalance && minimumBond && bondBalance.value < minimumBond) ||
-                                        (tokenAllowance !== undefined && minimumBond && tokenAllowance < minimumBond) ||
-                                        tokenAllowance === undefined
-                                          ? (isDarkMode ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-gray-300 text-gray-500 cursor-not-allowed')
-                                          : isDarkMode 
-                                            ? 'bg-red-600 hover:bg-red-700 text-white' 
-                                            : 'bg-red-600 hover:bg-red-700 text-white'
-                                      }`}
-                                    >
-                                      {pendingAction === `dispute-${market.marketId}` ? 'Disputing...' : 'Dispute'}
-                                    </button>
-                                  </>
+                                  <button
+                                    onClick={() => handleStakeForVoting(market.marketId)}
+                                    disabled={pendingAction === `stake-${market.marketId}` || !stakeInputs[market.marketId] || needsApproval}
+                                    className={cls(
+                                      "w-full py-1.5 px-3 rounded text-xs font-medium transition-colors",
+                                      !stakeInputs[market.marketId] || needsApproval || pendingAction === `stake-${market.marketId}`
+                                        ? dark("bg-gray-800 text-gray-500 cursor-not-allowed", "bg-gray-300 text-gray-500 cursor-not-allowed")
+                                        : dark("bg-[#39FF14] hover:bg-[#39FF14]/80 text-black", "bg-[#39FF14] hover:bg-[#39FF14]/80 text-black")
+                                    )}
+                                  >
+                                    {pendingAction === `stake-${market.marketId}` ? "Staking..." : "Stake Tokens"}
+                                  </button>
                                 );
                               })()}
                             </div>
-                            )}
-                            
-                            {/* Show voting UI when disputed */}
-                            {market.assertionTiming && market.assertionTiming.disputed && !market.assertionTiming.settled && market.votingData && (() => {
-                              const isVotingActive = market.votingData.deadline > currentTime && currentTime > 0;
-                              const isVotingEnded = !isVotingActive && !market.votingData.resolved;
-                              const options = market.metadata?.options || ['Yes', 'No'];
-                              
-                              return (
-                                <div className="mb-2 space-y-2">
-                                  {/* Voting status and countdown */}
-                                  <div className={`text-xs mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                    {isVotingActive ? (
-                                      <>Voting Active • {formatTimeRemaining(Number(market.votingData.deadline - currentTime))}</>
-                                    ) : isVotingEnded ? (
-                                      'Voting Ended'
-                                    ) : (
-                                      `Result: ${market.votingData.result > 0 ? 'Yes' : 'No'}`
-                                    )}
-                                  </div>
-                                  
-                                  {/* Voting options with vote counts */}
-                                  <div className="space-y-1.5">
-                                    {options.map((option: string, index: number) => {
-                                      const voteValue = index === 0 ? BigInt(1) : BigInt(0); // Yes = 1, No = 0
-                                      const voteCount = voteValue === BigInt(1) ? market.votingData!.yesVotes : market.votingData!.noVotes;
-                                      const canVote = isVotingActive && !market.votingData!.resolved && !market.votingData!.hasVoted && market.votingData!.userStake > 0;
-                                      
-                                      return (
-                                        <button
-                                          key={index}
-                                          onClick={() => canVote && handleVote(market.marketId, voteValue)}
-                                          disabled={!canVote || pendingAction === `vote-${market.marketId}` || isVotingEnded}
-                                          className={`w-full text-left px-3 py-2 rounded text-sm border transition-colors ${
-                                            canVote && !isVotingEnded
-                                              ? isDarkMode
-                                                ? 'border-gray-700 hover:border-gray-600 text-white'
-                                                : 'border-gray-300 hover:border-gray-400 text-gray-900'
-                                              : isDarkMode
-                                                ? 'border-gray-800 text-gray-500 cursor-not-allowed'
-                                                : 'border-gray-300 text-gray-500 cursor-not-allowed'
-                                          }`}
-                                        >
-                                          <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2">
-                                              <input
-                                                type="radio"
-                                                checked={false}
-                                                disabled={!canVote || isVotingEnded}
-                                                className="w-3 h-3"
-                                              />
-                                              <span className="text-xs">{option}</span>
-                                            </div>
-                                            <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                              {formatEther(voteCount)} P2P
-                                            </span>
-                                          </div>
-                                        </button>
-                                      );
-                                    })}
-                                  </div>
-                                  
-                                  {/* Stake section - only show when voting is active */}
-                                  {isVotingActive && !market.votingData.resolved && !market.votingData.hasVoted && (
-                                    <>
-                                      {market.votingData.userStake === BigInt(0) && (
-                                        <div className="space-y-1.5">
-                                          <input
-                                            type="number"
-                                            step="0.1"
-                                            min="0"
-                                            placeholder="Stake amount (P2P)"
-                                            value={votingStakeAmounts[market.marketId] || ''}
-                                            onChange={(e) => setVotingStakeAmounts(prev => ({ ...prev, [market.marketId]: e.target.value }))}
-                                            className={`w-full px-3 py-1.5 rounded text-xs border ${
-                                              isDarkMode 
-                                                ? 'bg-gray-800 border-gray-700 text-white' 
-                                                : 'bg-white border-gray-300 text-gray-900'
-                                            }`}
-                                          />
-                                          <button
-                                            onClick={() => handleStakeForVoting(market.marketId)}
-                                            disabled={pendingAction === `stake-${market.marketId}` || !votingStakeAmounts[market.marketId] || parseFloat(votingStakeAmounts[market.marketId] || '0') <= 0}
-                                            className={`w-full py-1.5 px-3 rounded text-xs font-medium transition-colors ${
-                                              pendingAction === `stake-${market.marketId}` || !votingStakeAmounts[market.marketId] || parseFloat(votingStakeAmounts[market.marketId] || '0') <= 0
-                                                ? (isDarkMode ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-gray-300 text-gray-500 cursor-not-allowed')
-                                                : isDarkMode 
-                                                  ? 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black' 
-                                                  : 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black'
-                                            }`}
-                                          >
-                                            {pendingAction === `stake-${market.marketId}` ? 'Staking...' : 'Stake'}
-                                          </button>
-                                        </div>
-                                      )}
-                                      
-                                      {market.votingData.userStake > 0 && (
-                                        <div className={`text-xs px-3 py-1.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                          Your stake: {formatEther(market.votingData.userStake)} P2P
-                                        </div>
-                                      )}
-                                    </>
+                          )}
+
+                          {/* Vote buttons */}
+                          {phase.phase === "voting-active" && market.voting.userStakedBalance > BigInt(0) && !market.voting.userHasVoted && (
+                            <div className="space-y-1.5">
+                              <label className={`block text-xs font-medium mb-1.5 ${dark("text-gray-300", "text-gray-700")}`}>
+                                Cast your vote:
+                              </label>
+                              <div className="space-y-1.5">
+                                {/* Assertion option (Accept) */}
+                                <button
+                                  onClick={() => {
+                                    setSelectedVotes(prev => ({ ...prev, [market.marketId]: BigInt(1) }));
+                                    handleVote(market.marketId, BigInt(1));
+                                  }}
+                                  disabled={pendingAction === `vote-${market.marketId}`}
+                                  className={cls(
+                                    "w-full text-left px-3 py-2 rounded text-xs border transition-colors",
+                                    pendingAction === `vote-${market.marketId}`
+                                      ? dark("bg-gray-800 text-gray-500 cursor-not-allowed border-gray-700", "bg-gray-200 text-gray-400 cursor-not-allowed border-gray-300")
+                                      : selectedVotes[market.marketId] === BigInt(1)
+                                        ? dark("border-[#39FF14] bg-[#39FF14]/10 text-[#39FF14]", "border-[#39FF14] bg-[#39FF14]/10 text-green-700")
+                                        : dark("border-gray-700 hover:border-gray-600 text-white", "border-gray-300 hover:border-gray-400 text-gray-900")
                                   )}
-                                  
-                                  {market.votingData.hasVoted && (
-                                    <div className={`text-xs px-3 py-1.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                      You have voted
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <input
+                                        type="radio"
+                                      checked={selectedVotes[market.marketId] === BigInt(1)}
+                                      onChange={() => setSelectedVotes(prev => ({ ...prev, [market.marketId]: BigInt(1) }))}
+                                      className="w-3 h-3"
+                                      disabled={pendingAction === `vote-${market.marketId}`}
+                                    />
+                                    <span>{market.assertion.claimText}</span>
                                     </div>
+                                  </button>
+                                
+                                {/* Dispute option (Reject) */}
+                                <button
+                                  onClick={() => {
+                                    setSelectedVotes(prev => ({ ...prev, [market.marketId]: BigInt(2) }));
+                                    handleVote(market.marketId, BigInt(2));
+                                  }}
+                                  disabled={pendingAction === `vote-${market.marketId}`}
+                                  className={cls(
+                                    "w-full text-left px-3 py-2 rounded text-xs border transition-colors",
+                                    pendingAction === `vote-${market.marketId}`
+                                      ? dark("bg-gray-800 text-gray-500 cursor-not-allowed border-gray-700", "bg-gray-200 text-gray-400 cursor-not-allowed border-gray-300")
+                                      : selectedVotes[market.marketId] === BigInt(2)
+                                        ? dark("border-[#39FF14] bg-[#39FF14]/10 text-[#39FF14]", "border-[#39FF14] bg-[#39FF14]/10 text-green-700")
+                                        : dark("border-gray-700 hover:border-gray-600 text-white", "border-gray-300 hover:border-gray-400 text-gray-900")
                                   )}
-                                </div>
-                              );
-                            })()}
-                            
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="radio"
+                                      checked={selectedVotes[market.marketId] === BigInt(2)}
+                                      onChange={() => setSelectedVotes(prev => ({ ...prev, [market.marketId]: BigInt(2) }))}
+                                      className="w-3 h-3"
+                                      disabled={pendingAction === `vote-${market.marketId}`}
+                                    />
+                                    <span>
+                                      {(() => {
+                                        const assertedOptionId = market.assertion.assertedOptionId;
+                                        const otherOptions = options.filter((_, idx) => idx + 1 !== Number(assertedOptionId));
+                                        return otherOptions.length > 0 ? otherOptions[0] : "Reject assertion";
+                                      })()}
+                                    </span>
+                                  </div>
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+
+                          {/* Settle button when voting ends */}
+                          {phase.phase === "voting-ended" && (
                             <button
-                              onClick={() => handleSettleOracle(market.marketId)}
-                              disabled={!isConnected || pendingAction === `settle-${market.marketId}` || !canSettle}
-                              className={`w-full py-1.5 px-3 rounded text-xs font-medium transition-colors mb-2 ${
-                                !isConnected || pendingAction === `settle-${market.marketId}` || !canSettle
-                                  ? (isDarkMode ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-gray-300 text-gray-500 cursor-not-allowed')
-                                  : isDarkMode 
-                                    ? 'bg-blue-600 hover:bg-blue-700 text-white' 
-                                    : 'bg-blue-600 hover:bg-blue-700 text-white'
-                              }`}
+                              onClick={() => handleSettle(market.marketId)}
+                              disabled={pendingAction === `settle-${market.marketId}`}
+                              className={cls(
+                                "w-full py-2 px-3 rounded text-sm font-medium transition-colors",
+                                pendingAction === `settle-${market.marketId}`
+                                  ? dark("bg-gray-800 text-gray-500 cursor-not-allowed", "bg-gray-300 text-gray-500 cursor-not-allowed")
+                                  : "bg-blue-600 hover:bg-blue-700 text-white"
+                              )}
                             >
-                              {pendingAction === `settle-${market.marketId}` ? 'Settling...' : 'Settle'}
+                              {pendingAction === `settle-${market.marketId}` ? "Settling..." : "Settle Oracle"}
                             </button>
+                          )}
+                          </div>
+                        )}
+
+                      {/* ── PHASE: NO CONSENSUS ── */}
+                      {phase.phase === "no-consensus" && market.assertion && (
+                        <div className="space-y-2">
+                          <div className={`text-xs px-3 py-2 rounded ${dark("bg-purple-900/30 text-purple-300 border border-purple-800", "bg-purple-100 text-purple-800 border border-purple-300")}`}>
+                            <div className="font-medium mb-0.5">Voting: No Consensus</div>
+                            <div>Participation too low. Oracle will accept the original assertion by default. Both bonds returned.</div>
+                          </div>
+                          <button
+                            onClick={() => handleSettle(market.marketId)}
+                            disabled={pendingAction === `settle-${market.marketId}`}
+                            className="w-full py-2 px-3 rounded text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+                          >
+                            {pendingAction === `settle-${market.marketId}` ? "Settling..." : "Settle Oracle"}
+                                  </button>
+                      </div>
+                    )}
+
+                      {/* ── PHASE: READY TO SETTLE ── */}
+                      {phase.phase === "ready-to-settle" && market.assertion && (
+                        <div className="space-y-2">
+                          <div className={`text-xs px-3 py-2 rounded ${dark("bg-green-900/30 text-green-300 border border-green-800", "bg-green-100 text-green-800 border border-green-300")}`}>
+                            <div className="font-medium mb-0.5">Ready to Settle</div>
+                            <div>Claim: {market.assertion.claimText}</div>
+                            {market.assertion.disputer === "0x0000000000000000000000000000000000000000"
+                              ? <div className="mt-1 opacity-70">Undisputed — asserter wins</div>
+                              : <div className="mt-1 opacity-70">Disputed — vote result determines outcome</div>
+                            }
+                            </div>
                             <button
-                              onClick={() => handleResolveMarket(market.marketId)}
-                              disabled={!isConnected || pendingAction === `resolve-${market.marketId}` || (market.assertionTiming && !market.assertionTiming.settled)}
-                              className={`w-full py-1.5 px-3 rounded text-xs font-medium transition-colors ${
-                                !isConnected || pendingAction === `resolve-${market.marketId}` || (market.assertionTiming && !market.assertionTiming.settled)
-                                  ? (isDarkMode ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-gray-300 text-gray-500 cursor-not-allowed')
-                                  : isDarkMode 
-                                    ? 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black' 
-                                    : 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black'
-                              }`}
-                            >
-                              {pendingAction === `resolve-${market.marketId}` ? 'Resolving...' : 'Resolve'}
+                            onClick={() => handleSettle(market.marketId)}
+                            disabled={pendingAction === `settle-${market.marketId}`}
+                            className="w-full py-2 px-3 rounded text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+                          >
+                            {pendingAction === `settle-${market.marketId}` ? "Settling..." : "Settle Oracle"}
                             </button>
                           </div>
-                        );
-                      })()}
+                        )}
+
+                      {/* ── PHASE: DISPUTED (vote data not loaded) ── */}
+                      {phase.phase === "disputed" && market.assertion && !market.voting && (
+                        <div className="space-y-2">
+                          <div className={`text-xs px-3 py-2 rounded ${dark("bg-red-900/30 text-red-300 border border-red-800", "bg-red-100 text-red-800 border border-red-300")}`}>
+                            <div className="font-medium mb-0.5">
+                              <ShieldAlert size={12} className="inline mr-1" />
+                              Claim disputed — loading voting data...
+                            </div>
+                            <div>Claim: <span className="font-medium">{market.assertion.claimText}</span></div>
+                            <div className="mt-1 opacity-70">Asserted option: {options[market.assertion.assertedOptionId - 1] || `Option ${market.assertion.assertedOptionId}`}</div>
+                          </div>
+                          <button
+                            onClick={() => fetchMarkets()}
+                            className="w-full py-2 px-3 rounded text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+                          >
+                            Refresh to load voting
+                          </button>
                       </div>
+                    )}
+
+                      {/* ── PHASE: SETTLED ── */}
+                      {phase.phase === "settled" && market.assertion && (
+                        <div className="space-y-2">
+                          {market.assertion.result ? (
+                            <div className={`text-xs px-3 py-2 rounded ${dark("bg-green-900/30 text-green-300 border border-green-800", "bg-green-100 text-green-800 border border-green-300")}`}>
+                              <div className="font-medium mb-0.5">Oracle Accepted ✓</div>
+                              <div>Winning option: <span className="font-medium">{options[market.assertion.assertedOptionId - 1] || `Option ${market.assertion.assertedOptionId}`}</span></div>
+                            </div>
+                          ) : (
+                            <div className={`text-xs px-3 py-2 rounded ${dark("bg-red-900/30 text-red-300 border border-red-800", "bg-red-100 text-red-800 border border-red-300")}`}>
+                              <div className="font-medium mb-0.5">Oracle Rejected — Market will cancel</div>
+                              <div>Assertion was disputed and overturned. Stakers will receive refunds.</div>
+                            </div>
+                          )}
+                          <button
+                            onClick={() => handleResolve(market.marketId)}
+                            disabled={pendingAction === `resolve-${market.marketId}`}
+                            className={cls(
+                              "w-full py-2 px-3 rounded text-sm font-medium transition-colors",
+                              dark("bg-[#39FF14] hover:bg-[#39FF14]/80 text-black", "bg-[#39FF14] hover:bg-[#39FF14]/80 text-black")
+                            )}
+                          >
+                            {pendingAction === `resolve-${market.marketId}`
+                              ? "Resolving..."
+                              : market.assertion.result
+                                ? "Resolve Market"
+                                : "Cancel Market (Issue Refunds)"}
+                          </button>
+                        </div>
+                      )}
+
+                      {/* ── FALLBACK: Unknown/Loading phase ── */}
+                      {(phase.phase === "unknown" || phase.phase === "loading") && (
+                        <div className={`text-xs px-3 py-2 rounded ${dark("bg-gray-900 text-gray-400", "bg-gray-100 text-gray-600")}`}>
+                          {phase.phase === "loading" ? "Loading assertion data..." : "Unknown state"}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 );
               })}

@@ -58,7 +58,7 @@ interface AggregatorV3Interface {
     function decimals() external view returns (uint8);
 }
 
-contract P2PMarketManager is Ownable {
+contract EventPool is Ownable {
     using SafeERC20 for IERC20;
 
     // ─── Types ────────────────────────────────────────────────────────────────
@@ -533,7 +533,7 @@ contract P2PMarketManager is Ownable {
         } else {
             // Assertion rejected — cancel market and allow refunds.
             // The asserter lied; we cannot know the real outcome without a new assertion.
-            _cancelMarket(marketId, "Oracle assertion rejected - refunds available");
+            _cancelMarket(marketId, "Oracle assertion rejected — refunds available");
         }
     }
 
@@ -550,7 +550,7 @@ contract P2PMarketManager is Ownable {
         require(!m.p2pAssertionMade,                               "EP: assertion exists");
         require(block.timestamp >= m.endTime + assertionGracePeriod, "EP: grace period active");
 
-        _cancelMarket(marketId, unicode"No assertion made — refunds available");
+        _cancelMarket(marketId, "No assertion made — refunds available");
     }
 
     /**
@@ -816,5 +816,3 @@ contract P2PMarketManager is Ownable {
 
     receive() external payable {}
 }
-
-

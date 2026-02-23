@@ -1264,8 +1264,8 @@
       ]
     },
     "C:\\Users\\USER\\p2p\\p2p\\contracts\\P2PMarketManager.sol": {
-      "lastModificationDate": 1771834180872,
-      "contentHash": "4afe6de6f398d4cd5656a97a116106ff",
+      "lastModificationDate": 1771880428126,
+      "contentHash": "50b76d8e005d6ec208881038bee27aa2",
       "sourceName": "contracts/P2PMarketManager.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -1299,6 +1299,7 @@
         "@openzeppelin/contracts/access/Ownable.sol",
         "@openzeppelin/contracts/token/ERC20/IERC20.sol",
         "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
+        "./IOptimisticOracle.sol",
         "./P2PTreasury.sol",
         "./P2PAnalytics.sol"
       ],
@@ -1307,9 +1308,8 @@
       ],
       "artifacts": [
         "AggregatorV3Interface",
-        "EventPool",
         "IAdminManager",
-        "P2POptimisticOracle"
+        "P2PMarketManager"
       ]
     },
     "C:\\Users\\USER\\p2p\\p2p\\contracts\\P2PVerification.sol": {
@@ -1356,8 +1356,8 @@
       ]
     },
     "C:\\Users\\USER\\p2p\\p2p\\contracts\\P2PAnalytics.sol": {
-      "lastModificationDate": 1766263562866,
-      "contentHash": "feb10264b1852ec934f3cebbe6d17ebd",
+      "lastModificationDate": 1771880465665,
+      "contentHash": "92ae5e6b95accafb036a002b97789909",
       "sourceName": "contracts/P2PAnalytics.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -1482,6 +1482,48 @@
       ],
       "artifacts": [
         "PoolToken"
+      ]
+    },
+    "C:\\Users\\USER\\p2p\\p2p\\contracts\\IOptimisticOracle.sol": {
+      "lastModificationDate": 1771880115878,
+      "contentHash": "b3d298071a9486cdfd3c800ba77cfd05",
+      "sourceName": "contracts/IOptimisticOracle.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 1
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "metadata": {
+            "bytecodeHash": "none"
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts/token/ERC20/IERC20.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.19"
+      ],
+      "artifacts": [
+        "IOptimisticOracle"
       ]
     }
   }

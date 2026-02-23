@@ -401,6 +401,26 @@ export function MarketCard({
     },
   }) as { data: bigint | undefined };
 
+  // Fetch user's token balance
+  const { data: userTokenBalance } = useReadContract({
+    address: market?.paymentToken || '0x0000000000000000000000000000000000000000',
+    abi: [
+      {
+        "inputs": [{"name": "account", "type": "address"}],
+        "name": "balanceOf",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ],
+    functionName: 'balanceOf',
+    args: [userAddress || '0x0000000000000000000000000000000000000000'],
+    query: {
+      enabled: !!userAddress && !!market?.paymentToken && market.paymentToken !== '0x0000000000000000000000000000000000000000',
+      refetchInterval: 5000, // Refetch every 5 seconds
+    },
+  }) as { data: bigint | undefined };
+
   // Get total pool directly from contract (more accurate than summing manually)
   const { data: totalPool } = useReadContract({
     address: MARKET_MANAGER_ADDRESS,
@@ -599,10 +619,27 @@ export function MarketCard({
   // Check if this is an ERC20 market
   const isERC20Market = market?.paymentToken && market.paymentToken !== '0x0000000000000000000000000000000000000000';
 
-  // Check approval needs
-  const requiredAmount = betAmount ? parseEther(betAmount) : BigInt(0);
+  // Check approval needs and validation
+  let requiredAmount = BigInt(0);
+  try {
+    requiredAmount = betAmount ? parseEther(betAmount) : BigInt(0);
+  } catch (e) {
+    requiredAmount = BigInt(0);
+  }
   const hasSufficientAllowance = tokenAllowance !== undefined && betAmount ? tokenAllowance >= requiredAmount : false;
   const needsTokenApproval = isERC20Market && betAmount && !hasSufficientAllowance;
+
+  // Validation logic
+  const balance = userTokenBalance || BigInt(0);
+  const minStake = market?.minStake || BigInt(0);
+  const isValidAmount = betAmount && !isNaN(parseFloat(betAmount)) && parseFloat(betAmount) > 0;
+  const exceedsBalance = isValidAmount && requiredAmount > balance;
+  const belowMinStake = isValidAmount && requiredAmount < minStake;
+  const validationError = exceedsBalance 
+    ? 'Insufficient balance' 
+    : belowMinStake 
+    ? `Minimum stake: ${formatEther(minStake)} ${tokenSymbol || (isERC20Market ? 'ERC20' : 'PEPU')}`
+    : null;
 
   // Loading state
   if (loadingSupabase || !supabaseData) {
@@ -1025,9 +1062,24 @@ export function MarketCard({
                   isDarkMode 
                       ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500'
                       : 'bg-white border-gray-300 text-gray-900'
-                }`}
+                  } ${validationError ? (isDarkMode ? 'border-red-500' : 'border-red-500') : ''}`}
                   autoFocus
               />
+              {/* Balance Display */}
+              {userAddress && (
+                <div className={`mt-1.5 text-xs flex items-center justify-between ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  <span>Balance:</span>
+                  <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                    {formatEther(balance)} {tokenSymbol || (isERC20Market ? 'ERC20' : 'PEPU')}
+                  </span>
+                </div>
+              )}
+              {/* Validation Error */}
+              {validationError && (
+                <div className={`mt-1.5 text-xs ${isDarkMode ? 'text-red-400' : 'text-red-600'}`}>
+                  {validationError}
+                </div>
+              )}
               </div>
 
               {/* Action Buttons */}
@@ -1043,7 +1095,7 @@ export function MarketCard({
                         onBet(marketId, modalSelectedOption, betAmount, true);
                       }
                   }}
-                    disabled={!betAmount || !canStake || isApprovalPending || isApprovalConfirming || isTransactionPending}
+                    disabled={!betAmount || !canStake || isApprovalPending || isApprovalConfirming || isTransactionPending || !!validationError}
                     className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
                     !betAmount || !canStake || isApprovalPending || isApprovalConfirming
                         ? isDarkMode
@@ -1067,7 +1119,7 @@ export function MarketCard({
                         onBet(marketId, modalSelectedOption, betAmount);
                       }
                   }}
-                    disabled={!betAmount || !canStake || isStakePending || isStakeConfirming || isTransactionPending}
+                    disabled={!betAmount || !canStake || isStakePending || isStakeConfirming || isTransactionPending || !!validationError}
                     className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
                     !betAmount || !canStake || isStakePending || isStakeConfirming
                         ? isDarkMode

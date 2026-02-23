@@ -93,7 +93,7 @@ contract MetricsHub is Ownable {
         // Update market stats
         MarketStats storage marketStat = marketStats[marketId];
         marketStat.totalVolume += amount;
-        marketStat.totalStakers = EventPool(marketManager).getStakerCount(marketId);
+        marketStat.totalStakers = P2PMarketManager(marketManager).getStakerCount(marketId);
         marketStat.averageStakeSize = marketStat.totalStakers > 0 ? marketStat.totalVolume / marketStat.totalStakers : 0;
         
         if (amount > marketStat.largestStake) {
@@ -122,7 +122,7 @@ contract MetricsHub is Ownable {
         
         // Update market stats
         MarketStats storage marketStat = marketStats[marketId];
-        marketStat.totalSupporters = EventPool(marketManager).getSupporterCount(marketId);
+        marketStat.totalSupporters = P2PMarketManager(marketManager).getSupporterCount(marketId);
         
         userSupports[user].push(marketId);
         
@@ -175,7 +175,7 @@ contract MetricsHub is Ownable {
         stats.lastActivity = block.timestamp;
         
         // Check if user won the market they created
-        EventPool.Market memory market = EventPool(marketManager).getMarket(marketId);
+        P2PMarketManager.Market memory market = P2PMarketManager(marketManager).getMarket(marketId);
         if (market.creator == user) {
             stats.marketsWon++;
             marketStats[marketId].creatorWinnings = winnings;
@@ -195,7 +195,7 @@ contract MetricsHub is Ownable {
         stats.lastActivity = block.timestamp;
         
         // Check if user lost the market they created
-        EventPool.Market memory market = EventPool(marketManager).getMarket(marketId);
+        P2PMarketManager.Market memory market = P2PMarketManager(marketManager).getMarket(marketId);
         if (market.creator == user) {
             stats.marketsLost++;
         }
@@ -221,7 +221,7 @@ contract MetricsHub is Ownable {
      * @dev Get global statistics
      */
     function getGlobalStats() public view returns (GlobalStats memory) {
-        uint256 totalMarkets = EventPool(marketManager).getNextMarketId() - 1;
+        uint256 totalMarkets = P2PMarketManager(marketManager).getNextMarketId() - 1;
         uint256 totalVolume = 0;
         uint256 totalStakers = 0;
         uint256 totalSupporters = 0;
@@ -295,10 +295,10 @@ contract MetricsHub is Ownable {
      */
     function getMarketsByToken(address token) external view returns (uint256[] memory) {
         uint256[] memory filteredMarkets = new uint256[](0);
-        uint256 nextMarketId = EventPool(marketManager).getNextMarketId();
+        uint256 nextMarketId = P2PMarketManager(marketManager).getNextMarketId();
         
         for (uint256 i = 1; i < nextMarketId; i++) {
-            EventPool.Market memory market = EventPool(marketManager).getMarket(i);
+            P2PMarketManager.Market memory market = P2PMarketManager(marketManager).getMarket(i);
             if (market.paymentToken == token) {
                 // Add to filtered array (this is expensive, consider events)
                 uint256[] memory temp = new uint256[](filteredMarkets.length + 1);
@@ -317,11 +317,11 @@ contract MetricsHub is Ownable {
      */
     function getActiveMarketsByMinVolume(uint256 minVolume) external view returns (uint256[] memory) {
         uint256[] memory filteredMarkets = new uint256[](0);
-        uint256 nextMarketId = EventPool(marketManager).getNextMarketId();
+        uint256 nextMarketId = P2PMarketManager(marketManager).getNextMarketId();
         
         for (uint256 i = 1; i < nextMarketId; i++) {
-            EventPool.Market memory market = EventPool(marketManager).getMarket(i);
-            if (market.state == EventPool.MarketState.Active && marketStats[i].totalVolume >= minVolume) {
+            P2PMarketManager.Market memory market = P2PMarketManager(marketManager).getMarket(i);
+            if (market.state == P2PMarketManager.MarketState.Active && marketStats[i].totalVolume >= minVolume) {
                 uint256[] memory temp = new uint256[](filteredMarkets.length + 1);
                 for (uint256 j = 0; j < filteredMarkets.length; j++) {
                     temp[j] = filteredMarkets[j];
@@ -336,12 +336,12 @@ contract MetricsHub is Ownable {
     /**
      * @dev Get markets filtered by state
      */
-    function getMarketsByState(EventPool.MarketState state) external view returns (uint256[] memory) {
+    function getMarketsByState(P2PMarketManager.MarketState state) external view returns (uint256[] memory) {
         uint256[] memory filteredMarkets = new uint256[](0);
-        uint256 nextMarketId = EventPool(marketManager).getNextMarketId();
+        uint256 nextMarketId = P2PMarketManager(marketManager).getNextMarketId();
         
         for (uint256 i = 1; i < nextMarketId; i++) {
-            EventPool.Market memory market = EventPool(marketManager).getMarket(i);
+            P2PMarketManager.Market memory market = P2PMarketManager(marketManager).getMarket(i);
             if (market.state == state) {
                 uint256[] memory temp = new uint256[](filteredMarkets.length + 1);
                 for (uint256 j = 0; j < filteredMarkets.length; j++) {
@@ -359,10 +359,10 @@ contract MetricsHub is Ownable {
      */
     function getMarketsByDateRange(uint256 startTime, uint256 endTime) external view returns (uint256[] memory) {
         uint256[] memory filteredMarkets = new uint256[](0);
-        uint256 nextMarketId = EventPool(marketManager).getNextMarketId();
+        uint256 nextMarketId = P2PMarketManager(marketManager).getNextMarketId();
         
         for (uint256 i = 1; i < nextMarketId; i++) {
-            EventPool.Market memory market = EventPool(marketManager).getMarket(i);
+            P2PMarketManager.Market memory market = P2PMarketManager(marketManager).getMarket(i);
             if (market.startTime >= startTime && market.startTime <= endTime) {
                 uint256[] memory temp = new uint256[](filteredMarkets.length + 1);
                 for (uint256 j = 0; j < filteredMarkets.length; j++) {
@@ -383,15 +383,15 @@ contract MetricsHub is Ownable {
         address token,
         uint256 minVolume,
         uint256 maxVolume,
-        EventPool.MarketState state,
+        P2PMarketManager.MarketState state,
         uint256 startTime,
         uint256 endTime
     ) external view returns (uint256[] memory) {
         uint256[] memory filteredMarkets = new uint256[](0);
-        uint256 nextMarketId = EventPool(marketManager).getNextMarketId();
+        uint256 nextMarketId = P2PMarketManager(marketManager).getNextMarketId();
         
         for (uint256 i = 1; i < nextMarketId; i++) {
-            EventPool.Market memory market = EventPool(marketManager).getMarket(i);
+            P2PMarketManager.Market memory market = P2PMarketManager(marketManager).getMarket(i);
             MarketStats memory stats = marketStats[i];
             
             bool matches = true;
@@ -415,7 +415,7 @@ contract MetricsHub is Ownable {
             }
             
             // Filter by state
-            if (state != EventPool.MarketState.Active && market.state != state) {
+            if (state != P2PMarketManager.MarketState.Active && market.state != state) {
                 matches = false;
             }
             
@@ -442,12 +442,12 @@ contract MetricsHub is Ownable {
     /**
      * @dev Get user's markets filtered by state
      */
-    function getUserMarketsByState(address user, EventPool.MarketState state) external view returns (uint256[] memory) {
+    function getUserMarketsByState(address user, P2PMarketManager.MarketState state) external view returns (uint256[] memory) {
         uint256[] memory userMarketsList = userMarkets[user];
         uint256[] memory filteredMarkets = new uint256[](0);
         
         for (uint256 i = 0; i < userMarketsList.length; i++) {
-            EventPool.Market memory market = EventPool(marketManager).getMarket(userMarketsList[i]);
+            P2PMarketManager.Market memory market = P2PMarketManager(marketManager).getMarket(userMarketsList[i]);
             if (market.state == state) {
                 uint256[] memory temp = new uint256[](filteredMarkets.length + 1);
                 for (uint256 j = 0; j < filteredMarkets.length; j++) {
@@ -464,14 +464,14 @@ contract MetricsHub is Ownable {
      * @dev Get active markets sorted by volume (descending)
      */
     function getActiveMarketsByVolume(uint256 limit) external view returns (uint256[] memory, uint256[] memory) {
-        uint256 nextMarketId = EventPool(marketManager).getNextMarketId();
+        uint256 nextMarketId = P2PMarketManager(marketManager).getNextMarketId();
         uint256[] memory marketIds = new uint256[](0);
         uint256[] memory volumes = new uint256[](0);
         
         // Collect only ACTIVE markets
         for (uint256 i = 1; i < nextMarketId; i++) {
-            EventPool.Market memory market = EventPool(marketManager).getMarket(i);
-            if (market.state == EventPool.MarketState.Active) {
+            P2PMarketManager.Market memory market = P2PMarketManager(marketManager).getMarket(i);
+            if (market.state == P2PMarketManager.MarketState.Active) {
                 // Add to arrays
                 uint256[] memory tempIds = new uint256[](marketIds.length + 1);
                 uint256[] memory tempVolumes = new uint256[](volumes.length + 1);
@@ -522,15 +522,15 @@ contract MetricsHub is Ownable {
      * @dev Get active markets by staker count (most stakers)
      */
     function getActiveMarketsByStakerCount(uint256 limit) external view returns (uint256[] memory, uint256[] memory) {
-        uint256 nextMarketId = EventPool(marketManager).getNextMarketId();
+        uint256 nextMarketId = P2PMarketManager(marketManager).getNextMarketId();
         uint256[] memory marketIds = new uint256[](0);
         uint256[] memory stakerCounts = new uint256[](0);
         
         // Collect only ACTIVE markets
         for (uint256 i = 1; i < nextMarketId; i++) {
-            EventPool.Market memory market = EventPool(marketManager).getMarket(i);
-            if (market.state == EventPool.MarketState.Active) {
-                uint256 stakerCount = EventPool(marketManager).getStakerCount(i);
+            P2PMarketManager.Market memory market = P2PMarketManager(marketManager).getMarket(i);
+            if (market.state == P2PMarketManager.MarketState.Active) {
+                uint256 stakerCount = P2PMarketManager(marketManager).getStakerCount(i);
                 
                 // Add to arrays
                 uint256[] memory tempIds = new uint256[](marketIds.length + 1);
@@ -582,16 +582,16 @@ contract MetricsHub is Ownable {
      * @dev Get active markets by total participants (stakers + supporters)
      */
     function getActiveMarketsByParticipants(uint256 limit) external view returns (uint256[] memory, uint256[] memory) {
-        uint256 nextMarketId = EventPool(marketManager).getNextMarketId();
+        uint256 nextMarketId = P2PMarketManager(marketManager).getNextMarketId();
         uint256[] memory marketIds = new uint256[](0);
         uint256[] memory participantCounts = new uint256[](0);
         
         // Collect only ACTIVE markets
         for (uint256 i = 1; i < nextMarketId; i++) {
-            EventPool.Market memory market = EventPool(marketManager).getMarket(i);
-            if (market.state == EventPool.MarketState.Active) {
-            uint256 stakerCount = EventPool(marketManager).getStakerCount(i);
-            uint256 supporterCount = EventPool(marketManager).getSupporterCount(i);
+            P2PMarketManager.Market memory market = P2PMarketManager(marketManager).getMarket(i);
+            if (market.state == P2PMarketManager.MarketState.Active) {
+            uint256 stakerCount = P2PMarketManager(marketManager).getStakerCount(i);
+            uint256 supporterCount = P2PMarketManager(marketManager).getSupporterCount(i);
             uint256 totalParticipants = stakerCount + supporterCount;
                 
                 // Add to arrays
@@ -644,7 +644,7 @@ contract MetricsHub is Ownable {
      * @dev Get recent active markets (created within last N days)
      */
     function getRecentActiveMarkets(uint256 daysBack, uint256 limit) external view returns (uint256[] memory, uint256[] memory) {
-        uint256 nextMarketId = EventPool(marketManager).getNextMarketId();
+        uint256 nextMarketId = P2PMarketManager(marketManager).getNextMarketId();
         uint256[] memory marketIds = new uint256[](0);
         uint256[] memory timestamps = new uint256[](0);
         
@@ -652,8 +652,8 @@ contract MetricsHub is Ownable {
         
         // Collect only ACTIVE markets created within the time period
         for (uint256 i = 1; i < nextMarketId; i++) {
-            EventPool.Market memory market = EventPool(marketManager).getMarket(i);
-            if (market.state == EventPool.MarketState.Active && market.startTime >= cutoffTime) {
+            P2PMarketManager.Market memory market = P2PMarketManager(marketManager).getMarket(i);
+            if (market.state == P2PMarketManager.MarketState.Active && market.startTime >= cutoffTime) {
                 // Add to arrays
                 uint256[] memory tempIds = new uint256[](marketIds.length + 1);
                 uint256[] memory tempTimestamps = new uint256[](timestamps.length + 1);

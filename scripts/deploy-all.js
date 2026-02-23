@@ -86,32 +86,17 @@ async function main() {
     await addTokenTx.wait();
     console.log("✅ P2P Token added as supported token");
 
-    // 11. Configure P2P Optimistic Oracle (using existing deployed addresses)
+    // 11. Configure P2P Optimistic Oracle (using existing deployed addresses from oracle-docs.md)
     console.log("\n11. Configuring P2P Optimistic Oracle...");
     
-    // Read P2P Oracle addresses from deployment file
-    const p2pOracleConfigPath = path.join(__dirname, "..", "oracle", "p2p-oracle", "p2p-oracle-addresses.json");
-    let P2P_OPTIMISTIC_ORACLE = "";
-    let P2P_VOTING = "";
+    // Correct addresses from oracle-docs.md (updated):
+    // P2POptimisticOracleV2: 0x6D7112B471cA7F83d8DaDDF062D4f4f903813701
+    // P2PVoting: 0xe5aE58F2cEEEB259655deDEa3657568F899908d6
+    const P2P_OPTIMISTIC_ORACLE = "0x6D7112B471cA7F83d8DaDDF062D4f4f903813701";
+    const P2P_VOTING = "0xe5aE58F2cEEEB259655deDEa3657568F899908d6";
     
-    if (fs.existsSync(p2pOracleConfigPath)) {
-        try {
-            const p2pOracleConfig = JSON.parse(fs.readFileSync(p2pOracleConfigPath, "utf8"));
-            P2P_OPTIMISTIC_ORACLE = p2pOracleConfig.contracts?.P2POptimisticOracle?.address || "";
-            P2P_VOTING = p2pOracleConfig.contracts?.P2PVotingV2?.address || "";
-            if (P2P_OPTIMISTIC_ORACLE) {
-                console.log("   Found P2P OptimisticOracle from config:", P2P_OPTIMISTIC_ORACLE);
-            }
-        } catch (error) {
-            console.log("   Could not read P2P Oracle config:", error.message);
-        }
-    }
-    
-    // Fallback to hardcoded address if config not found
-    if (!P2P_OPTIMISTIC_ORACLE) {
-        P2P_OPTIMISTIC_ORACLE = process.env.P2P_OPTIMISTIC_ORACLE_ADDRESS || "0xceF54d4A3B30792F451fD175aDd86d1fc17910AA";
-        console.log("   Using P2P OptimisticOracle address:", P2P_OPTIMISTIC_ORACLE);
-    }
+    console.log("   Using P2P OptimisticOracleV2 address:", P2P_OPTIMISTIC_ORACLE);
+    console.log("   Using P2P Voting address:", P2P_VOTING);
     
     // Set P2P OptimisticOracle address
     console.log("   Setting P2P OptimisticOracle:", P2P_OPTIMISTIC_ORACLE);
