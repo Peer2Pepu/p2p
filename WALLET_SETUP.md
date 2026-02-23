@@ -55,7 +55,7 @@ Users can manually add the PEPU testnet to MetaMask:
 - **Currency Symbol**: PEPU
 - **Block Explorer**: https://explorer-pepu-v2-testnet-vn4qxxp9og.t.conduit.xyz
 
-## Usage Flow
+## Usage Flo
 
 1. **Connect Wallet**: User clicks connect and authorizes their wallet
 2. **Network Check**: App checks if wallet is on PEPU testnet

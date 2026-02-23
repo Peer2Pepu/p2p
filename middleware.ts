@@ -22,9 +22,10 @@ export function middleware(request: NextRequest) {
   
   // Fix #1: CSP (Content Security Policy)
   // Allow scripts, styles, images, and connections from same origin and trusted sources
+  // 'unsafe-eval' is required for web3 libraries (viem, wagmi, ethers.js)
   response.headers.set(
     'Content-Security-Policy',
-    "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:; frame-ancestors 'none';"
+    "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https: wss:; frame-ancestors 'none';"
   )
   
   // Fix #2: CORS (Cross-Origin Resource Sharing) - Restricted to trusted domains
