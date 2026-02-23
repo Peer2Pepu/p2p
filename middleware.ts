@@ -23,9 +23,10 @@ export function middleware(request: NextRequest) {
   // Fix #1: CSP (Content Security Policy)
   // Allow scripts, styles, images, and connections from same origin and trusted sources
   // 'unsafe-eval' is required for web3 libraries (viem, wagmi, ethers.js)
+  // connect-src must allow IPFS gateway, Supabase, and RPC endpoints
   response.headers.set(
     'Content-Security-Policy',
-    "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https: wss:; frame-ancestors 'none';"
+    "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: ipfs:; font-src 'self' data:; connect-src 'self' https: wss: https://*.ipfs.* https://gateway.lighthouse.storage https://*.supabase.* https://*.supabase.co; frame-ancestors 'none';"
   )
   
   // Fix #2: CORS (Cross-Origin Resource Sharing) - Restricted to trusted domains
