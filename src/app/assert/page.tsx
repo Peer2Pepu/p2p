@@ -78,6 +78,7 @@ const MARKET_MANAGER_ABI = [
           { name: "priceThreshold", type: "uint256" },
           { name: "p2pAssertionId", type: "bytes32" },
           { name: "p2pAssertionMade", type: "bool" },
+          { name: "p2pDisputedOptionId", type: "uint256" },
         ],
         name: "",
         type: "tuple",
@@ -106,7 +107,10 @@ const MARKET_MANAGER_ABI = [
     type: "function",
   },
   {
-    inputs: [{ name: "marketId", type: "uint256" }],
+    inputs: [
+      { name: "marketId", type: "uint256" },
+      { name: "optionId", type: "uint256" },
+    ],
     name: "disputeOracle",
     outputs: [],
     stateMutability: "nonpayable",
@@ -872,20 +876,25 @@ export default function AssertPage() {
     );
   };
 
-  const handleDispute = (marketId: number) =>
-    withTx(
+  const handleDispute = (marketId: number) => {
+    const market = markets.find((m) => m.marketId === marketId)!;
+    const optionId = selectedOptions[marketId];
+    if (!optionId) { setError("Select an option to dispute with first"); return; }
+    
+    return withTx(
       `dispute-${marketId}`,
       async () => {
         await writeContract({
           address: MARKET_MANAGER_ADDRESS,
           abi: MARKET_MANAGER_ABI,
           functionName: "disputeOracle",
-          args: [BigInt(marketId)],
+          args: [BigInt(marketId), BigInt(optionId)],
           gas: BigInt(500_000),
         });
       },
       "Dispute submitted!"
     );
+  };
 
   const handleApproveVoting = async (marketId: number) => {
     if (!votingContractAddress || !bondCurrency) return;

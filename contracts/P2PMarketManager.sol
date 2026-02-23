@@ -93,6 +93,7 @@ contract P2PMarketManager is Ownable {
         // P2POPTIMISTIC fields
         bytes32     p2pAssertionId;
         bool        p2pAssertionMade;
+        uint256     p2pDisputedOptionId; // Option ID that the disputer claimed (0 if not disputed or no option specified)
     }
 
     // ─── Constants ────────────────────────────────────────────────────────────
@@ -245,7 +246,8 @@ contract P2PMarketManager is Ownable {
             priceFeed:         priceFeed,
             priceThreshold:    priceThreshold,
             p2pAssertionId:    bytes32(0),
-            p2pAssertionMade:  false
+            p2pAssertionMade:  false,
+            p2pDisputedOptionId: 0
         });
 
         activeMarkets.push(marketId);
@@ -465,14 +467,17 @@ contract P2PMarketManager is Ownable {
      *         Can be called by anyone who disagrees, within the dispute window.
      *
      * @dev Caller must have approved `defaultBondCurrency` for `minimumBond` to this contract.
+     * @param marketId The market to dispute.
+     * @param optionId The option ID that the disputer claims is the correct outcome.
      */
-    function disputeOracle(uint256 marketId) external {
+    function disputeOracle(uint256 marketId, uint256 optionId) external {
         Market storage m = markets[marketId];
         require(m.marketType == MarketType.P2POPTIMISTIC, "EP: not P2POPTIMISTIC");
         require(m.p2pAssertionMade,                        "EP: no assertion");
         require(!m.isResolved,                             "EP: resolved");
         require(address(optimisticOracle) != address(0),   "EP: oracle not set");
         require(defaultBondCurrency != address(0),         "EP: bond currency not set");
+        require(optionId > 0 && optionId <= m.maxOptions, "EP: invalid option");
 
         uint256 bond = optimisticOracle.getMinimumBond(defaultBondCurrency);
 
@@ -480,6 +485,9 @@ contract P2PMarketManager is Ownable {
         IERC20(defaultBondCurrency).forceApprove(address(optimisticOracle), bond);
 
         optimisticOracle.disputeAssertion(m.p2pAssertionId, msg.sender);
+
+        // Store the disputed option so we can resolve to it if dispute wins
+        m.p2pDisputedOptionId = optionId;
 
         emit OracleDisputed(marketId, m.p2pAssertionId, msg.sender);
     }
@@ -531,9 +539,16 @@ contract P2PMarketManager is Ownable {
             emit MarketResolved(marketId, m.winningOption);
 
         } else {
-            // Assertion rejected — cancel market and allow refunds.
-            // The asserter lied; we cannot know the real outcome without a new assertion.
-            _cancelMarket(marketId, "Oracle assertion rejected - refunds available");
+            // Assertion rejected — dispute won. Resolve to the disputed option.
+            require(m.p2pDisputedOptionId > 0 && m.p2pDisputedOptionId <= m.maxOptions, "EP: no disputed option");
+
+            m.winningOption = m.p2pDisputedOptionId;
+            m.isResolved    = true;
+            m.state         = MarketState.Resolved;
+
+            _distributeFees(marketId);
+            _trackResolution(marketId, m.winningOption);
+            emit MarketResolved(marketId, m.winningOption);
         }
     }
 

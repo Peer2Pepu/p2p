@@ -777,7 +777,10 @@ export default function CreateMarketPage() {
       
       // Step 1: Upload image to IPFS (image already validated at upload)
       setIsUploadingImage(true);
-      console.log('📤 Uploading image file:', imageFile?.name, 'Size:', imageFile?.size);
+      if (!imageFile) {
+        throw new Error('Image file is required');
+      }
+      console.log('📤 Uploading image file:', imageFile.name, 'Size:', imageFile.size);
       
       const apiKey = '91729f56.8c58e79bdc194453b56d2b826d2daefb';
       
