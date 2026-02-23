@@ -6,9 +6,11 @@ import {
   Users,
   Timer,
   Clock,
-  Wallet
+  Wallet,
+  X,
+  Loader2
 } from 'lucide-react';
-import { useReadContract, useAccount } from 'wagmi';
+import { useReadContract, useAccount, useWaitForTransactionReceipt } from 'wagmi';
 import { parseEther, formatEther } from 'viem';
 import { createClient } from '@supabase/supabase-js';
 
@@ -164,11 +166,31 @@ function MultiSegmentCircle({ segments, size = 60, isDarkMode }: {
         })()}
       </svg>
       
-      {/* Center display - show highest percentage */}
+      {/* Center display - show highest percentage with option label */}
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className={`text-sm font-bold leading-none ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-          {Math.max(...segments.map(s => s.percentage))}%
-        </span>
+        {(() => {
+          const validSegments = segments.filter(s => s.percentage > 0.1 && isFinite(s.percentage) && !isNaN(s.percentage));
+          if (validSegments.length === 0) {
+            return (
+              <span className={`text-xs font-bold leading-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                50%
+              </span>
+            );
+          }
+          // Find segment with highest percentage
+          const topSegment = validSegments.reduce((max, seg) => seg.percentage > max.percentage ? seg : max);
+          const roundedPercentage = Math.round(topSegment.percentage * 100) / 100; // Round to 2 decimal places
+          return (
+            <>
+              <span className={`text-xs font-bold leading-none ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                {roundedPercentage.toFixed(2)}%
+              </span>
+              <span className={`text-[8px] leading-tight mt-0.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} style={{ color: topSegment.color }}>
+                {topSegment.label.length > 4 ? topSegment.label.substring(0, 4) : topSegment.label}
+              </span>
+            </>
+          );
+        })()}
       </div>
     </div>
   );
@@ -204,7 +226,6 @@ export function MarketCard({
   
   // 1. ALL useState hooks
   const [betAmount, setBetAmount] = useState('');
-  const [selectedOption, setSelectedOption] = useState(1);
   const [marketMetadata, setMarketMetadata] = useState<any>(null);
   const [loadingMetadata, setLoadingMetadata] = useState(false);
   const [needsApproval, setNeedsApproval] = useState(false);
@@ -212,6 +233,9 @@ export function MarketCard({
   const [loadingSupabase, setLoadingSupabase] = useState(true);
   const [timeLeft, setTimeLeft] = useState(0);
   const [stakeTimeLeft, setStakeTimeLeft] = useState(0);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalSelectedOption, setModalSelectedOption] = useState<number | null>(null);
+  const [isTransactionPending, setIsTransactionPending] = useState(false);
 
   // 2. Get user account
   const { address: currentUserAddress } = useAccount();
@@ -559,6 +583,15 @@ export function MarketCard({
     }
   }, [isApprovalPending, market?.paymentToken, betAmount, refetchAllowance]);
 
+  // Reset transaction pending state when transaction completes
+  useEffect(() => {
+    if (!isApprovalPending && !isStakePending && !isApprovalConfirming && !isStakeConfirming && isTransactionPending) {
+      setIsTransactionPending(false);
+      setModalSelectedOption(null);
+      setBetAmount('');
+    }
+  }, [isApprovalPending, isStakePending, isApprovalConfirming, isStakeConfirming, isTransactionPending]);
+
   // ============================================
   // NOW WE CAN DO CONDITIONAL LOGIC AND RETURNS
   // ============================================
@@ -696,16 +729,27 @@ export function MarketCard({
 
   return (
     <div 
-      className={`w-full max-w-sm border rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg flex flex-col ${
+      className={`w-full max-w-sm border rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg flex flex-col relative ${
         isDarkMode 
           ? 'bg-black border-gray-800 hover:border-[#39FF14]/30 hover:shadow-[#39FF14]/20 hover:bg-gray-900/50' 
           : 'bg-[#F5F3F0] border-gray-300 hover:shadow-gray-900/20'
       }`}
-      style={{ height: '380px' }}
+      style={{ height: '320px' }}
     >
+      {/* Loading Overlay */}
+      {(isTransactionPending || isApprovalPending || isStakePending || isApprovalConfirming || isStakeConfirming) && (
+        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center rounded-xl">
+          <div className={`flex flex-col items-center gap-3 p-4 rounded-lg ${isDarkMode ? 'bg-gray-900' : 'bg-white'}`}>
+            <Loader2 className="w-8 h-8 animate-spin text-[#39FF14]" />
+            <p className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              {isApprovalPending || isApprovalConfirming ? 'Approving...' : 'Confirming transaction...'}
+            </p>
+          </div>
+        </div>
+      )}
       <div className="p-4 flex flex-col flex-1 min-h-0">
         {/* Header with small image and multi-segment circle */}
-        <div className="flex items-start justify-between gap-3 mb-4 flex-shrink-0">
+        <div className="flex items-start justify-between gap-3 mb-3 flex-shrink-0">
           <div className="flex items-start gap-3 flex-1 min-w-0">
             {getMarketImage() && (
               <div className="flex-shrink-0">
@@ -774,18 +818,16 @@ export function MarketCard({
 
         {/* Scrollable Options */}
         <div 
-          className="flex-1 min-h-0 overflow-y-auto mb-3 pr-1" 
+          className="flex-1 min-h-0 overflow-y-auto mb-2 pr-1" 
           style={{ 
-            minHeight: '90px', 
-            maxHeight: '130px',
+            maxHeight: '100px',
             scrollbarWidth: 'thin',
-            scrollbarColor: '#9CA3AF transparent'
+            scrollbarColor: isDarkMode ? '#4B5563 transparent' : '#9CA3AF transparent'
           }}
         >
           <div className="space-y-2">
             {options.map((option: string, index: number) => {
               const percentage = getOptionPercentage(index);
-              const isSelected = selectedOption === index + 1;
               const isUserStake = userHasStaked && userStakeOption && Number(userStakeOption) === index + 1;
               
               // Map colors based on option name: Yes=Red, No=Green, others by index
@@ -806,20 +848,21 @@ export function MarketCard({
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    if (!canEndMarket && !isUserStake) {
-                      setSelectedOption(index + 1);
+                    if (canStake && !isUserStake && !canEndMarket) {
+                      setModalSelectedOption(index + 1);
+                      setIsModalOpen(true);
                     }
                   }}
                   onMouseDown={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
                   }}
-                  className={`flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-all ${
+                  className={`flex items-center gap-3 p-2.5 rounded-lg transition-all ${
                     isUserStake
                       ? (isDarkMode ? 'border border-[#39FF14] bg-[#39FF14]/10' : 'border-2 border-black bg-[#39FF14]/10')
-                      : isSelected 
-                        ? (isDarkMode ? 'border border-[#39FF14] bg-[#39FF14]/10' : 'border-2 border-black bg-[#39FF14]/10')
-                        : (isDarkMode ? 'border border-gray-700 hover:bg-gray-800/50' : 'border border-gray-300 hover:bg-gray-200/50')
+                      : canStake && !canEndMarket
+                        ? (isDarkMode ? 'border border-gray-700 hover:bg-gray-800/50 cursor-pointer' : 'border border-gray-300 hover:bg-gray-200/50 cursor-pointer')
+                        : (isDarkMode ? 'border border-gray-700 opacity-50' : 'border border-gray-300 opacity-50')
                   }`}
                 >
                   {/* Color indicator dot */}
@@ -835,16 +878,10 @@ export function MarketCard({
                     </span>
                   </div>
                   
-                  {/* Radio button */}
-                  <input
-                    type="radio"
-                    name={`option-${marketId}`}
-                    value={index + 1}
-                    checked={isSelected || !!isUserStake}
-                    onChange={() => {}}
-                    disabled={canEndMarket || !!isUserStake}
-                    className="w-4 h-4 flex-shrink-0"
-                  />
+                  {/* Percentage display */}
+                  <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    {(Math.round(percentage * 100) / 100).toFixed(2)}%
+                  </div>
                 </div>
               );
             })}
@@ -852,7 +889,7 @@ export function MarketCard({
         </div>
 
         {/* Volume & Stats */}
-        <div className={`border-t pt-3 space-y-2 ${
+        <div className={`border-t pt-2 space-y-1.5 flex-shrink-0 ${
           isDarkMode ? 'border-gray-800' : 'border-gray-300'
         }`}>
           <div className="flex items-center justify-between">
@@ -889,11 +926,9 @@ export function MarketCard({
           </div>
         </div>
 
-        {/* Bet Input Section */}
-        <div className="flex-shrink-0 mt-3">
-          {userHasStaked === true && userAddress && canEndMarket ? (
-            <div>
+        {/* End Market Button */}
               {canEndMarket && (
+          <div className="flex-shrink-0 mt-3">
                 <button
                   onClick={(e) => {
                     e.preventDefault();
@@ -909,97 +944,148 @@ export function MarketCard({
                   <Timer size={16} />
                   End Market
                 </button>
+          </div>
               )}
             </div>
-          ) : canEndMarket ? (
-            <button
+
+      {/* Stake Modal */}
+      {isModalOpen && modalSelectedOption !== null && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
               onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onEndMarket(marketId);
-              }}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-              }}
-              className="w-full py-2.5 px-4 rounded-lg text-sm font-semibold bg-orange-600 hover:bg-orange-700 text-white transition-colors flex items-center justify-center gap-2"
-            >
-              <Timer size={16} />
-              End Market
+            if (e.target === e.currentTarget) {
+              setIsModalOpen(false);
+              setModalSelectedOption(null);
+              setBetAmount('');
+            }
+          }}
+        >
+          <div className={`fixed inset-0 bg-black/50 transition-opacity`} />
+          <div className={`relative w-full max-w-md rounded-xl shadow-xl ${
+            isDarkMode ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'
+          }`}>
+            {/* Modal Header */}
+            <div className={`flex items-center justify-between p-4 border-b ${
+              isDarkMode ? 'border-gray-700' : 'border-gray-200'
+            }`}>
+              <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                Stake on {options[modalSelectedOption - 1]}
+              </h3>
+              <button
+                onClick={() => {
+                  setIsModalOpen(false);
+                  setModalSelectedOption(null);
+                  setBetAmount('');
+                }}
+                className={`p-1 rounded-lg transition-colors ${
+                  isDarkMode ? 'hover:bg-gray-800 text-gray-400' : 'hover:bg-gray-100 text-gray-600'
+                }`}
+              >
+                <X size={20} />
             </button>
-          ) : (
-            <div className="flex gap-1">
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-4 space-y-4">
+              {/* Token Info */}
+              <div className={`p-3 rounded-lg ${
+                isDarkMode ? 'bg-gray-800' : 'bg-gray-50'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <span className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    Payment Token:
+                  </span>
+                  <span className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                    {tokenSymbol || (isERC20Market ? 'ERC20' : 'PEPU')}
+                  </span>
+                </div>
+                {market?.minStake && (
+                  <div className="flex items-center justify-between mt-2">
+                    <span className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Minimum Stake:
+                    </span>
+                    <span className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                      {formatEther(market.minStake)} {tokenSymbol || (isERC20Market ? 'ERC20' : 'PEPU')}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Amount Input */}
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-white' : 'text-gray-700'}`}>
+                  Amount
+                </label>
               <input
                 type="number"
                 value={betAmount}
-                onChange={(e) => {
-                  setBetAmount(e.target.value);
-                }}
-                placeholder={`Min: ${market?.minStake ? formatEther(market.minStake) : '0'} ${tokenSymbol || 'PEPU'}`}
-                disabled={!canStake}
-                className={`flex-1 px-2 py-1.5 border rounded text-xs ${
+                  onChange={(e) => setBetAmount(e.target.value)}
+                  placeholder={`Enter amount (min: ${market?.minStake ? formatEther(market.minStake) : '0'})`}
+                  className={`w-full px-3 py-2.5 border rounded-lg ${
                   isDarkMode 
-                    ? 'bg-gray-900 border-gray-700 text-white placeholder-gray-500' 
-                    : 'bg-[#F5F3F0] border-gray-400 text-gray-900'
+                      ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500'
+                      : 'bg-white border-gray-300 text-gray-900'
                 }`}
+                  autoFocus
               />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="space-y-2">
               {needsTokenApproval ? (
                 <button
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    onBet(marketId, selectedOption, betAmount, true);
+                      if (modalSelectedOption && betAmount) {
+                        setIsTransactionPending(true);
+                        setIsModalOpen(false);
+                        onBet(marketId, modalSelectedOption, betAmount, true);
+                      }
                   }}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                  disabled={!betAmount || !canStake || isApprovalPending || isApprovalConfirming}
-                  className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                    disabled={!betAmount || !canStake || isApprovalPending || isApprovalConfirming || isTransactionPending}
+                    className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
                     !betAmount || !canStake || isApprovalPending || isApprovalConfirming
-                      ? 'bg-gray-600 cursor-not-allowed text-gray-400'
+                        ? isDarkMode
+                          ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       : isDarkMode 
-                        ? 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black'
-                        : 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black border border-black'
+                          ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                          : 'bg-blue-600 hover:bg-blue-700 text-white'
                   }`}
                 >
-                  {isApprovalPending ? 'Approving...' : isApprovalConfirming ? 'Confirming...' : 'Approve'}
+                    {isApprovalPending ? 'Approving...' : isApprovalConfirming ? 'Confirming...' : 'Approve Tokens'}
                 </button>
               ) : (
                 <button
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    onBet(marketId, selectedOption, betAmount);
+                      if (modalSelectedOption && betAmount) {
+                        setIsTransactionPending(true);
+                        setIsModalOpen(false);
+                        onBet(marketId, modalSelectedOption, betAmount);
+                      }
                   }}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                  disabled={!betAmount || !canStake || isStakePending || isStakeConfirming}
-                  className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                    disabled={!betAmount || !canStake || isStakePending || isStakeConfirming || isTransactionPending}
+                    className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
                     !betAmount || !canStake || isStakePending || isStakeConfirming
-                      ? 'bg-gray-600 cursor-not-allowed text-gray-400'
+                        ? isDarkMode
+                          ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       : isDarkMode 
                         ? 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black' 
-                        : 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black border border-black'
+                          : 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black'
                   }`}
                 >
-                  {!canStake ? (userHasStaked ? 'Already Staked' : 'Staking Closed') : 
-                    isStakePending ? 'Staking...' : 
-                    isStakeConfirming ? 'Confirming...' : 
-                    'Stake'}
+                    {isStakePending ? 'Staking...' : isStakeConfirming ? 'Confirming...' : 'Place Stake'}
                 </button>
               )}
             </div>
-          )}
-          {needsTokenApproval && (
-            <p className="text-xs text-yellow-600 mt-2 text-center">
-              Approve {tokenSymbol || 'tokens'} before staking
-            </p>
-          )}
         </div>
       </div>
+        </div>
+      )}
     </div>
   );
 }

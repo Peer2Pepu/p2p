@@ -20,36 +20,46 @@ interface IAdminManager {
     function analytics() external view returns (address);
 }
 
-// UMA Optimistic Oracle V3 Interface
-interface OptimisticOracleV3 {
+// P2P Optimistic Oracle Interface
+interface P2POptimisticOracle {
+    function assertTruthWithDefaults(
+        bytes memory claim,
+        address asserter,
+        uint256 optionId
+    ) external returns (bytes32 assertionId);
+    
     function assertTruth(
         bytes memory claim,
         address asserter,
-        address callbackRecipient,
-        address bondCurrency,
-        uint256 bond,
-        bytes32 identifier,
         uint64 liveness,
-        bytes memory ancillaryData
+        IERC20 currency,
+        uint256 bond,
+        bytes32 identifier
     ) external returns (bytes32 assertionId);
     
-    function getAssertion(bytes32 assertionId) external view returns (
-        bytes32 claim,
-        address asserter,
-        address callbackRecipient,
-        address bondCurrency,
-        uint256 bond,
-        uint64 settledAt,
-        bool settled,
-        bytes32 settlementResolution
-    );
+    function disputeAssertion(bytes32 assertionId, address disputer) external;
     
-    function settleAndGetAssertionResult(bytes32 assertionId) external returns (bool);
-}
-
-// UMA Finder Interface
-interface Finder {
-    function getImplementationAddress(bytes32 interfaceName) external view returns (address);
+    function settleAssertion(bytes32 assertionId) external;
+    
+    function getAssertionResult(bytes32 assertionId) external view returns (bool result, uint256 optionId);
+    
+    function getMinimumBond(address currency) external view returns (uint256);
+    
+    function getAssertion(bytes32 assertionId) external view returns (
+        bytes memory claim,
+        address asserter,
+        address disputer,
+        uint256 assertionTime,
+        uint256 assertionDeadline,
+        uint256 expirationTime,
+        bool settled,
+        bool result,
+        address currency,
+        uint256 bond,
+        bytes32 identifier,
+        bytes memory ancillaryData,
+        uint256 optionId
+    );
 }
 
 // Price Feed Interface (Chainlink-compatible)
@@ -81,8 +91,8 @@ contract EventPool is Ownable {
 
     // Market types
     enum MarketType {
-        PRICE_FEED,    // Resolves using on-chain price feed (no UMA)
-        UMA_MANUAL     // Resolves via UMA Optimistic Oracle (sports/politics/etc)
+        PRICE_FEED,    // Resolves using on-chain price feed
+        P2POPTIMISTIC  // Resolves via P2P Optimistic Oracle (sports/politics/etc)
     }
 
     // Market structure
@@ -105,8 +115,8 @@ contract EventPool is Ownable {
         MarketType marketType;        // NEW: Market type
         address priceFeed;             // NEW: Price feed address (for PRICE_FEED markets)
         uint256 priceThreshold;        // NEW: Price threshold (for PRICE_FEED markets)
-        bytes32 umaAssertionId;        // NEW: UMA assertion ID (for UMA_MANUAL markets)
-        bool umaAssertionMade;         // NEW: Whether UMA assertion was made
+        bytes32 p2pAssertionId;        // NEW: P2P assertion ID (for P2POPTIMISTIC markets)
+        bool p2pAssertionMade;         // NEW: Whether P2P assertion was made
     }
 
     // Market data
@@ -137,13 +147,9 @@ contract EventPool is Ownable {
     // Stake history tracking
     mapping(address => uint256[]) public userMarketHistory;
     
-    // UMA Configuration
-    address public optimisticOracle;    // UMA OptimisticOracleV3 address
-    address public finder;              // UMA Finder address
-    address public defaultBondCurrency; // Currency for UMA bonds (P2P token)
-    uint256 public defaultBond;         // Default bond amount
-    uint64 public defaultLiveness;     // Default liveness period (e.g., 2 hours = 7200)
-    bytes32 public defaultIdentifier;   // UMA identifier (e.g., "ASSERT_TRUTH")
+    // P2P Optimistic Oracle Configuration
+    address public optimisticOracle;    // P2POptimisticOracle address
+    address public defaultBondCurrency; // Currency for oracle bonds (P2P token)
     
     // Events
     event MarketCreated(
@@ -172,6 +178,8 @@ contract EventPool is Ownable {
     event RefundClaimed(uint256 indexed marketId, address indexed user, uint256 amount);
     event WinningsClaimed(uint256 indexed marketId, address indexed user, uint256 amount);
     event ResolutionRequested(uint256 indexed marketId, bytes32 indexed assertionId);
+    event OracleDisputed(uint256 indexed marketId, bytes32 indexed assertionId, address indexed disputer);
+    event OracleSettled(uint256 indexed marketId, bytes32 indexed assertionId);
     event UMAResolutionSettled(uint256 indexed marketId, bytes32 indexed assertionId, bool outcome);
 
     constructor(
@@ -197,8 +205,8 @@ contract EventPool is Ownable {
 
     /**
      * @dev Create a new market
-     * @param marketType 0 = PRICE_FEED, 1 = UMA_MANUAL
-     * @param priceFeed Address of price feed (required for PRICE_FEED markets, ignored for UMA_MANUAL)
+     * @param marketType 0 = PRICE_FEED, 1 = P2POPTIMISTIC
+     * @param priceFeed Address of price feed (required for PRICE_FEED markets, ignored for P2POPTIMISTIC)
      * @param priceThreshold Price threshold in USD (scaled by feed decimals, required for PRICE_FEED markets)
      */
     function createMarket(
@@ -250,8 +258,8 @@ contract EventPool is Ownable {
         uint256 stakeEndTime = startTime + (stakeDurationMinutes * 1 minutes);
         uint256 endTime = startTime + (resolutionDurationMinutes * 1 minutes);
         // For PRICE_FEED markets, resolution can happen immediately after endTime
-        // For UMA_MANUAL markets, add 48 hours buffer for dispute period
-        uint256 resolutionEndTime = marketType == MarketType.PRICE_FEED ? endTime : endTime + 48 hours;
+        // For P2POPTIMISTIC markets, add buffer for assertion window (2h) + dispute window (12h) = 14 hours total
+        uint256 resolutionEndTime = marketType == MarketType.PRICE_FEED ? endTime : endTime + 14 hours;
         
         // Create market
         uint256 marketId = nextMarketId++;
@@ -274,8 +282,8 @@ contract EventPool is Ownable {
             marketType: marketType,
             priceFeed: priceFeed,
             priceThreshold: priceThreshold,
-            umaAssertionId: bytes32(0),
-            umaAssertionMade: false
+            p2pAssertionId: bytes32(0),
+            p2pAssertionMade: false
         });
         
         // Add to active markets
@@ -513,64 +521,120 @@ contract EventPool is Ownable {
     }
 
     /**
-     * @dev Request resolution via UMA Optimistic Oracle (for UMA_MANUAL markets)
-     * @param claim The claim bytes to assert to UMA (e.g., "Team A won the game")
+     * @dev Request resolution via P2P Optimistic Oracle (for P2POPTIMISTIC markets)
+     * @param claim The claim bytes to assert to oracle (e.g., "No")
+     * @param optionId The option ID being asserted (1-based, e.g., 2 for "No")
+     * Note: Oracle bug - it uses msg.sender (MarketManager) instead of asserter parameter
+     * So we pull tokens from user to MarketManager first, then approve oracle
      */
-    function requestUMAResolution(uint256 marketId, bytes memory claim) external {
+    function requestP2PResolution(uint256 marketId, bytes memory claim, uint256 optionId) external {
         Market storage market = markets[marketId];
-        require(market.marketType == MarketType.UMA_MANUAL, "EP: Not UMA");
+        require(market.marketType == MarketType.P2POPTIMISTIC, "EP: Not P2POPTIMISTIC");
         require(market.state == MarketState.Ended, "EP: Not ended");
         require(!market.isResolved, "EP: Resolved");
-        require(block.timestamp >= market.resolutionEndTime, "EP: Too early");
-        require(!market.umaAssertionMade, "EP: Assertion made");
+        require(block.timestamp >= market.endTime, "EP: Too early");
+        require(!market.p2pAssertionMade, "EP: Assertion made");
+        require(msg.sender != market.creator, "EP: Creator cannot assert");
         require(optimisticOracle != address(0), "EP: OO not set");
         require(defaultBondCurrency != address(0), "EP: Bond not set");
+        require(optionId > 0 && optionId <= market.maxOptions, "EP: Invalid option");
         
-        // Make assertion to UMA
-        bytes32 assertionId = OptimisticOracleV3(optimisticOracle).assertTruth(
+        // Get minimum bond from oracle
+        uint256 minimumBond = P2POptimisticOracle(optimisticOracle).getMinimumBond(defaultBondCurrency);
+        require(minimumBond > 0, "EP: Invalid bond");
+        
+        // Pull tokens from user to MarketManager (user must approve MarketManager first)
+        IERC20(defaultBondCurrency).safeTransferFrom(msg.sender, address(this), minimumBond);
+        
+        // Approve oracle to pull from MarketManager
+        IERC20(defaultBondCurrency).forceApprove(optimisticOracle, minimumBond);
+        
+        // Make assertion using assertTruthWithDefaults (simplest method)
+        // Oracle will pull from MarketManager (msg.sender) due to bug, but MarketManager now has tokens
+        bytes32 assertionId = P2POptimisticOracle(optimisticOracle).assertTruthWithDefaults(
             claim,
-            msg.sender,                    // asserter
-            address(this),                 // callback recipient
-            defaultBondCurrency,           // bond currency
-            defaultBond,                   // bond amount
-            defaultIdentifier,             // identifier
-            defaultLiveness,               // liveness period
-            abi.encode(marketId)           // ancillary data (market ID)
+            msg.sender,  // asserter
+            optionId     // NEW: Pass option ID to oracle
         );
         
-        market.umaAssertionId = assertionId;
-        market.umaAssertionMade = true;
+        market.p2pAssertionId = assertionId;
+        market.p2pAssertionMade = true;
         
         emit ResolutionRequested(marketId, assertionId);
     }
 
     /**
-     * @dev Settle market after UMA assertion is resolved
-     * Called after liveness period expires (or manually)
-     * @param winningOption The winning option (1-based)
+     * @dev Dispute an oracle assertion (for P2POPTIMISTIC markets)
+     * Anyone can dispute during the dispute window
+     * Note: Oracle bug - it uses msg.sender (MarketManager) instead of disputer parameter
+     * So we pull tokens from user to MarketManager first, then approve oracle
      */
-    function settleUMAMarket(uint256 marketId, uint256 winningOption) external {
+    function disputeOracle(uint256 marketId) external {
         Market storage market = markets[marketId];
-        require(market.marketType == MarketType.UMA_MANUAL, "EP: Not UMA");
-        require(market.umaAssertionMade, "EP: No assertion made");
+        require(market.marketType == MarketType.P2POPTIMISTIC, "EP: Not P2POPTIMISTIC");
+        require(market.p2pAssertionMade, "EP: No assertion made");
+        require(market.p2pAssertionId != bytes32(0), "EP: No assertion ID");
+        require(!market.isResolved, "EP: Already resolved");
+        require(optimisticOracle != address(0), "EP: OO not set");
+        require(defaultBondCurrency != address(0), "EP: Bond not set");
+        
+        // Get the bond amount from the assertion (same as original assertion bond)
+        // Get minimum bond from oracle (should match assertion bond)
+        uint256 minimumBond = P2POptimisticOracle(optimisticOracle).getMinimumBond(defaultBondCurrency);
+        require(minimumBond > 0, "EP: Invalid bond");
+        
+        // Pull tokens from disputer to MarketManager (disputer must approve MarketManager first)
+        IERC20(defaultBondCurrency).safeTransferFrom(msg.sender, address(this), minimumBond);
+        
+        // Approve oracle to pull from MarketManager
+        IERC20(defaultBondCurrency).forceApprove(optimisticOracle, minimumBond);
+        
+        // Dispute the assertion in the oracle
+        // Oracle will pull from MarketManager (msg.sender) due to bug, but MarketManager now has tokens
+        P2POptimisticOracle(optimisticOracle).disputeAssertion(market.p2pAssertionId, msg.sender);
+        
+        emit OracleDisputed(marketId, market.p2pAssertionId, msg.sender);
+    }
+    
+    /**
+     * @dev Settle oracle assertion (can be called by anyone after dispute window expires)
+     */
+    function settleOracle(uint256 marketId) external {
+        Market storage market = markets[marketId];
+        require(market.marketType == MarketType.P2POPTIMISTIC, "EP: Not P2POPTIMISTIC");
+        require(market.p2pAssertionMade, "EP: No assertion made");
+        require(market.p2pAssertionId != bytes32(0), "EP: No assertion ID");
+        
+        // Settle the assertion in the oracle
+        P2POptimisticOracle(optimisticOracle).settleAssertion(market.p2pAssertionId);
+        
+        emit OracleSettled(marketId, market.p2pAssertionId);
+    }
+    
+    /**
+     * @dev Resolve market after oracle assertion is settled
+     * Called after settleOracle() has been called and assertion is settled
+     * Auto-resolves using the optionId stored in the oracle
+     */
+    function resolveP2PMarket(uint256 marketId) external {
+        Market storage market = markets[marketId];
+        require(market.marketType == MarketType.P2POPTIMISTIC, "EP: Not P2POPTIMISTIC");
+        require(market.p2pAssertionMade, "EP: No assertion made");
         require(!market.isResolved, "EP: Resolved");
-        require(winningOption > 0 && winningOption <= market.maxOptions, "EP: Invalid option");
+        require(market.p2pAssertionId != bytes32(0), "EP: No assertion ID");
         
-        // Get assertion result from UMA
-        bool assertionResult = OptimisticOracleV3(optimisticOracle)
-            .settleAndGetAssertionResult(market.umaAssertionId);
+        // Get assertion result and optionId from oracle (must be settled first)
+        (bool assertionResult, uint256 optionId) = P2POptimisticOracle(optimisticOracle)
+            .getAssertionResult(market.p2pAssertionId);
         
-        // For binary markets: assertionResult = true means option 1 wins
-        // For multi-option: winningOption must be provided and validated
-        if (market.maxOptions == 2) {
-            // Binary market: assertionResult determines outcome
-            market.winningOption = assertionResult ? 1 : 2;
-        } else {
-            // Multi-option: use provided winningOption
-            require(assertionResult, "EP: UMA assertion rejected");
-            market.winningOption = winningOption;
-        }
+        // Assertion must be accepted (not rejected)
+        require(assertionResult, "EP: Oracle assertion rejected");
         
+        // Validate optionId matches market constraints
+        require(optionId > 0 && optionId <= market.maxOptions, "EP: Invalid option from oracle");
+        
+        // Use the optionId directly from oracle - no mapping needed!
+        market.winningOption = optionId;
         market.isResolved = true;
         market.state = MarketState.Resolved;
         
@@ -582,7 +646,7 @@ contract EventPool is Ownable {
         }
         
         emit MarketResolved(marketId, market.winningOption);
-        emit UMAResolutionSettled(marketId, market.umaAssertionId, assertionResult);
+        emit UMAResolutionSettled(marketId, market.p2pAssertionId, assertionResult);
     }
 
     /**
@@ -859,32 +923,10 @@ contract EventPool is Ownable {
         emit MarketCancelled(marketId, "Permanently removed after claim period");
     }
 
-    // ============ UMA CONFIGURATION FUNCTIONS ============
+    // ============ P2P OPTIMISTIC ORACLE CONFIGURATION FUNCTIONS ============
     
     /**
-     * @dev Set UMA Finder address (auto-updates OptimisticOracle from Finder)
-     */
-    function setFinder(address _finder) external onlyOwner {
-        require(_finder != address(0), "EP: Invalid Finder address");
-        finder = _finder;
-        
-        // Auto-update OptimisticOracle from Finder
-        // UMA uses keccak256(abi.encodePacked("OptimisticOracleV3"))
-        bytes32 interfaceName = keccak256(abi.encodePacked("OptimisticOracleV3"));
-        optimisticOracle = Finder(_finder).getImplementationAddress(interfaceName);
-        require(optimisticOracle != address(0), "EP: OptimisticOracle not found in Finder");
-    }
-    
-    /**
-     * @dev Set Finder address without lookup (if lookup fails)
-     */
-    function setFinderOnly(address _finder) external onlyOwner {
-        require(_finder != address(0), "EP: Invalid Finder address");
-        finder = _finder;
-    }
-    
-    /**
-     * @dev Set OptimisticOracle address directly (if not using Finder)
+     * @dev Set P2P OptimisticOracle address
      */
     function setOptimisticOracle(address _oo) external onlyOwner {
         require(_oo != address(0), "EP: Invalid OptimisticOracle address");
@@ -892,27 +934,12 @@ contract EventPool is Ownable {
     }
     
     /**
-     * @dev Set default bond currency and amount for UMA assertions
+     * @dev Set default bond currency for oracle assertions
+     * Note: Bond amount is determined by oracle's minimumBond
      */
-    function setDefaultBond(address _currency, uint256 _amount) external onlyOwner {
+    function setDefaultBondCurrency(address _currency) external onlyOwner {
         require(_currency != address(0), "EP: Invalid bond currency");
         defaultBondCurrency = _currency;
-        defaultBond = _amount;
-    }
-    
-    /**
-     * @dev Set default liveness period for UMA assertions (in seconds)
-     */
-    function setDefaultLiveness(uint64 _liveness) external onlyOwner {
-        require(_liveness > 0, "EP: Invalid liveness");
-        defaultLiveness = _liveness;
-    }
-    
-    /**
-     * @dev Set default identifier for UMA assertions
-     */
-    function setDefaultIdentifier(bytes32 _identifier) external onlyOwner {
-        defaultIdentifier = _identifier;
     }
 
     // ============ VIEW FUNCTIONS ============
@@ -951,29 +978,6 @@ contract EventPool is Ownable {
 
     function getMarketStakers(uint256 marketId) external view returns (address[] memory) {
         return marketStakers[marketId];
-    }
-
-    /**
-     * @dev Get comprehensive market information
-     */
-    function getMarketInfo(uint256 marketId) external view returns (
-        Market memory market,
-        uint256 totalPool,
-        uint256 supportPool,
-        uint256 stakerCount,
-        uint256 supporterCount,
-        address[] memory stakers,
-        address[] memory supporters,
-        string memory tokenSymbol
-    ) {
-        market = markets[marketId];
-        totalPool = PoolVault(treasury).getMarketPool(marketId, market.paymentToken);
-        supportPool = PoolVault(treasury).getSupportPool(marketId, market.paymentToken);
-        stakerCount = marketStakers[marketId].length;
-        supporterCount = marketSupporters[marketId].length;
-        stakers = marketStakers[marketId];
-        supporters = marketSupporters[marketId];
-        tokenSymbol = IAdminManager(adminManager).tokenSymbols(market.paymentToken);
     }
 
     function getNextMarketId() external view returns (uint256) {

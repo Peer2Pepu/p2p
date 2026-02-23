@@ -225,11 +225,11 @@ async function processMarketEvent(event, provider) {
                         {"name": "state", "type": "uint8"},
                         {"name": "winningOption", "type": "uint256"},
                         {"name": "isResolved", "type": "bool"},
-                        {"name": "umaAssertionId", "type": "bytes32"},
+                        {"name": "marketType", "type": "uint8"},
                         {"name": "priceFeed", "type": "address"},
                         {"name": "priceThreshold", "type": "uint256"},
-                        {"name": "marketType", "type": "uint8"},
-                        {"name": "umaAssertionMade", "type": "bool"}
+                        {"name": "p2pAssertionId", "type": "bytes32"},
+                        {"name": "p2pAssertionMade", "type": "bool"}
                     ],
                     "name": "",
                     "type": "tuple"
@@ -240,13 +240,13 @@ async function processMarketEvent(event, provider) {
         }
     ], provider);
 
-    let marketType = 'UMA_MANUAL';
+    let marketType = 'P2POPTIMISTIC';
     let priceFeed = null;
     let priceThreshold = null;
 
     try {
         const marketData = await marketContract.getMarket(marketId);
-        marketType = Number(marketData.marketType) === 0 ? 'PRICE_FEED' : 'UMA_MANUAL';
+        marketType = Number(marketData.marketType) === 0 ? 'PRICE_FEED' : 'P2POPTIMISTIC';
         priceFeed = marketData.priceFeed !== ethers.ZeroAddress ? marketData.priceFeed : null;
         priceThreshold = marketData.priceThreshold > 0 ? marketData.priceThreshold.toString() : null;
         console.log(`📊 Market type: ${marketType}, Price feed: ${priceFeed}, Threshold: ${priceThreshold}`);
@@ -324,9 +324,9 @@ async function monitorMarketEvents() {
     const provider = new ethers.JsonRpcProvider(RPC_URL, undefined, {
         polling: true,
         pollingInterval: 5000,
-        timeout: 30000, // 30 second timeout
-        retryDelay: 2000, // 2 second retry delay
-        maxRetries: 3
+        timeout: 60000, // 60 second timeout (increased for slow RPC)
+        retryDelay: 3000, // 3 second retry delay
+        maxRetries: 5 // Increased retries
     });
     
     // Test connection with retry logic
@@ -385,38 +385,61 @@ async function monitorMarketEvents() {
 
     setInterval(async () => {
         try {
-            // Get current block number
-            const currentBlock = await provider.getBlockNumber();
+            // Get current block number with retry logic
+            let currentBlock;
+            let retries = 0;
+            const maxRetries = 3;
+            
+            while (retries < maxRetries) {
+                try {
+                    currentBlock = await provider.getBlockNumber();
+                    break;
+                } catch (error) {
+                    retries++;
+                    if (retries >= maxRetries) {
+                        console.error(`❌ Failed to get block number after ${maxRetries} retries:`, error.message);
+                        return; // Skip this iteration, will retry next interval
+                    }
+                    console.warn(`⚠️  Block number fetch failed (attempt ${retries}/${maxRetries}), retrying...`);
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                }
+            }
             
             if (currentBlock > latestBlock) {
                 console.log(`🔍 Checking blocks ${latestBlock + 1} to ${currentBlock}`);
 
-                // Filter for MarketCreated events
-                const filter = contract.filters.MarketCreated();
-                const events = await contract.queryFilter(filter, latestBlock + 1, currentBlock);
+                try {
+                    // Filter for MarketCreated events with retry
+                    const filter = contract.filters.MarketCreated();
+                    const events = await contract.queryFilter(filter, latestBlock + 1, currentBlock);
 
-                // Process new events
-                for (const event of events) {
-                    const eventKey = `${event.transactionHash}:${event.logIndex}`;
-                    const marketId = Number(event.args.marketId);
-                    
-                    // Skip if already processed
-                    if (processedEvents.has(eventKey) || processedMarketIds.has(marketId)) {
-                        console.log(`⏭️  Skipping already processed event: Market #${marketId} (${eventKey})`);
-                        continue;
+                    // Process new events
+                    for (const event of events) {
+                        const eventKey = `${event.transactionHash}:${event.logIndex}`;
+                        const marketId = Number(event.args.marketId);
+                        
+                        // Skip if already processed
+                        if (processedEvents.has(eventKey) || processedMarketIds.has(marketId)) {
+                            console.log(`⏭️  Skipping already processed event: Market #${marketId} (${eventKey})`);
+                            continue;
+                        }
+                        
+                        processedEvents.add(eventKey);
+                        processedMarketIds.add(marketId);
+                        await processMarketEvent(event, provider);
                     }
-                    
-                    processedEvents.add(eventKey);
-                    processedMarketIds.add(marketId);
-                    await processMarketEvent(event, provider);
-                }
 
-                latestBlock = currentBlock;
+                    latestBlock = currentBlock;
+                } catch (error) {
+                    console.error(`❌ Error querying events:`, error.message);
+                    // Don't update latestBlock on error, will retry next interval
+                }
             }
         } catch (error) {
-            console.error('❌ Error in monitoring loop:', error);
+            console.error('❌ Error in monitoring loop:', error.message);
+            // Continue monitoring despite errors
         }
-    }, 5000); // Poll every 5 seconds
+    }, 10000); // Poll every 10 seconds (increased from 5s to reduce RPC load)
 }
 
 // Handle graceful shutdown

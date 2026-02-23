@@ -7,11 +7,6 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-// Interface for MarketManager
-interface IMarketManager {
-    function getMarketResolvingVerifiers(uint256 marketId) external view returns (address[] memory);
-}
-
 contract PoolVault is Ownable {
     using SafeERC20 for IERC20;
 
@@ -409,40 +404,6 @@ contract PoolVault is Ownable {
         }
         
         emit FundsWithdrawn(token, amount, creator);
-    }
-
-    /**
-     * @dev Distribute verifier rewards to verifiers who resolved a market
-     * Each verifier gets 0.5% of total pool (1.5% total split among 3 verifiers)
-     */
-    function distributeVerifierRewards(uint256 marketId, address token, uint256 totalAmount) external {
-        require(authorizedContracts[msg.sender], "Treasury: Only authorized contracts can distribute verifier rewards");
-        require(totalAmount > 0, "Treasury: Invalid reward amount");
-        
-        // Get resolving verifiers from MarketManager
-        address[] memory resolvingVerifiers = IMarketManager(msg.sender).getMarketResolvingVerifiers(marketId);
-        require(resolvingVerifiers.length > 0, "Treasury: No resolving verifiers found");
-        
-        // Calculate reward per verifier (0.5% each)
-        uint256 rewardPerVerifier = totalAmount / resolvingVerifiers.length;
-        
-        // Distribute rewards to each verifier
-        for (uint256 i = 0; i < resolvingVerifiers.length; i++) {
-            if (rewardPerVerifier > 0) {
-                _transferPayment(resolvingVerifiers[i], rewardPerVerifier, token);
-            }
-        }
-        
-        // Handle any remainder (due to division)
-        uint256 totalDistributed = rewardPerVerifier * resolvingVerifiers.length;
-        uint256 remainder = totalAmount - totalDistributed;
-        
-        if (remainder > 0) {
-            // Give remainder to first verifier
-            _transferPayment(resolvingVerifiers[0], remainder, token);
-        }
-        
-        emit FundsWithdrawn(token, totalAmount, address(0)); // Use address(0) to indicate verifier distribution
     }
 
     /**

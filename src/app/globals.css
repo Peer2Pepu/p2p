@@ -290,3 +290,18 @@ button[data-testid*="Connect"]:not([data-testid*="modal"]):not([class*="modal"])
   padding-top: 25vh !important;
 }
 
+/* Slide up animation for notifications */
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}

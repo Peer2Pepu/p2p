@@ -53,11 +53,11 @@ const MARKET_MANAGER_ABI = [
           {"name": "state", "type": "uint8"},
           {"name": "winningOption", "type": "uint256"},
           {"name": "isResolved", "type": "bool"},
-          {"name": "umaAssertionId", "type": "bytes32"},
+          {"name": "marketType", "type": "uint8"},
           {"name": "priceFeed", "type": "address"},
           {"name": "priceThreshold", "type": "uint256"},
-          {"name": "marketType", "type": "uint8"},
-          {"name": "umaAssertionMade", "type": "bool"}
+          {"name": "p2pAssertionId", "type": "bytes32"},
+          {"name": "p2pAssertionMade", "type": "bool"}
         ],
         "name": "",
         "type": "tuple"
@@ -172,12 +172,14 @@ class MarketBot {
           const state = Number(market.state);
           const marketType = Number(market.marketType);
           const isResolved = market.isResolved;
+          const priceFeed = market.priceFeed;
+          const hasPriceFeed = priceFeed && priceFeed !== '0x0000000000000000000000000000000000000000';
           
-          console.log(`Market ${marketId}: state=${state}, type=${marketType}, currentTime=${currentTime}, endTime=${endTime}, resolutionEndTime=${resolutionEndTime}, isResolved=${isResolved}`);
+          console.log(`Market ${marketId}: state=${state}, type=${marketType}, currentTime=${currentTime}, endTime=${endTime}, resolutionEndTime=${resolutionEndTime}, isResolved=${isResolved}, hasPriceFeed=${hasPriceFeed}`);
           
-          // End active markets that have reached end time (works for both PRICE_FEED and UMA_MANUAL)
+          // End active markets that have reached end time (works for both PRICE_FEED and P2POPTIMISTIC)
           if (state === 0 && currentTime >= endTime) {
-            const marketTypeName = marketType === 0 ? 'PRICE_FEED' : 'UMA_MANUAL (Optimistic Oracle)';
+            const marketTypeName = marketType === 0 ? 'PRICE_FEED' : 'P2POPTIMISTIC (Optimistic Oracle)';
             console.log(`⏰ Market ${marketId} (${marketTypeName}) reached end time, attempting to end...`);
             try {
               const tx = await this.contract.endMarket(marketId);
@@ -188,9 +190,10 @@ class MarketBot {
               // Refetch to ensure fresh data
               const endedMarket = await this.contract.getMarket(marketId);
               
-              // If this is a PRICE_FEED market, auto-resolve it after ending
-              const endedMarketType = Number(endedMarket.marketType);
-              if (endedMarketType === 0) { // 0 = PRICE_FEED
+              // If this is a PRICE_FEED market (has price feed address), auto-resolve it after ending
+              const endedPriceFeed = endedMarket.priceFeed;
+              const endedHasPriceFeed = endedPriceFeed && endedPriceFeed !== ethers.ZeroAddress;
+              if (endedHasPriceFeed) {
                 console.log(`💰 Market ${marketId} is a price feed market, attempting auto-resolution...`);
                 try {
                   // Wait a bit for the endMarket transaction to be fully processed
@@ -222,7 +225,8 @@ class MarketBot {
           }
           
           // Check for PRICE_FEED markets that are ended but not resolved
-          if (state === 1 && marketType === 0 && !isResolved) {
+          // Only attempt if market has a price feed address (safest check)
+          if (state === 1 && hasPriceFeed && !isResolved) {
             if (currentTime >= resolutionEndTime) {
               console.log(`💰 Market ${marketId} is an ended price feed market ready for resolution...`);
               try {

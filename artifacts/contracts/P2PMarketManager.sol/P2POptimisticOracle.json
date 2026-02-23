@@ -1,0 +1,237 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "P2POptimisticOracle",
+  "sourceName": "contracts/P2PMarketManager.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "bytes",
+          "name": "claim",
+          "type": "bytes"
+        },
+        {
+          "internalType": "address",
+          "name": "asserter",
+          "type": "address"
+        },
+        {
+          "internalType": "uint64",
+          "name": "liveness",
+          "type": "uint64"
+        },
+        {
+          "internalType": "contract IERC20",
+          "name": "currency",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "bond",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "identifier",
+          "type": "bytes32"
+        }
+      ],
+      "name": "assertTruth",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "assertionId",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes",
+          "name": "claim",
+          "type": "bytes"
+        },
+        {
+          "internalType": "address",
+          "name": "asserter",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "optionId",
+          "type": "uint256"
+        }
+      ],
+      "name": "assertTruthWithDefaults",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "assertionId",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "assertionId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "disputer",
+          "type": "address"
+        }
+      ],
+      "name": "disputeAssertion",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "assertionId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "getAssertion",
+      "outputs": [
+        {
+          "internalType": "bytes",
+          "name": "claim",
+          "type": "bytes"
+        },
+        {
+          "internalType": "address",
+          "name": "asserter",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "disputer",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "assertionTime",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "assertionDeadline",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "expirationTime",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bool",
+          "name": "settled",
+          "type": "bool"
+        },
+        {
+          "internalType": "bool",
+          "name": "result",
+          "type": "bool"
+        },
+        {
+          "internalType": "address",
+          "name": "currency",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "bond",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "identifier",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes",
+          "name": "ancillaryData",
+          "type": "bytes"
+        },
+        {
+          "internalType": "uint256",
+          "name": "optionId",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "assertionId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "getAssertionResult",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "result",
+          "type": "bool"
+        },
+        {
+          "internalType": "uint256",
+          "name": "optionId",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "currency",
+          "type": "address"
+        }
+      ],
+      "name": "getMinimumBond",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "assertionId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "settleAssertion",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

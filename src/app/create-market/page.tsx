@@ -93,6 +93,8 @@ export default function CreateMarketPage() {
   const [isCreatingContract, setIsCreatingContract] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [createdMarketId, setCreatedMarketId] = useState<number | null>(null);
 
   // Contract addresses from environment
   const P2P_MARKETMANAGER_ADDRESS = (process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS || process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS) as `0x${string}`;
@@ -689,16 +691,11 @@ export default function CreateMarketPage() {
     }
   };
 
-  // Create market function
-  const createMarket = async () => {
-    console.log('Create market button clicked!');
-    console.log('isConnected:', isConnected);
-    console.log('address:', address);
-    console.log('P2P_TOKEN_ADDRESS:', P2P_TOKEN_ADDRESS);
-    
+  // Validate form before showing confirmation modal
+  const validateForm = () => {
     if (!isConnected || !address) {
       setError('Please connect your wallet');
-      return;
+      return false;
     }
 
     // Check if approval is needed BEFORE doing anything else
@@ -709,32 +706,28 @@ export default function CreateMarketPage() {
     if (paymentToken !== '0x0000000000000000000000000000000000000000' && !hasSufficientAllowance) {
       const tokenSymbol = tokens.find(t => t.address === paymentToken)?.symbol || 'Token';
       setError(`Please approve ${tokenSymbol} tokens first by clicking the "Approve Tokens" button`);
-      return;
+      return false;
     }
-
-    console.log('Form validation:', {
-      title, imageFile, minimumStake, creatorDeposit, creatorOutcome
-    });
     
     if (!title || !imageFile || !minimumStake || !creatorDeposit || !creatorOutcome) {
       setError('Please fill in all required fields and upload an image');
-      return;
+      return false;
     }
 
     if (parseFloat(creatorDeposit) < parseFloat(minimumStake)) {
       setError('Creator deposit must be at least the minimum stake amount');
-      return;
+      return false;
     }
 
     // Validate market type specific requirements
     if (marketType === 'PRICE_FEED') {
       if (!selectedPriceFeed) {
         setError('Please select a price feed for price feed markets');
-        return;
+        return false;
       }
       if (!priceThreshold || parseFloat(priceThreshold) <= 0) {
         setError('Please enter a valid price threshold for price feed markets');
-        return;
+        return false;
       }
     }
 
@@ -742,20 +735,35 @@ export default function CreateMarketPage() {
     const stakingMinutes = getStakingDurationMinutes();
     if (stakingMinutes < 5) {
       setError('Staking duration must be at least 5 minutes');
-      return;
+      return false;
     }
 
     // Validate resolution duration
     const resolutionMinutes = getResolutionDurationMinutes();
     if (resolutionMinutes < stakingMinutes) {
       setError('Resolution duration must be at least as long as staking duration');
-      return;
+      return false;
     }
 
     if (outcomeType === 'multiple' && multipleOptions.some(opt => !opt.trim())) {
       setError('Please fill in all multiple options');
+      return false;
+    }
+
+    return true;
+  };
+
+  // Show confirmation modal
+  const handleCreateClick = () => {
+    if (!validateForm()) {
       return;
     }
+    setError('');
+    setShowConfirmModal(true);
+  };
+
+  // Create market function (called from modal)
+  const createMarket = async () => {
 
     setIsCreating(true);
     // Image is already uploaded/validated at selection time; we just track states here
@@ -768,7 +776,7 @@ export default function CreateMarketPage() {
       console.log('📋 Market data:', { title, outcomeType, minimumStake, creatorDeposit });
       
       // Step 1: Upload image to IPFS (image already validated at upload)
-      setSuccess('📤 Uploading image to IPFS...');
+      setIsUploadingImage(true);
       console.log('📤 Uploading image file:', imageFile.name, 'Size:', imageFile.size);
       
       const apiKey = '91729f56.8c58e79bdc194453b56d2b826d2daefb';
@@ -807,7 +815,6 @@ export default function CreateMarketPage() {
       
       setIsUploadingImage(false);
       setIsUploadingMetadata(true);
-      setSuccess('✅ Image uploaded! Creating market metadata...');
 
       // Step 3: Create market data with image link
       // For price feed markets, set options based on direction
@@ -857,7 +864,6 @@ export default function CreateMarketPage() {
       
       setIsUploadingMetadata(false);
       setIsCreatingContract(true);
-      setSuccess(`✅ Metadata uploaded! Creating market on blockchain...`);
 
       console.log('✅ Metadata uploaded successfully. IPFS Hash:', ipfsHash);
       console.log('🔗 Gateway URL:', gatewayUrl);
@@ -869,9 +875,11 @@ export default function CreateMarketPage() {
       console.log('⏰ Durations:', { stakeDurationMinutes, resolutionDurationMinutes });
 
       // Step 4: Determine payment token and max options
+      const isMultiOption = outcomeType === 'multiple';
       const maxOptions = isMultiOption ? multipleOptions.length : 2;
 
       // Ensure paymentToken is defined
+      const paymentToken = isMultiOption ? P2P_TOKEN_ADDRESS : selectedToken;
       if (!paymentToken) {
         throw new Error('Payment token not found');
       }
@@ -947,43 +955,17 @@ export default function CreateMarketPage() {
       });
 
       console.log('✅ Market creation transaction submitted:', txResult);
-      setSuccess('Transaction submitted! Waiting for confirmation...');
-      
-      // Reset all states
-      setIsCreating(false);
-      setIsUploadingImage(false);
-      setIsUploadingMetadata(false);
-      setIsCreatingContract(false);
-      
-      // Reset form
-      setTitle('');
-      setDescription('');
-      setVanityInfo('');
-      setImageFile(null);
-      setImagePreview(null);
-      setSelectedCategories([]);
-      setOutcomeType('yesno');
-      setMultipleOptions(['Option 1', 'Option 2']);
-      setMinimumStake('0.1');
-      setStakingDays('');
-      setStakingHours('');
-      setStakingMinutes('');
-      setResolutionDays('');
-      setResolutionHours('');
-      setResolutionMinutes('');
-      setCreatorDeposit('0.1');
-      setCreatorOutcome('0');
-      setSelectedToken('0x0000000000000000000000000000000000000000');
 
     } catch (err: any) {
       console.error('❌ Market creation failed:', err);
       
       // Show user-friendly error messages
-      if (err.message?.includes('User rejected') || err.message?.includes('User denied')) {
-        setError('Transaction cancelled by user');
-      } else if (err.message?.includes('insufficient funds')) {
+      const errorMessage = err.message || err.toString() || '';
+      if (errorMessage.includes('User rejected') || errorMessage.includes('User denied') || errorMessage.includes('rejected the request')) {
+        setError('User rejected transaction');
+      } else if (errorMessage.includes('insufficient funds')) {
         setError('Insufficient funds for transaction');
-      } else if (err.message?.includes('gas')) {
+      } else if (errorMessage.includes('gas')) {
         setError('Transaction failed - please try again');
       } else {
         setError('Failed to create market - please try again');
@@ -994,6 +976,7 @@ export default function CreateMarketPage() {
       setIsUploadingMetadata(false);
       setIsCreatingContract(false);
       setSuccess('');
+      setShowConfirmModal(false);
     }
   };
 
@@ -1010,9 +993,10 @@ export default function CreateMarketPage() {
   useEffect(() => {
     if (approvalError) {
       // Show user-friendly error messages for approval
-      if (approvalError.message?.includes('User rejected') || approvalError.message?.includes('User denied')) {
-        setError('Approval cancelled by user');
-      } else if (approvalError.message?.includes('insufficient funds')) {
+      const errorMessage = approvalError.message || '';
+      if (errorMessage.includes('User rejected') || errorMessage.includes('User denied') || errorMessage.includes('rejected the request')) {
+        setError('User rejected transaction');
+      } else if (errorMessage.includes('insufficient funds')) {
         setError('Insufficient funds for approval');
       } else {
         setError('Approval failed - please try again');
@@ -1023,49 +1007,36 @@ export default function CreateMarketPage() {
 
   // Handle transaction success
   useEffect(() => {
-    if (isConfirmed) {
-      setSuccess('🎉 Market created successfully! Your market is now live and ready for staking.');
+    if (isConfirmed && hash) {
+      // Try to get market ID from transaction receipt
+      // For now, we'll just show success - market ID will be available via events
+      setSuccess('🎉 Market created successfully!');
       setIsCreating(false);
       setIsUploadingImage(false);
       setIsUploadingMetadata(false);
       setIsCreatingContract(false);
       setError('');
       
-      // Keep success message visible for 15 seconds
-      setTimeout(() => {
-        setSuccess('');
-      }, 15000);
-      // Reset form
-      setTitle('');
-      setDescription('');
-      setVanityInfo('');
-      setImageFile(null);
-      setImagePreview(null);
-      setMinimumStake('');
-      setStakingDays('');
-      setStakingHours('');
-      setStakingMinutes('');
-      setResolutionDays('');
-      setResolutionHours('');
-      setResolutionMinutes('');
-      setEndDate('');
-      setEndTime('');
-      setCreatorDeposit('');
-      setCreatorOutcome('');
-      setSelectedToken('0x0000000000000000000000000000000000000000');
-      setMarketType('UMA_MANUAL');
-      setSelectedPriceFeed('');
-      setPriceThreshold('');
-      setMultipleOptions(['', '']);
+      // Don't reset form yet - let user see success and navigate
     }
-  }, [isConfirmed]);
+  }, [isConfirmed, hash]);
 
   // Handle transaction error
   useEffect(() => {
     if (writeError) {
+      // Check if user rejected the transaction
+      const errorMessage = writeError.message || '';
+      if (errorMessage.includes('User rejected') || errorMessage.includes('User denied') || errorMessage.includes('rejected the request')) {
+        setError('User rejected transaction');
+      } else {
       setError(`Transaction failed: ${writeError.message}`);
+      }
       setIsCreating(false);
+      setIsUploadingImage(false);
+      setIsUploadingMetadata(false);
+      setIsCreatingContract(false);
       setSuccess('');
+      setShowConfirmModal(false);
     }
   }, [writeError]);
 
@@ -1203,40 +1174,6 @@ export default function CreateMarketPage() {
                 </div>
               )}
 
-              {/* Error/Success Messages */}
-              {error && (
-                <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-800 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <AlertCircle size={20} />
-                    <span className="font-medium">Error</span>
-                  </div>
-                  <p className="text-sm mt-1">{error}</p>
-                </div>
-              )}
-
-              {success && (
-                <div className={`mb-6 p-4 rounded-lg border ${
-                  isDarkMode 
-                    ? 'bg-emerald-900/20 border-emerald-700 text-emerald-300' 
-                    : 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                }`}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle size={20} className="text-emerald-500" />
-                      <span className="font-medium">Success</span>
-                    </div>
-                    <button
-                      onClick={() => setSuccess('')}
-                      className={`p-1 rounded-full hover:bg-emerald-200/50 transition-colors ${
-                        isDarkMode ? 'hover:bg-emerald-800/50' : 'hover:bg-emerald-200/50'
-                      }`}
-                    >
-                      <Check size={16} className="text-emerald-600" />
-                    </button>
-                  </div>
-                  <p className="text-sm mt-1">{success}</p>
-                </div>
-              )}
 
               {/* Form */}
             <div className={`rounded-xl border shadow-sm ${
@@ -1932,9 +1869,14 @@ export default function CreateMarketPage() {
 
                     {/* Single button that switches between Approve and Create Market */}
                     <button 
-                      onClick={() => {
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
                         console.log('🔘 Button clicked!');
                         console.log('📋 Current state:', {
+                          isConnected,
+                          creatorDeposit,
                           P2P_TOKEN_ADDRESS,
                           outcomeType,
                           selectedToken,
@@ -1943,7 +1885,13 @@ export default function CreateMarketPage() {
                           requiredAmount: requiredAmount.toString(),
                           isApprovalConfirmed,
                           isApprovalPending,
-                          isApprovalConfirming
+                          isApprovalConfirming,
+                          isCreating,
+                          isUploadingImage,
+                          isUploadingMetadata,
+                          isCreatingContract,
+                          isPending,
+                          isConfirming
                         });
                         
                         // Multiple outcomes always use P2P token, Linear can use any supported token
@@ -1957,18 +1905,41 @@ export default function CreateMarketPage() {
                           console.log('🚀 Calling approveTokens()');
                           approveTokens();
                         } else {
-                          console.log('🚀 Calling createMarket()');
-                          createMarket();
+                          console.log('🚀 Calling handleCreateClick()');
+                          try {
+                            handleCreateClick();
+                            console.log('✅ handleCreateClick() called successfully');
+                          } catch (error) {
+                            console.error('❌ Error calling handleCreateClick:', error);
+                            setError('Failed to open confirmation modal. Please try again.');
+                          }
                         }
                       }}
-                      disabled={
-                        !isConnected || 
+                      disabled={(() => {
+                        const needsApproval = (outcomeType === 'multiple' && !hasSufficientAllowance) || 
+                                           (outcomeType === 'yesno' && selectedToken !== '0x0000000000000000000000000000000000000000' && !hasSufficientAllowance);
+                        const isDisabled = !isConnected || 
                         !creatorDeposit ||
-                        (((outcomeType === 'multiple' && !hasSufficientAllowance) || 
-                          (outcomeType === 'yesno' && selectedToken !== '0x0000000000000000000000000000000000000000' && !hasSufficientAllowance)) 
+                                          (needsApproval 
                           ? (isApprovalPending || isApprovalConfirming) 
-                          : (isCreating || isUploadingImage || isUploadingMetadata || isCreatingContract || isPending || isConfirming))
-                      }
+                                            : (isCreating || isUploadingImage || isUploadingMetadata || isCreatingContract || isPending || isConfirming));
+                        if (isDisabled) {
+                          console.log('🔒 Button disabled:', {
+                            notConnected: !isConnected,
+                            noCreatorDeposit: !creatorDeposit,
+                            needsApproval,
+                            isApprovalPending,
+                            isApprovalConfirming,
+                            isCreating,
+                            isUploadingImage,
+                            isUploadingMetadata,
+                            isCreatingContract,
+                            isPending,
+                            isConfirming
+                          });
+                        }
+                        return isDisabled;
+                      })()}
                       className={`w-full px-6 py-3 font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 ${
                         !isConnected || 
                         !creatorDeposit ||
@@ -2009,6 +1980,243 @@ export default function CreateMarketPage() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Confirmation Modal */}
+        {showConfirmModal && (
+          <div 
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
+            onClick={(e) => {
+              if (e.target === e.currentTarget && !isCreating && !isUploadingImage && !isUploadingMetadata && !isCreatingContract) {
+                setShowConfirmModal(false);
+              }
+            }}
+          >
+            <div className={`rounded-xl border shadow-2xl max-w-lg w-full max-h-[85vh] overflow-y-auto scrollbar-hide transform transition-all duration-200 ${
+              isDarkMode ? 'bg-black border-gray-800' : 'bg-[#F5F3F0] border-gray-300'
+            }`}>
+              <div className="p-4 lg:p-5">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                    Confirm Market Creation
+                  </h2>
+                  {!isCreating && !isUploadingImage && !isUploadingMetadata && !isCreatingContract && (
+                    <button
+                      onClick={() => setShowConfirmModal(false)}
+                      className={`p-1.5 rounded-lg transition-colors ${
+                        isDarkMode ? 'hover:bg-gray-800 text-white' : 'hover:bg-gray-200 text-gray-900'
+                      }`}
+                    >
+                      <X size={18} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Market Preview */}
+                <div className={`mb-4 rounded-lg border overflow-hidden ${
+                  isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-300'
+                }`}>
+                  {imagePreview && (
+                    <div className="w-full h-32 relative">
+                      <Image
+                        src={imagePreview}
+                        alt={title}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                  )}
+                  <div className="p-3">
+                    <h3 className={`text-base font-semibold mb-1.5 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                      {title || 'Market Title'}
+                    </h3>
+                    {description && (
+                      <p className={`text-xs mb-2 line-clamp-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                        {description}
+                      </p>
+                    )}
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {selectedCategories.map((cat) => (
+                        <span
+                          key={cat}
+                          className={`text-xs px-1.5 py-0.5 rounded ${
+                            isDarkMode ? 'bg-gray-800 text-gray-300' : 'bg-gray-100 text-gray-700'
+                          }`}
+                        >
+                          {cat}
+                        </span>
+                      ))}
+                    </div>
+                    <div className={`text-xs space-y-0.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      <div>Type: {outcomeType === 'multiple' ? 'Multiple Options' : 'Yes/No'}</div>
+                      <div>Market Type: {marketType === 'PRICE_FEED' ? 'Price Feed' : 'P2P Optimistic'}</div>
+                      <div>Min Stake: {minimumStake} {tokens.find(t => t.address === selectedToken)?.symbol || 'PEPU'}</div>
+                      <div>Creator Deposit: {creatorDeposit} {tokens.find(t => t.address === selectedToken)?.symbol || 'PEPU'}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Status Messages - Only show errors and final success */}
+                {(error || (success && isConfirmed)) && (
+                  <div className="space-y-2 mb-4">
+                    {error && (
+                      <div className={`p-3 rounded-lg border flex items-center gap-2 ${
+                        isDarkMode 
+                          ? 'bg-red-900/20 border-red-800 text-red-300' 
+                          : 'bg-red-50 border-red-200 text-red-800'
+                      }`}>
+                        <AlertCircle size={18} />
+                        <span className="text-sm">{error}</span>
+                      </div>
+                    )}
+
+                    {success && isConfirmed && (
+                      <div className={`p-3 rounded-lg border flex items-center gap-2 ${
+                        isDarkMode 
+                          ? 'bg-emerald-900/20 border-emerald-700 text-emerald-300' 
+                          : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                      }`}>
+                        <CheckCircle size={18} />
+                        <span className="text-sm">{success}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                {isConfirmed ? (
+                  <div className="flex gap-2">
+                    <Link
+                      href="/"
+                      className={`flex-1 px-4 py-2 rounded-lg font-semibold text-center transition-colors text-sm ${
+                        isDarkMode 
+                          ? 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black' 
+                          : 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black border border-black'
+                      }`}
+                    >
+                      Go to Market
+                    </Link>
+                    <button
+                      onClick={() => {
+                        setShowConfirmModal(false);
+                        setSuccess('');
+                        setError('');
+                        // Reset form
+                        setTitle('');
+                        setDescription('');
+                        setVanityInfo('');
+                        setImageFile(null);
+                        setImagePreview(null);
+                        setSelectedCategories([]);
+                        setOutcomeType('yesno');
+                        setMultipleOptions(['', '']);
+                        setMinimumStake('');
+                        setStakingDays('');
+                        setStakingHours('');
+                        setStakingMinutes('');
+                        setResolutionDays('');
+                        setResolutionHours('');
+                        setResolutionMinutes('');
+                        setCreatorDeposit('');
+                        setCreatorOutcome('');
+                        setSelectedToken('0x0000000000000000000000000000000000000000');
+                        setMarketType('UMA_MANUAL');
+                        setSelectedPriceFeed('');
+                        setPriceThreshold('');
+                      }}
+                      className={`px-4 py-2 rounded-lg font-semibold transition-colors text-sm ${
+                        isDarkMode 
+                          ? 'bg-gray-800 hover:bg-gray-700 text-white' 
+                          : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
+                      }`}
+                    >
+                      Create Another
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setShowConfirmModal(false)}
+                      disabled={isCreating || isUploadingImage || isUploadingMetadata || isCreatingContract}
+                      className={`flex-1 px-4 py-2 rounded-lg font-semibold transition-colors text-sm ${
+                        isCreating || isUploadingImage || isUploadingMetadata || isCreatingContract
+                          ? 'bg-gray-400 cursor-not-allowed text-gray-200'
+                          : isDarkMode 
+                            ? 'bg-gray-800 hover:bg-gray-700 text-white' 
+                            : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
+                      }`}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={createMarket}
+                      disabled={isCreating || isUploadingImage || isUploadingMetadata || isCreatingContract || isPending || isConfirming}
+                      className={`flex-1 px-3 py-2 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 text-xs sm:text-sm min-w-0 max-w-full overflow-hidden ${
+                        isCreating || isUploadingImage || isUploadingMetadata || isCreatingContract || isPending || isConfirming
+                          ? 'bg-gray-400 cursor-not-allowed text-gray-200'
+                          : isDarkMode 
+                            ? 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black' 
+                            : 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black border border-black'
+                      }`}
+                    >
+                      {(isCreating || isUploadingImage || isUploadingMetadata || isCreatingContract || isPending || isConfirming) && (
+                        <Loader2 size={16} className="animate-spin flex-shrink-0" />
+                      )}
+                      <span className="truncate">
+                        {isUploadingImage ? 'Uploading Image...' :
+                         isUploadingMetadata ? 'Creating Metadata...' :
+                         isCreatingContract ? 'Creating Market...' :
+                         isPending || isConfirming ? 'Confirming...' :
+                         'Confirm & Create'}
+                      </span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Bottom Notifications Bar */}
+        <div className="fixed bottom-0 left-0 right-0 z-50 p-4 pointer-events-none">
+          <div className={`max-w-4xl mx-auto space-y-2 pointer-events-auto ${
+            sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'
+          }`}>
+            {error && (
+              <div className={`p-4 rounded-lg border shadow-lg flex items-center gap-3 animate-slide-up ${
+                isDarkMode 
+                  ? 'bg-red-900/90 border-red-800 text-red-300' 
+                  : 'bg-red-50 border-red-200 text-red-800'
+              }`}>
+                <AlertCircle size={20} className="flex-shrink-0" />
+                <span className="flex-1 text-sm font-medium">{error}</span>
+                <button
+                  onClick={() => setError('')}
+                  className="p-1 rounded hover:bg-red-200/50 transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            )}
+
+            {success && !showConfirmModal && (
+              <div className={`p-4 rounded-lg border shadow-lg flex items-center gap-3 animate-slide-up ${
+                isDarkMode 
+                  ? 'bg-emerald-900/90 border-emerald-700 text-emerald-300' 
+                  : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+              }`}>
+                <CheckCircle size={20} className="flex-shrink-0" />
+                <span className="flex-1 text-sm font-medium">{success}</span>
+                <button
+                  onClick={() => setSuccess('')}
+                  className="p-1 rounded hover:bg-emerald-200/50 transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

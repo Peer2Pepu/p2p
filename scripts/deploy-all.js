@@ -86,71 +86,44 @@ async function main() {
     await addTokenTx.wait();
     console.log("✅ P2P Token added as supported token");
 
-    // 11. Configure UMA Optimistic Oracle (using existing deployed addresses)
-    console.log("\n11. Configuring UMA Optimistic Oracle...");
-    // UMA contracts are already deployed - try to find Finder address
-    let UMA_FINDER = process.env.UMA_FINDER_ADDRESS || process.env.FINDER_ADDRESS || "";
+    // 11. Configure P2P Optimistic Oracle (using existing deployed addresses)
+    console.log("\n11. Configuring P2P Optimistic Oracle...");
     
-    // Try to read from UMA deployment config if not in env
-    if (!UMA_FINDER) {
-        const umaConfigPath = path.join(__dirname, "..", "oracle", "p2p-oracle", "packages", "core", "networks", "97741.json");
-        if (fs.existsSync(umaConfigPath)) {
-            try {
-                const umaConfig = JSON.parse(fs.readFileSync(umaConfigPath, "utf8"));
-                UMA_FINDER = umaConfig.Finder || umaConfig.finder || "";
-                if (UMA_FINDER) {
-                    console.log("   Found Finder address from UMA config:", UMA_FINDER);
-                }
-            } catch (error) {
-                console.log("   Could not read UMA config:", error.message);
-            }
-        }
-    }
+    // Read P2P Oracle addresses from deployment file
+    const p2pOracleConfigPath = path.join(__dirname, "..", "oracle", "p2p-oracle", "p2p-oracle-addresses.json");
+    let P2P_OPTIMISTIC_ORACLE = "";
+    let P2P_VOTING = "";
     
-    const UMA_BOND_CURRENCY = poolTokenAddress; // Use P2P token as bond currency
-    const UMA_BOND_AMOUNT = ethers.parseEther("1000"); // 1000 P2P tokens
-    const UMA_LIVENESS = 7200; // 2 hours in seconds
-    const UMA_IDENTIFIER = ethers.id("ASSERT_TRUTH"); // keccak256("ASSERT_TRUTH")
-
-    // Set UMA Finder and OptimisticOracle
-    const UMA_OPTIMISTIC_ORACLE = process.env.UMA_OPTIMISTIC_ORACLE_ADDRESS || "0x08134f53EA608Ef199DBa2E86340456D22b480B9";
-    
-    if (UMA_FINDER && UMA_FINDER !== "") {
-        console.log("   Setting UMA Finder (already deployed):", UMA_FINDER);
+    if (fs.existsSync(p2pOracleConfigPath)) {
         try {
-            const setFinderTx = await eventPool.setFinder(UMA_FINDER);
-            await setFinderTx.wait();
-            const optimisticOracle = await eventPool.optimisticOracle();
-            console.log("✅ UMA Finder set, OptimisticOracle auto-configured:", optimisticOracle);
+            const p2pOracleConfig = JSON.parse(fs.readFileSync(p2pOracleConfigPath, "utf8"));
+            P2P_OPTIMISTIC_ORACLE = p2pOracleConfig.contracts?.P2POptimisticOracle?.address || "";
+            P2P_VOTING = p2pOracleConfig.contracts?.P2PVotingV2?.address || "";
+            if (P2P_OPTIMISTIC_ORACLE) {
+                console.log("   Found P2P OptimisticOracle from config:", P2P_OPTIMISTIC_ORACLE);
+            }
         } catch (error) {
-            console.log("⚠️  Could not auto-configure from Finder:", error.message);
-            console.log("   Setting OptimisticOracle directly:", UMA_OPTIMISTIC_ORACLE);
-            const setOOTx = await eventPool.setOptimisticOracle(UMA_OPTIMISTIC_ORACLE);
-            await setOOTx.wait();
-            console.log("✅ OptimisticOracle set directly");
+            console.log("   Could not read P2P Oracle config:", error.message);
         }
-    } else {
-        console.log("⚠️  UMA_FINDER_ADDRESS not found, setting OptimisticOracle directly");
-        console.log("   Setting OptimisticOracle:", UMA_OPTIMISTIC_ORACLE);
-        const setOOTx = await eventPool.setOptimisticOracle(UMA_OPTIMISTIC_ORACLE);
-        await setOOTx.wait();
-        console.log("✅ OptimisticOracle set directly");
-        console.log("   You can set Finder later using: eventPool.setFinder(finderAddress)");
     }
+    
+    // Fallback to hardcoded address if config not found
+    if (!P2P_OPTIMISTIC_ORACLE) {
+        P2P_OPTIMISTIC_ORACLE = process.env.P2P_OPTIMISTIC_ORACLE_ADDRESS || "0xceF54d4A3B30792F451fD175aDd86d1fc17910AA";
+        console.log("   Using P2P OptimisticOracle address:", P2P_OPTIMISTIC_ORACLE);
+    }
+    
+    // Set P2P OptimisticOracle address
+    console.log("   Setting P2P OptimisticOracle:", P2P_OPTIMISTIC_ORACLE);
+    const setOOTx = await eventPool.setOptimisticOracle(P2P_OPTIMISTIC_ORACLE);
+    await setOOTx.wait();
+    console.log("✅ P2P OptimisticOracle set");
 
-    // Set default bond configuration
-    console.log("   Setting default UMA bond configuration...");
-    const setBondTx = await eventPool.setDefaultBond(UMA_BOND_CURRENCY, UMA_BOND_AMOUNT);
-    await setBondTx.wait();
-    console.log("✅ Default bond set:", ethers.formatEther(UMA_BOND_AMOUNT), "P2P tokens");
-
-    const setLivenessTx = await eventPool.setDefaultLiveness(UMA_LIVENESS);
-    await setLivenessTx.wait();
-    console.log("✅ Default liveness set:", UMA_LIVENESS, "seconds (2 hours)");
-
-    const setIdentifierTx = await eventPool.setDefaultIdentifier(UMA_IDENTIFIER);
-    await setIdentifierTx.wait();
-    console.log("✅ Default identifier set: ASSERT_TRUTH");
+    // Set default bond currency (P2P token)
+    console.log("   Setting default bond currency (P2P token)...");
+    const setBondCurrencyTx = await eventPool.setDefaultBondCurrency(poolTokenAddress);
+    await setBondCurrencyTx.wait();
+    console.log("✅ Default bond currency set:", poolTokenAddress);
 
     // 12. Display Price Feed Addresses (already deployed)
     console.log("\n12. Price Feed Addresses (already deployed on Pepe Unchained):");
@@ -186,11 +159,9 @@ async function main() {
     console.log(`PoolVault (Treasury): ${vaultAddress}`);
     console.log(`MetricsHub (Analytics): ${analyticsAddress}`);
     console.log(`EventPool (MarketManager): ${marketManagerAddress}`);
-    
-    if (UMA_FINDER && UMA_FINDER !== "") {
-        const optimisticOracle = await eventPool.optimisticOracle();
-        console.log(`UMA Finder: ${UMA_FINDER}`);
-        console.log(`UMA OptimisticOracle: ${optimisticOracle}`);
+    console.log(`P2P OptimisticOracle: ${P2P_OPTIMISTIC_ORACLE}`);
+    if (P2P_VOTING) {
+        console.log(`P2P VotingV2: ${P2P_VOTING}`);
     }
 
     console.log("\n📝 Add to your .env file:");
@@ -199,8 +170,10 @@ async function main() {
     console.log(`NEXT_PUBLIC_P2P_TREASURY_ADDRESS=${vaultAddress}`);
     console.log(`NEXT_PUBLIC_P2P_ANALYTICS_ADDRESS=${analyticsAddress}`);
     console.log(`NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS=${marketManagerAddress}`);
-    console.log(`# UMA_FINDER_ADDRESS=<finder_address_from_p2p-oracle_packages_core_networks_97741.json>`);
-    console.log(`# Note: UMA contracts are already deployed - get Finder address from oracle deployment`);
+    console.log(`P2P_OPTIMISTIC_ORACLE_ADDRESS=${P2P_OPTIMISTIC_ORACLE}`);
+    if (P2P_VOTING) {
+        console.log(`P2P_VOTING_V2_ADDRESS=${P2P_VOTING}`);
+    }
 
     console.log("\n✨ System Features:");
     console.log("• AdminManager contract for all admin functions");
@@ -211,21 +184,24 @@ async function main() {
     console.log("• Settable staking restrictions");
     console.log("• Fixed fee distribution");
     console.log("• P2P Token support");
-    console.log("• UMA Optimistic Oracle integration (for UMA_MANUAL markets)");
+    console.log("• P2P Optimistic Oracle integration (for P2POPTIMISTIC markets)");
     console.log("• Price Feed integration (for PRICE_FEED markets)");
-    console.log("• Direct price feed resolution (no UMA needed for price markets)");
+    console.log("• Direct price feed resolution (no oracle needed for price markets)");
     console.log("• All contracts properly linked");
 
     console.log("\n🔧 Next Steps:");
     console.log("1. Update your .env file with the contract addresses above");
-    console.log("2. If UMA not configured, set UMA_FINDER_ADDRESS in .env and run:");
-    console.log("   eventPool.setFinder(UMA_FINDER_ADDRESS)");
-    console.log("3. Restart your frontend application");
-    console.log("4. For admin tasks, interact with AdminManager contract");
-    console.log("5. Test market creation via EventPool (with marketType parameter)");
-    console.log("6. Test PRICE_FEED market resolution (direct price feed read)");
-    console.log("7. Test UMA_MANUAL market resolution (UMA assertion flow)");
-    console.log("8. Test market deletion via AdminManager.deleteMarket()");
+    console.log("2. Restart your frontend application");
+    console.log("3. For admin tasks, interact with AdminManager contract");
+    console.log("4. Test market creation via EventPool (with marketType parameter)");
+    console.log("5. Test PRICE_FEED market resolution (direct price feed read)");
+    console.log("6. Test P2POPTIMISTIC market resolution:");
+    console.log("   - Create market with MarketType.P2POPTIMISTIC");
+    console.log("   - Call requestP2PResolution() after market ends");
+    console.log("   - Optionally call disputeOracle() if needed");
+    console.log("   - Call settleOracle() after dispute window");
+    console.log("   - Call resolveP2PMarket() to finalize");
+    console.log("7. Test market deletion via AdminManager.deleteMarket()");
 }
 
 main()

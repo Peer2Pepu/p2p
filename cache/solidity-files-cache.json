@@ -1220,8 +1220,8 @@
       ]
     },
     "C:\\Users\\USER\\p2p\\p2p\\contracts\\P2PTreasury.sol": {
-      "lastModificationDate": 1766263562869,
-      "contentHash": "da103c378f233826caf643dc13823b78",
+      "lastModificationDate": 1771833935458,
+      "contentHash": "37975f76bc6f227858adba193e94fd83",
       "sourceName": "contracts/P2PTreasury.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -1260,13 +1260,12 @@
         "^0.8.20"
       ],
       "artifacts": [
-        "IMarketManager",
         "PoolVault"
       ]
     },
     "C:\\Users\\USER\\p2p\\p2p\\contracts\\P2PMarketManager.sol": {
-      "lastModificationDate": 1770588058618,
-      "contentHash": "82e5ac7fe8221d2b4188d9679e2a0ec2",
+      "lastModificationDate": 1771834180872,
+      "contentHash": "4afe6de6f398d4cd5656a97a116106ff",
       "sourceName": "contracts/P2PMarketManager.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -1309,9 +1308,8 @@
       "artifacts": [
         "AggregatorV3Interface",
         "EventPool",
-        "Finder",
         "IAdminManager",
-        "OptimisticOracleV3"
+        "P2POptimisticOracle"
       ]
     },
     "C:\\Users\\USER\\p2p\\p2p\\contracts\\P2PVerification.sol": {
