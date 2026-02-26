@@ -1775,9 +1775,13 @@ export default function CreateMarketPage() {
                             {multipleOptions.length > 2 && (
                               <button
                                 onClick={() => removeMultipleOption(index)}
-                                className="px-3 py-2.5 bg-red-600 hover:bg-red-700 rounded-lg transition-colors text-white"
+                                className={`px-3 py-2.5 rounded-lg transition-colors ${
+                                  isDarkMode 
+                                    ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' 
+                                    : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                                }`}
                               >
-                                <Minus size={16} />
+                                <Trash2 size={16} />
                               </button>
                             )}
                           </div>
