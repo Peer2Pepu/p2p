@@ -1421,12 +1421,12 @@ export default function CreateMarketPage() {
                         >
                           {tokens.map((token) => (
                             <option key={token.address} value={token.address}>
-                              {token.name} {outcomeType === 'multiple' && P2P_TOKEN_ADDRESS && token.address !== P2P_TOKEN_ADDRESS ? '(Not available for multi-option)' : ''}
+                              {token.name}
                             </option>
                           ))}
                         </select>
                         {outcomeType === 'multiple' && (
-                          <p className="text-xs text-gray-500 mt-1">Multi-option markets must use P2P token</p>
+                          <p className="text-xs text-gray-500 mt-1">Multi Option Markets Use P2P</p>
                         )}
                       </div>
 
