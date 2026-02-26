@@ -1642,20 +1642,6 @@ export default function CreateMarketPage() {
                         </p>
                       </div>
                     </div>
-                    
-                    <div className={`p-3 rounded-lg ${isDarkMode ? 'bg-blue-900/20 border border-blue-800' : 'bg-blue-50 border border-blue-200'}`}>
-                      <div className="flex items-start gap-2">
-                        <AlertCircle className={`w-4 h-4 mt-0.5 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
-                        <div className="text-sm">
-                          <p className={`font-medium ${isDarkMode ? 'text-blue-300' : 'text-blue-800'}`}>
-                            Timing Example:
-                          </p>
-                          <p className={`text-xs mt-1 ${isDarkMode ? 'text-blue-400' : 'text-blue-700'}`}>
-                            For Premier League prediction: Staking = 2 weeks, Resolution = 6 months
-                          </p>
-                        </div>
-                      </div>
-                    </div>
                   </div>
 
                   {/* Categories & Tokens Row */}

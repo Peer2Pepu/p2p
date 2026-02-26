@@ -441,6 +441,7 @@ contract P2PMarketManager is Ownable {
         require(!m.isResolved,                             "EP: resolved");
         require(!m.p2pAssertionMade,                       "EP: assertion exists");
         require(msg.sender != m.creator,                   "EP: creator cannot assert");
+        require(userHasStaked[marketId][msg.sender],        "EP: must have stake");
         require(optionId > 0 && optionId <= m.maxOptions,  "EP: bad option");
         require(address(optimisticOracle) != address(0),   "EP: oracle not set");
         require(defaultBondCurrency != address(0),         "EP: bond currency not set");

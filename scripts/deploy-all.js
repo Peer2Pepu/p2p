@@ -44,23 +44,23 @@ async function main() {
     const analyticsAddress = await metricsHub.getAddress();
     console.log("✅ MetricsHub deployed to:", analyticsAddress);
 
-    // 5. Deploy EventPool with AdminManager address
-    console.log("\n5. Deploying EventPool (MarketManager)...");
-    const EventPool = await ethers.getContractFactory("EventPool");
-    const eventPool = await EventPool.deploy(
+    // 5. Deploy P2PMarketManager with AdminManager address
+    console.log("\n5. Deploying P2PMarketManager...");
+    const P2PMarketManager = await ethers.getContractFactory("P2PMarketManager");
+    const marketManager = await P2PMarketManager.deploy(
         deployer.address,
         vaultAddress,
         adminManagerAddress
     );
-    await eventPool.waitForDeployment();
-    const marketManagerAddress = await eventPool.getAddress();
-    console.log("✅ EventPool deployed to:", marketManagerAddress);
+    await marketManager.waitForDeployment();
+    const marketManagerAddress = await marketManager.getAddress();
+    console.log("✅ P2PMarketManager deployed to:", marketManagerAddress);
 
-    // 6. Link EventPool to AdminManager
-    console.log("\n6. Linking EventPool to AdminManager...");
+    // 6. Link P2PMarketManager to AdminManager
+    console.log("\n6. Linking P2PMarketManager to AdminManager...");
     const setEventPoolTx = await adminManager.setEventPool(marketManagerAddress);
     await setEventPoolTx.wait();
-    console.log("✅ EventPool linked to AdminManager");
+    console.log("✅ P2PMarketManager linked to AdminManager");
 
     // 7. Set Analytics in AdminManager
     console.log("\n7. Setting Analytics in AdminManager...");
@@ -89,24 +89,24 @@ async function main() {
     // 11. Configure P2P Optimistic Oracle (using existing deployed addresses from oracle-docs.md)
     console.log("\n11. Configuring P2P Optimistic Oracle...");
     
-    // Correct addresses from oracle-docs.md (updated):
-    // P2POptimisticOracleV2: 0x6D7112B471cA7F83d8DaDDF062D4f4f903813701
-    // P2PVoting: 0xe5aE58F2cEEEB259655deDEa3657568F899908d6
-    const P2P_OPTIMISTIC_ORACLE = "0x6D7112B471cA7F83d8DaDDF062D4f4f903813701";
-    const P2P_VOTING = "0xe5aE58F2cEEEB259655deDEa3657568F899908d6";
+    // Latest addresses from oracle-docs.md:
+    // P2POptimisticOracleV2: 0xfd52d7EBa4Cfc72c8001c8512fBbFb4BAb043DA6
+    // P2PVoting: 0x17e603B507E99CbceE1183Bb1A144b56F02921BF
+    const P2P_OPTIMISTIC_ORACLE = "0xfd52d7EBa4Cfc72c8001c8512fBbFb4BAb043DA6";
+    const P2P_VOTING = "0x17e603B507E99CbceE1183Bb1A144b56F02921BF";
     
     console.log("   Using P2P OptimisticOracleV2 address:", P2P_OPTIMISTIC_ORACLE);
     console.log("   Using P2P Voting address:", P2P_VOTING);
     
     // Set P2P OptimisticOracle address
     console.log("   Setting P2P OptimisticOracle:", P2P_OPTIMISTIC_ORACLE);
-    const setOOTx = await eventPool.setOptimisticOracle(P2P_OPTIMISTIC_ORACLE);
+    const setOOTx = await marketManager.setOptimisticOracle(P2P_OPTIMISTIC_ORACLE);
     await setOOTx.wait();
     console.log("✅ P2P OptimisticOracle set");
 
     // Set default bond currency (P2P token)
     console.log("   Setting default bond currency (P2P token)...");
-    const setBondCurrencyTx = await eventPool.setDefaultBondCurrency(poolTokenAddress);
+    const setBondCurrencyTx = await marketManager.setDefaultBondCurrency(poolTokenAddress);
     await setBondCurrencyTx.wait();
     console.log("✅ Default bond currency set:", poolTokenAddress);
 
@@ -143,7 +143,7 @@ async function main() {
     console.log(`P2P Token (Existing): ${poolTokenAddress}`);
     console.log(`PoolVault (Treasury): ${vaultAddress}`);
     console.log(`MetricsHub (Analytics): ${analyticsAddress}`);
-    console.log(`EventPool (MarketManager): ${marketManagerAddress}`);
+    console.log(`P2PMarketManager: ${marketManagerAddress}`);
     console.log(`P2P OptimisticOracle: ${P2P_OPTIMISTIC_ORACLE}`);
     if (P2P_VOTING) {
         console.log(`P2P VotingV2: ${P2P_VOTING}`);

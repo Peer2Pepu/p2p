@@ -158,6 +158,16 @@ const MARKET_MANAGER_ABI = [
     stateMutability: "view",
     type: "function",
   },
+  {
+    inputs: [
+      { name: "marketId", type: "uint256" },
+      { name: "user", type: "address" },
+    ],
+    name: "userHasStaked",
+    outputs: [{ name: "", type: "bool" }],
+    stateMutability: "view",
+    type: "function",
+  },
 ] as const;
 
 // New getAssertion: 12 fields (includes voteRequestId as 12th field)
@@ -432,6 +442,7 @@ interface MarketWithMetadata extends MarketData {
   metadata: any;
   assertion: AssertionInfo | null;
   voting: VotingInfo | null;
+  userHasStaked: boolean;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -758,7 +769,22 @@ export default function AssertPage() {
           }
         }
 
-        result.push({ ...market, marketId: i, metadata, assertion, voting });
+        // Check if user has staked in this market
+        let hasStaked = false;
+        if (address) {
+          try {
+            hasStaked = await publicClient.readContract({
+              address: MARKET_MANAGER_ADDRESS,
+              abi: MARKET_MANAGER_ABI,
+              functionName: "userHasStaked",
+              args: [BigInt(i), address],
+            }) as boolean;
+          } catch (e) {
+            console.error(`Error checking stake for market ${i}:`, e);
+          }
+        }
+
+        result.push({ ...market, marketId: i, metadata, assertion, voting, userHasStaked: hasStaked });
       }
 
       setMarkets(result);
@@ -1274,6 +1300,11 @@ export default function AssertPage() {
                               <div className="font-medium mb-0.5">Creator Restriction</div>
                               Market creators cannot assert outcomes on their own markets.
                             </div>
+                          ) : !market.userHasStaked ? (
+                            <div className={`text-xs px-3 py-2 rounded ${dark("bg-red-900/30 text-red-400 border border-red-800", "bg-red-100 text-red-800 border border-red-300")}`}>
+                              <div className="font-medium mb-0.5">Stake Required</div>
+                              You must have staked in this market to assert an outcome.
+                            </div>
                           ) : (
                             <>
                               <p className={`text-xs mb-2 ${dark("text-gray-400", "text-gray-600")}`}>
@@ -1341,7 +1372,8 @@ export default function AssertPage() {
                                   !hasSufficientAllowance ||
                                   !bondBalance ||
                                   !minimumBond ||
-                                  bondBalance.value < minimumBond
+                                  bondBalance.value < minimumBond ||
+                                  !market.userHasStaked
                                 }
                                 className={cls(
                                   "w-full py-2 px-4 rounded text-sm font-medium transition-colors",

@@ -1264,8 +1264,8 @@
       ]
     },
     "C:\\Users\\USER\\p2p\\p2p\\contracts\\P2PMarketManager.sol": {
-      "lastModificationDate": 1771885647955,
-      "contentHash": "13597120f1f0d7da396597022fe4ecbd",
+      "lastModificationDate": 1772058970695,
+      "contentHash": "427b01e4d4bfe19c34541be5f752bb28",
       "sourceName": "contracts/P2PMarketManager.sol",
       "solcConfig": {
         "version": "0.8.20",
