@@ -611,6 +611,13 @@ export default function CreateMarketPage() {
     console.log('CreateMarket pathname changed:', pathname);
   }, [pathname]);
 
+  // Automatically select P2P token when multi-options is selected
+  useEffect(() => {
+    if (outcomeType === 'multiple' && P2P_TOKEN_ADDRESS) {
+      setSelectedToken(P2P_TOKEN_ADDRESS);
+    }
+  }, [outcomeType, P2P_TOKEN_ADDRESS]);
+
   const handleCategoryToggle = (category: string) => {
     if (selectedCategories.includes(category)) {
       setSelectedCategories(selectedCategories.filter(c => c !== category));
