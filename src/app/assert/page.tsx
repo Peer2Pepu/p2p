@@ -1296,7 +1296,7 @@ export default function AssertPage() {
                       {phase.phase === "no-assertion" && (
                         <div className="space-y-2">
                           {isCreator ? (
-                            <div className={`text-xs px-3 py-2 rounded ${dark("bg-yellow-900/30 text-yellow-400 border border-yellow-800", "bg-yellow-100 text-yellow-800 border border-yellow-300")}`}>
+                            <div className={`text-xs px-3 py-2 rounded ${dark("bg-red-900/30 text-red-400 border border-red-800", "bg-red-100 text-red-800 border border-red-300")}`}>
                               <div className="font-medium mb-0.5">Creator Restriction</div>
                               Market creators cannot assert outcomes on their own markets.
                             </div>

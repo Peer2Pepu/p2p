@@ -1777,7 +1777,7 @@ export default function CreateMarketPage() {
                                 onClick={() => removeMultipleOption(index)}
                                 className="px-3 py-2.5 bg-red-600 hover:bg-red-700 rounded-lg transition-colors text-white"
                               >
-                                <Trash2 size={16} />
+                                <Minus size={16} />
                               </button>
                             )}
                           </div>
