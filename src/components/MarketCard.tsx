@@ -172,20 +172,20 @@ function MultiSegmentCircle({ segments, size = 60, isDarkMode }: {
           const validSegments = segments.filter(s => s.percentage > 0.1 && isFinite(s.percentage) && !isNaN(s.percentage));
           if (validSegments.length === 0) {
             return (
-              <span className={`text-xs font-bold leading-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <span className={`text-sm font-bold leading-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 50%
               </span>
             );
           }
           // Find segment with highest percentage
           const topSegment = validSegments.reduce((max, seg) => seg.percentage > max.percentage ? seg : max);
-          const roundedPercentage = Math.round(topSegment.percentage * 100) / 100; // Round to 2 decimal places
+          const roundedPercentage = Math.round(topSegment.percentage); // Round to nearest integer
           return (
             <>
-              <span className={`text-xs font-bold leading-none ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                {roundedPercentage.toFixed(2)}%
+              <span className={`text-sm font-bold leading-none ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                {roundedPercentage}%
               </span>
-              <span className={`text-[8px] leading-tight mt-0.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} style={{ color: topSegment.color }}>
+              <span className={`text-[9px] leading-tight mt-0.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} style={{ color: topSegment.color }}>
                 {topSegment.label.length > 4 ? topSegment.label.substring(0, 4) : topSegment.label}
               </span>
             </>
@@ -480,6 +480,10 @@ export function MarketCard({
       currentUserAddress,
       MARKET_MANAGER_ADDRESS
     ] : undefined,
+    query: {
+      refetchInterval: 5000, // Refetch every 5 seconds to keep allowance fresh
+      enabled: !!market?.paymentToken && market.paymentToken !== '0x0000000000000000000000000000000000000000' && !!MARKET_MANAGER_ADDRESS && !!currentUserAddress,
+    },
   });
 
   // 4. ALL useEffect hooks
@@ -595,13 +599,22 @@ export function MarketCard({
   }, [market?.endTime, market?.stakeEndTime, marketId]);
 
   useEffect(() => {
-    if (isApprovalPending === false && market?.paymentToken && market.paymentToken !== '0x0000000000000000000000000000000000000000' && betAmount) {
+    // Refetch allowance when approval is confirmed (both pending and confirming become false)
+    if (isApprovalPending === false && isApprovalConfirming === false && market?.paymentToken && market.paymentToken !== '0x0000000000000000000000000000000000000000') {
+      // Wait a bit longer to ensure transaction is indexed
       const timer = setTimeout(() => {
         refetchAllowance();
-      }, 2000);
+      }, 3000);
       return () => clearTimeout(timer);
     }
-  }, [isApprovalPending, market?.paymentToken, betAmount, refetchAllowance]);
+  }, [isApprovalPending, isApprovalConfirming, market?.paymentToken, refetchAllowance]);
+
+  // Refetch allowance when modal opens
+  useEffect(() => {
+    if (isModalOpen && market?.paymentToken && market.paymentToken !== '0x0000000000000000000000000000000000000000') {
+      refetchAllowance();
+    }
+  }, [isModalOpen, market?.paymentToken, refetchAllowance]);
 
   // Reset transaction pending state when transaction completes
   useEffect(() => {
@@ -1091,7 +1104,7 @@ export function MarketCard({
                     e.stopPropagation();
                       if (modalSelectedOption && betAmount) {
                         setIsTransactionPending(true);
-                        setIsModalOpen(false);
+                        // Don't close modal - keep it open to show approval status
                         onBet(marketId, modalSelectedOption, betAmount, true);
                       }
                   }}
