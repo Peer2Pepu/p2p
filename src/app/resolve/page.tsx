@@ -274,11 +274,9 @@ function MarketResolutionCard({ marketId, isDarkMode, onVote }: {
       const fetchMetadata = async () => {
         try {
           const ipfsHash = marketData.ipfsHash;
-          const gatewayUrl = `https://gateway.lighthouse.storage/ipfs/${ipfsHash}`;
-          
-          const response = await fetch(gatewayUrl);
-          if (response.ok) {
-            const metadata = await response.json();
+          const { fetchIPFSData } = await import('@/lib/ipfs');
+          const metadata = await fetchIPFSData(ipfsHash);
+          if (metadata) {
             setMarketMetadata(metadata);
           }
         } catch (error) {

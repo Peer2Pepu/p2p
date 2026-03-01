@@ -519,26 +519,51 @@ export function MarketCard({
         console.log('Supabase data for market', marketId, ':', data);
         setSupabaseData(data);
         
-        // Fetch IPFS metadata if available
+        // Fetch IPFS metadata if available with fallback gateways
         if (data?.ipfs) {
-          const gatewayUrl = `https://gateway.lighthouse.storage/ipfs/${data.ipfs}`;
-          console.log('Fetching IPFS metadata from:', gatewayUrl);
-          
           try {
-            const response = await fetch(gatewayUrl);
-            if (response.ok) {
-              const metadata = await response.json();
-              console.log('IPFS metadata:', metadata);
-              // Use the full image URL from Supabase
+            const { fetchIPFSData } = await import('@/lib/ipfs');
+            const metadata = await fetchIPFSData(data.ipfs);
+            
+            // Set metadata if fetched, or create fallback from Supabase data
+            if (metadata) {
+              // Use the full image URL from Supabase if available
               if (data.image) {
                 metadata.imageUrl = data.image;
                 console.log('Using Supabase image URL:', data.image);
               }
               setMarketMetadata(metadata);
+            } else {
+              // Create fallback metadata from Supabase data
+              console.log('Using fallback metadata from Supabase data');
+              const fallbackMetadata = {
+                title: `Market #${marketId}`,
+                description: '',
+                options: ['Yes', 'No'],
+                imageUrl: data.image || null
+              };
+              setMarketMetadata(fallbackMetadata);
             }
           } catch (error) {
             console.error('Error fetching IPFS metadata:', error);
+            // Create fallback metadata from Supabase data
+            const fallbackMetadata = {
+              title: `Market #${marketId}`,
+              description: '',
+              options: ['Yes', 'No'],
+              imageUrl: data.image || null
+            };
+            setMarketMetadata(fallbackMetadata);
           }
+        } else {
+          // No IPFS hash, create basic metadata
+          const fallbackMetadata = {
+            title: `Market #${marketId}`,
+            description: '',
+            options: ['Yes', 'No'],
+            imageUrl: data.image || null
+          };
+          setMarketMetadata(fallbackMetadata);
         }
       } catch (error) {
         console.error('Error fetching Supabase data:', error);
@@ -687,22 +712,37 @@ export function MarketCard({
 
   const getMarketTitle = () => {
     if (loadingSupabase) return 'Loading...';
+    // Try IPFS metadata first
     if (marketMetadata?.title) return marketMetadata.title;
+    // Fallback to Supabase data if available
+    if (supabaseData?.title) return supabaseData.title;
+    // Final fallback
     return `Market #${marketId}`;
   };
 
   const getMarketImage = () => {
     if (loadingSupabase) return null;
+    // Try IPFS metadata first
     if (marketMetadata?.imageUrl) {
       return marketMetadata.imageUrl;
+    }
+    // Fallback to Supabase image
+    if (supabaseData?.image) {
+      return supabaseData.image;
     }
     return null;
   };
 
   const getMarketOptions = () => {
-    if (marketMetadata?.options && Array.isArray(marketMetadata.options)) {
+    // Try IPFS metadata first
+    if (marketMetadata?.options && Array.isArray(marketMetadata.options) && marketMetadata.options.length > 0) {
       return marketMetadata.options;
     }
+    // Fallback to Supabase data if available
+    if (supabaseData?.options && Array.isArray(supabaseData.options) && supabaseData.options.length > 0) {
+      return supabaseData.options;
+    }
+    // Final fallback
     return ['Yes', 'No'];
   };
 

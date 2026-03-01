@@ -81,23 +81,60 @@ const ADMIN_MANAGER_ABI = [
     }
 ];
 
-// IPFS helper function
+// IPFS helper function with fallback gateways
 async function getIPFSData(ipfsHash) {
-    try {
-        const gatewayUrl = `https://gateway.lighthouse.storage/ipfs/${ipfsHash}`;
-        console.log(`🔗 Fetching from: ${gatewayUrl}`);
-        
-        const response = await fetch(gatewayUrl);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+    if (!ipfsHash) return null;
+    
+    // List of IPFS gateways to try (in order)
+    const gateways = [
+        `https://gateway.lighthouse.storage/ipfs/${ipfsHash}`,
+        `https://ipfs.io/ipfs/${ipfsHash}`,
+        `https://cloudflare-ipfs.com/ipfs/${ipfsHash}`,
+        `https://gateway.pinata.cloud/ipfs/${ipfsHash}`,
+        `https://dweb.link/ipfs/${ipfsHash}`
+    ];
+    
+    // Try each gateway with timeout
+    for (let i = 0; i < gateways.length; i++) {
+        const gatewayUrl = gateways[i];
+        try {
+            console.log(`🔗 Fetching from gateway ${i + 1}/${gateways.length}: ${gatewayUrl}`);
+            
+            // Create abort controller for timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+            
+            const response = await fetch(gatewayUrl, {
+                signal: controller.signal,
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+            
+            clearTimeout(timeoutId);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            console.log(`✅ Successfully fetched IPFS data from gateway ${i + 1}:`, data);
+            return data;
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                console.warn(`⏱️  Timeout fetching from gateway ${i + 1}, trying next...`);
+            } else {
+                console.warn(`⚠️  Error fetching from gateway ${i + 1}: ${error.message}, trying next...`);
+            }
+            
+            // If this is the last gateway, log the final error
+            if (i === gateways.length - 1) {
+                console.error(`❌ Failed to fetch IPFS data for ${ipfsHash} from all gateways`);
+            }
         }
-        const data = await response.json();
-        console.log(`✅ Successfully fetched IPFS data:`, data);
-        return data;
-    } catch (error) {
-        console.error(`❌ Error fetching IPFS data for ${ipfsHash}:`, error.message);
-        return null;
     }
+    
+    return null;
 }
 
 // Function to get token symbol from AdminManager contract

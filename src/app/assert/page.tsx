@@ -589,11 +589,11 @@ export default function AssertPage() {
         // Only show: state=1 (Ended) + marketType=1 (P2POPTIMISTIC)
         if (market.state !== 1 || market.marketType !== 1) continue;
 
-        // Fetch IPFS metadata
+        // Fetch IPFS metadata with fallback gateways
         let metadata: any = null;
         try {
-          const res = await fetch(`https://gateway.lighthouse.storage/ipfs/${market.ipfsHash}`);
-          if (res.ok) metadata = await res.json();
+          const { fetchIPFSData } = await import('@/lib/ipfs');
+          metadata = await fetchIPFSData(market.ipfsHash);
         } catch {}
 
         // Fetch assertion data if one was made

@@ -425,9 +425,9 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
       
       try {
         setLoading(true);
-        const response = await fetch(`https://gateway.lighthouse.storage/ipfs/${market.ipfsHash}`);
-        if (response.ok) {
-          const metadata = await response.json();
+        const { fetchIPFSData } = await import('@/lib/ipfs');
+        const metadata = await fetchIPFSData(market.ipfsHash);
+        if (metadata) {
           setMarketMetadata(metadata);
         }
       } catch (error) {
