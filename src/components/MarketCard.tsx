@@ -10,7 +10,7 @@ import {
   X,
   Loader2
 } from 'lucide-react';
-import { useReadContract, useAccount, useWaitForTransactionReceipt } from 'wagmi';
+import { useReadContract, useAccount, useWaitForTransactionReceipt, useBalance } from 'wagmi';
 import { parseEther, formatEther } from 'viem';
 import { createClient } from '@supabase/supabase-js';
 
@@ -401,7 +401,7 @@ export function MarketCard({
     },
   }) as { data: bigint | undefined };
 
-  // Fetch user's token balance
+  // Fetch user's token balance (ERC20)
   const { data: userTokenBalance } = useReadContract({
     address: market?.paymentToken || '0x0000000000000000000000000000000000000000',
     abi: [
@@ -420,6 +420,15 @@ export function MarketCard({
       refetchInterval: 5000, // Refetch every 5 seconds
     },
   }) as { data: bigint | undefined };
+
+  // Fetch user's native balance (PEPU) for native token markets
+  const { data: nativeBalance } = useBalance({
+    address: userAddress,
+    query: {
+      enabled: !!userAddress && !!market?.paymentToken && market.paymentToken === '0x0000000000000000000000000000000000000000',
+      refetchInterval: 5000, // Refetch every 5 seconds
+    },
+  });
 
   // Get total pool directly from contract (more accurate than summing manually)
   const { data: totalPool } = useReadContract({
@@ -667,8 +676,10 @@ export function MarketCard({
   const hasSufficientAllowance = tokenAllowance !== undefined && betAmount ? tokenAllowance >= requiredAmount : false;
   const needsTokenApproval = isERC20Market && betAmount && !hasSufficientAllowance;
 
-  // Validation logic
-  const balance = userTokenBalance || BigInt(0);
+  // Validation logic - use correct balance source
+  const balance = isERC20Market 
+    ? (userTokenBalance || BigInt(0))
+    : (nativeBalance?.value || BigInt(0));
   const minStake = market?.minStake || BigInt(0);
   const isValidAmount = betAmount && !isNaN(parseFloat(betAmount)) && parseFloat(betAmount) > 0;
   const exceedsBalance = isValidAmount && requiredAmount > balance;
@@ -1109,14 +1120,22 @@ export function MarketCard({
               <input
                 type="number"
                 value={betAmount}
-                  onChange={(e) => setBetAmount(e.target.value)}
-                  placeholder={`Enter amount (min: ${market?.minStake ? formatEther(market.minStake) : '0'})`}
-                  className={`w-full px-3 py-2.5 border rounded-lg ${
+                onChange={(e) => {
+                  const value = e.target.value;
+                  // Prevent negative values and allow empty string for clearing
+                  if (value === '' || (!isNaN(parseFloat(value)) && parseFloat(value) >= 0)) {
+                    setBetAmount(value);
+                  }
+                }}
+                min="0"
+                step="any"
+                placeholder={`Enter amount (min: ${market?.minStake ? formatEther(market.minStake) : '0'})`}
+                className={`w-full px-3 py-2.5 border rounded-lg ${
                   isDarkMode 
                       ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500'
                       : 'bg-white border-gray-300 text-gray-900'
-                  } ${validationError ? (isDarkMode ? 'border-red-500' : 'border-red-500') : ''}`}
-                  autoFocus
+                } ${validationError ? (isDarkMode ? 'border-red-500' : 'border-red-500') : ''}`}
+                autoFocus
               />
               {/* Balance Display */}
               {userAddress && (
