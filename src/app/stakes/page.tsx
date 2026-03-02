@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import './stakes.css';
 import { 
   Receipt,
   Clock,
@@ -18,7 +19,8 @@ import {
   Activity,
   AlertTriangle,
   CheckCircle,
-  Menu
+  Menu,
+  RotateCcw
 } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
@@ -99,6 +101,27 @@ const MARKET_MANAGER_ABI = [
     "outputs": [{"name": "", "type": "uint256"}],
     "stateMutability": "view",
     "type": "function"
+  },
+  {
+    "inputs": [{"name": "marketId", "type": "uint256"}],
+    "name": "claimRefund",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "user", "type": "address"}],
+    "name": "userHasStaked",
+    "outputs": [{"name": "", "type": "bool"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "user", "type": "address"}],
+    "name": "userHasSupported",
+    "outputs": [{"name": "", "type": "bool"}],
+    "stateMutability": "view",
+    "type": "function"
   }
 ];
 
@@ -154,8 +177,374 @@ const TREASURY_ABI = [
     "outputs": [{"name": "", "type": "uint256"}],
     "stateMutability": "view",
     "type": "function"
+  },
+  {
+    "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "user", "type": "address"}, {"name": "token", "type": "address"}],
+    "name": "getUserSupport",
+    "outputs": [{"name": "", "type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
   }
 ];
+
+// Refund Card Component for Cancelled Markets
+function RefundCard({ marketId, userAddress, isDarkMode, onStatusUpdate }: {
+  marketId: number;
+  userAddress: `0x${string}`;
+  isDarkMode: boolean;
+  onStatusUpdate?: (marketId: number, marketData: any, hasClaimed: boolean, userStakeOption: number, isWinningStake: boolean) => void;
+}) {
+  const MARKET_MANAGER_ADDRESS = (process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS || process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS) as `0x${string}`;
+  const TREASURY_ADDRESS = process.env.NEXT_PUBLIC_P2P_TREASURY_ADDRESS as `0x${string}`;
+
+  const [claimError, setClaimError] = useState<string | null>(null);
+  const [claimSuccess, setClaimSuccess] = useState(false);
+
+  // Fetch market data
+  const { data: market } = useReadContract({
+    address: MARKET_MANAGER_ADDRESS,
+    abi: MARKET_MANAGER_ABI,
+    functionName: 'getMarket',
+    args: [BigInt(marketId)],
+  }) as { data: any | undefined };
+
+  const marketData = market as any;
+
+  // Check if user has staked - this will be false after refund is claimed
+  const { data: userHasStaked } = useReadContract({
+    address: MARKET_MANAGER_ADDRESS,
+    abi: MARKET_MANAGER_ABI,
+    functionName: 'userHasStaked',
+    args: [BigInt(marketId), userAddress],
+    query: {
+      enabled: !!marketData && marketData.state === 3,
+      refetchInterval: 5000, // Refetch to catch updates after claiming
+    },
+  }) as { data: boolean | undefined };
+
+  // Check if user has supported - this will be false after refund is claimed
+  const { data: userHasSupported } = useReadContract({
+    address: MARKET_MANAGER_ADDRESS,
+    abi: MARKET_MANAGER_ABI,
+    functionName: 'userHasSupported',
+    args: [BigInt(marketId), userAddress],
+    query: {
+      enabled: !!marketData && marketData.state === 3,
+      refetchInterval: 5000, // Refetch to catch updates after claiming
+    },
+  }) as { data: boolean | undefined };
+
+  // Get user's stake amount - always check Treasury for cancelled markets
+  // This will be 0 if refund was already claimed
+  const { data: userStakeAmount } = useReadContract({
+    address: TREASURY_ADDRESS,
+    abi: TREASURY_ABI,
+    functionName: 'getUserStake',
+    args: [BigInt(marketId), userAddress, marketData?.paymentToken || '0x0000000000000000000000000000000000000000'],
+    query: {
+      enabled: !!marketData && marketData.state === 3, // Only check if market is cancelled
+      refetchInterval: 5000, // Refetch every 5 seconds to catch updates after claiming
+    },
+  }) as { data: bigint | undefined };
+
+  // Get user's support amount - always check Treasury for cancelled markets
+  // This will be 0 if refund was already claimed
+  const { data: userSupportAmount } = useReadContract({
+    address: TREASURY_ADDRESS,
+    abi: TREASURY_ABI,
+    functionName: 'getUserSupport',
+    args: [BigInt(marketId), userAddress, marketData?.paymentToken || '0x0000000000000000000000000000000000000000'],
+    query: {
+      enabled: !!marketData && marketData.state === 3, // Only check if market is cancelled
+      refetchInterval: 5000, // Refetch every 5 seconds to catch updates after claiming
+    },
+  }) as { data: bigint | undefined };
+
+  // Get token symbol
+  const { data: tokenSymbol } = useReadContract({
+    address: process.env.NEXT_PUBLIC_P2P_ADMIN_ADDRESS as `0x${string}`,
+    abi: [
+      {
+        "inputs": [{"name": "token", "type": "address"}],
+        "name": "tokenSymbols",
+        "outputs": [{"name": "", "type": "string"}],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ],
+    functionName: 'tokenSymbols',
+    args: [marketData?.paymentToken || '0x0000000000000000000000000000000000000000'],
+  }) as { data: string | undefined };
+
+  const [marketMetadata, setMarketMetadata] = useState<any>(null);
+  const [loadingMetadata, setLoadingMetadata] = useState(false);
+  const [originalRefundAmount, setOriginalRefundAmount] = useState<bigint | null>(null);
+
+  // Calculate total refund from Treasury (this will be 0 if already claimed)
+  const totalRefund = (userStakeAmount || BigInt(0)) + (userSupportAmount || BigInt(0));
+  
+  // Check if refund was claimed:
+  // 1. If userHasStaked and userHasSupported are both false (contract sets them to false after claiming)
+  // 2. OR if Treasury amounts are 0 (refund was withdrawn)
+  // Note: userHasStaked/userHasSupported can be undefined while loading, so we check both conditions
+  const hasClaimedRefund = marketData?.state === 3 && (
+    (userHasStaked === false && userHasSupported === false) || // Both flags are false (claimed)
+    (totalRefund === BigInt(0) && userHasStaked !== undefined && userHasSupported !== undefined) // Treasury is 0 and flags are loaded
+  );
+  
+  // Can claim if:
+  // - Market is cancelled (state 3)
+  // - Treasury still has refund amount > 0
+  // - AND userHasStaked OR userHasSupported is still true (hasn't been set to false yet)
+  const canClaimRefund = marketData?.state === 3 && 
+    totalRefund > BigInt(0) && 
+    (userHasStaked === true || userHasSupported === true);
+
+  // Store original refund amount when we first detect it (before claiming)
+  useEffect(() => {
+    if (totalRefund > BigInt(0) && originalRefundAmount === null) {
+      setOriginalRefundAmount(totalRefund);
+    }
+  }, [totalRefund, originalRefundAmount]);
+
+  // Write contract for claiming refund
+  const { writeContract, data: hash, error: writeError, isPending: isClaiming } = useWriteContract();
+  
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+    hash,
+  });
+
+  // Fetch IPFS metadata
+  useEffect(() => {
+    if (market && !marketMetadata && !loadingMetadata) {
+      setLoadingMetadata(true);
+      const fetchMetadata = async () => {
+        try {
+          const ipfsHash = (market as any).ipfsHash;
+          const { fetchIPFSData } = await import('@/lib/ipfs');
+          const metadata = await fetchIPFSData(ipfsHash);
+          if (metadata) {
+            setMarketMetadata(metadata);
+          }
+        } catch (error) {
+          console.error('Error fetching IPFS metadata:', error);
+        } finally {
+          setLoadingMetadata(false);
+        }
+      };
+      
+      fetchMetadata();
+    }
+  }, [market, marketMetadata, loadingMetadata]);
+
+  useEffect(() => {
+    if (isConfirmed) {
+      setClaimError(null);
+      setClaimSuccess(true);
+      setTimeout(() => setClaimSuccess(false), 3000);
+      // After claiming, the refund amount will become 0, but we keep showing the card
+    }
+  }, [isConfirmed]);
+
+  // Update status to ensure cancelled markets stay in refunds category
+  useEffect(() => {
+    if (marketData && marketData.state === 3 && onStatusUpdate) {
+      // Always categorize cancelled markets as refunds, regardless of claim status
+      onStatusUpdate(marketId, marketData, hasClaimedRefund, 0, false);
+    }
+  }, [marketData, hasClaimedRefund, marketId, onStatusUpdate]);
+
+  // Always show cancelled markets, even if refund was claimed
+  if (!market || marketData?.state !== 3) {
+    return null;
+  }
+
+  const getMarketTitle = () => {
+    if (loadingMetadata) return 'Loading...';
+    if (marketMetadata?.title) return marketMetadata.title;
+    return `Market #${marketId}`;
+  };
+
+  const getMarketImage = () => {
+    if (loadingMetadata) return null;
+    if (marketMetadata?.imageUrl) {
+      return marketMetadata.imageUrl;
+    }
+    return null;
+  };
+
+  const handleClaimRefund = async () => {
+    if (!canClaimRefund || isClaiming) return;
+    
+    setClaimError(null);
+    
+    try {
+      await writeContract({
+        address: MARKET_MANAGER_ADDRESS,
+        abi: MARKET_MANAGER_ABI,
+        functionName: 'claimRefund',
+        args: [BigInt(marketId)],
+        gas: BigInt(500000),
+      });
+    } catch (error: any) {
+      console.error('Claim refund error:', error);
+      let errorMessage = 'Failed to claim refund';
+      if (error.message?.includes('not cancelled')) {
+        errorMessage = 'This market is not cancelled';
+      } else if (error.message?.includes('nothing to refund')) {
+        errorMessage = 'You have no refund available';
+      } else if (error.message?.includes('User rejected')) {
+        errorMessage = 'Transaction was rejected';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      setClaimError(errorMessage);
+    }
+  };
+
+  return (
+    <div className={`border rounded-lg p-2.5 sm:p-3 transition-all duration-200 hover:shadow-md ${
+      isDarkMode ? 'bg-black border-orange-800 hover:shadow-orange-900/20' : 'bg-[#F5F3F0] border-orange-300 hover:shadow-orange-900/10'
+    }`}>
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-0 mb-2">
+        <div className="flex-1 min-w-0 w-full sm:pr-2">
+          <div className="flex items-center gap-2 mb-1.5 sm:mb-0.5">
+            {getMarketImage() && (
+              <div className="flex-shrink-0">
+                <img
+                  src={getMarketImage()!}
+                  alt=""
+                  className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg object-cover border ${isDarkMode ? 'border-gray-800' : 'border-gray-400'}`}
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <Link href={`/market/${marketId}`} className="flex-1 min-w-0">
+                  <h3 className={`font-semibold text-xs sm:text-sm truncate hover:text-[#39FF14] transition-colors cursor-pointer ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                    {getMarketTitle()}
+                  </h3>
+                </Link>
+                <span className={`px-1 sm:px-1.5 py-0.5 rounded text-xs flex-shrink-0 ${isDarkMode ? 'bg-orange-900/40 text-orange-300' : 'bg-orange-100 text-orange-700'}`}>
+                  #{marketId}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className={`px-1 sm:px-1.5 py-0.5 rounded text-xs ${isDarkMode ? 'bg-orange-900/40 text-orange-300' : 'bg-orange-100 text-orange-700'}`}>
+              Cancelled
+            </span>
+            {hasClaimedRefund && (
+              <span className={`px-1 sm:px-1.5 py-0.5 rounded text-xs ${isDarkMode ? 'bg-blue-900/40 text-blue-300' : 'bg-blue-100 text-blue-700'}`}>
+                Claimed
+              </span>
+            )}
+          </div>
+        </div>
+        <div className={`text-left sm:text-right ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+          <div className="text-sm sm:text-base font-bold">
+            {hasClaimedRefund && originalRefundAmount ? formatEther(originalRefundAmount) : (totalRefund > BigInt(0) ? formatEther(totalRefund) : '0')}
+          </div>
+          <div className={`text-xs ${isDarkMode ? 'text-white/60' : 'text-gray-500'}`}>
+            {tokenSymbol ? String(tokenSymbol) : 'P2P'}
+          </div>
+        </div>
+      </div>
+      <div className={`flex justify-between text-xs mb-1 sm:mb-1.5 p-1.5 rounded ${
+        hasClaimedRefund
+          ? (isDarkMode ? 'bg-blue-900/20 border border-blue-800/30' : 'bg-blue-100 border border-blue-300')
+          : (isDarkMode ? 'bg-orange-900/20 border border-orange-800/30' : 'bg-orange-100 border border-orange-300')
+      }`}>
+        <span className={isDarkMode ? 'text-white/60' : 'text-gray-600'}>Total Refund: </span>
+        <span className={`font-semibold ${
+          hasClaimedRefund
+            ? (isDarkMode ? 'text-blue-300' : 'text-blue-700')
+            : (isDarkMode ? 'text-orange-300' : 'text-orange-700')
+        }`}>
+          {hasClaimedRefund && originalRefundAmount 
+            ? `${formatEther(originalRefundAmount)} ${tokenSymbol ? String(tokenSymbol) : 'P2P'} (Claimed)`
+            : `${formatEther(totalRefund)} ${tokenSymbol ? String(tokenSymbol) : 'P2P'}`
+          }
+        </span>
+      </div>
+      {/* Show stake/support breakdown only if not claimed, or show original amounts if claimed */}
+      {!hasClaimedRefund && (
+        <>
+          {userStakeAmount && userStakeAmount > BigInt(0) && (
+            <div className="flex justify-between text-xs mb-1 sm:mb-1.5">
+              <span className={isDarkMode ? 'text-white/60' : 'text-gray-500'}>Stake: </span>
+              <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                {formatEther(userStakeAmount)} {tokenSymbol ? String(tokenSymbol) : 'P2P'}
+              </span>
+            </div>
+          )}
+          {userSupportAmount && userSupportAmount > BigInt(0) && (
+            <div className="flex justify-between text-xs mb-1 sm:mb-1.5">
+              <span className={isDarkMode ? 'text-white/60' : 'text-gray-500'}>Support: </span>
+              <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                {formatEther(userSupportAmount)} {tokenSymbol ? String(tokenSymbol) : 'P2P'}
+              </span>
+            </div>
+          )}
+        </>
+      )}
+      {hasClaimedRefund ? (
+        <div className={`mt-2 pt-2 border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-300'}`}>
+          <div className={`p-2 rounded text-xs text-center ${
+            isDarkMode ? 'bg-blue-900/20 text-blue-300' : 'bg-blue-100 text-blue-700'
+          }`}>
+            ✅ Refund claimed successfully
+          </div>
+        </div>
+      ) : canClaimRefund && (
+        <div className={`mt-2 pt-2 border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-300'}`}>
+          {claimError && (
+            <div className={`mb-1.5 p-1.5 rounded text-xs ${
+              isDarkMode ? 'bg-red-900/40 text-red-300' : 'bg-red-50 text-red-800'
+            }`}>
+              {claimError}
+            </div>
+          )}
+          {claimSuccess && (
+            <div className={`mb-1.5 p-1.5 rounded text-xs ${
+              isDarkMode ? 'bg-green-900/40 text-green-300' : 'bg-green-50 text-green-800'
+            }`}>
+              ✅ Refund claimed!
+            </div>
+          )}
+          <button
+            className={`w-full py-2 sm:py-1.5 px-2 rounded text-xs font-medium transition-colors flex items-center justify-center gap-1 ${
+              isClaiming || isConfirming
+                ? (isDarkMode ? 'bg-gray-600 text-gray-400' : 'bg-gray-300 text-gray-600')
+                : (isDarkMode 
+                    ? 'bg-orange-600 hover:bg-orange-700 text-white' 
+                    : 'bg-orange-600 hover:bg-orange-700 text-white')
+            }`}
+            onClick={handleClaimRefund}
+            disabled={isClaiming || isConfirming}
+          >
+            {isClaiming || isConfirming ? (
+              <>
+                <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                <span className="hidden sm:inline">{isClaiming ? 'Claiming...' : 'Confirming...'}</span>
+                <span className="sm:hidden">{isClaiming ? 'Claiming...' : 'Confirming...'}</span>
+              </>
+            ) : (
+              <>
+                <RotateCcw size={12} />
+                Claim Refund
+              </>
+            )}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // Stakes Card Component
 function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate, onStatusUpdate }: {
@@ -678,13 +1067,14 @@ export default function StakesPage() {
   const { isDarkMode, toggleTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [activeTab, setActiveTab] = useState<'pending' | 'claimed' | 'resolved' | 'lost'>('pending');
+  const [activeTab, setActiveTab] = useState<'pending' | 'claimed' | 'resolved' | 'lost' | 'refunds'>('pending');
   const [marketCategories, setMarketCategories] = useState<{
     pending: Set<number>;
     claimed: Set<number>;
     resolved: Set<number>;
     lost: Set<number>;
-  }>({ pending: new Set(), claimed: new Set(), resolved: new Set(), lost: new Set() });
+    refunds: Set<number>;
+  }>({ pending: new Set(), claimed: new Set(), resolved: new Set(), lost: new Set(), refunds: new Set() });
 
   const { address, isConnected } = useAccount();
 
@@ -700,6 +1090,18 @@ export default function StakesPage() {
     query: {
       enabled: !!address && !!ANALYTICS_ADDRESS, // Only query when address is connected
       refetchInterval: 30000, // Refetch every 30 seconds to catch new stakes
+    },
+  });
+
+  // Fetch cancelled markets (state = 3) from Analytics if available
+  const { data: cancelledMarketIds } = useReadContract({
+    address: ANALYTICS_ADDRESS,
+    abi: ANALYTICS_ABI,
+    functionName: 'getUserMarketsByState',
+    args: [address || '0x0000000000000000000000000000000000000000', 3], // State 3 = Cancelled
+    query: {
+      enabled: !!address && !!ANALYTICS_ADDRESS,
+      refetchInterval: 30000,
     },
   });
 
@@ -812,12 +1214,13 @@ export default function StakesPage() {
     checkTreasuryForAllMarkets();
   }, [address, nextMarketId, userMarketIds, TREASURY_ADDRESS_CHECK, MARKET_MANAGER_ADDRESS]);
 
-  // Sort markets (combine Analytics + Treasury results)
+  // Sort markets (combine Analytics + Treasury results + Cancelled markets)
   const sortedMarkets = React.useMemo(() => {
     const analyticsIds = Array.isArray(userMarketIds) ? userMarketIds.map(id => Number(id)) : [];
-    const allIds = [...new Set([...analyticsIds, ...treasuryMarketIds])];
+    const cancelledIds = Array.isArray(cancelledMarketIds) ? cancelledMarketIds.map(id => Number(id)) : [];
+    const allIds = [...new Set([...analyticsIds, ...treasuryMarketIds, ...cancelledIds])];
     return allIds.sort((a, b) => b - a); // Higher market ID = newer
-  }, [userMarketIds, treasuryMarketIds]);
+  }, [userMarketIds, treasuryMarketIds, cancelledMarketIds]);
 
   // Initialize all markets as pending when they first load
   useEffect(() => {
@@ -828,17 +1231,18 @@ export default function StakesPage() {
           claimed: new Set(prev.claimed),
           resolved: new Set(prev.resolved),
           lost: new Set(prev.lost),
+          refunds: new Set(prev.refunds),
         };
         
         // Add all markets to pending initially (they'll be recategorized as data loads)
         sortedMarkets.forEach(id => {
-          if (!newCats.pending.has(id) && !newCats.claimed.has(id) && !newCats.resolved.has(id) && !newCats.lost.has(id)) {
+          if (!newCats.pending.has(id) && !newCats.claimed.has(id) && !newCats.resolved.has(id) && !newCats.lost.has(id) && !newCats.refunds.has(id)) {
             newCats.pending.add(id);
           }
         });
         
         // Remove markets that are no longer in the user's list
-        [newCats.pending, newCats.claimed, newCats.resolved, newCats.lost].forEach(category => {
+        [newCats.pending, newCats.claimed, newCats.resolved, newCats.lost, newCats.refunds].forEach(category => {
           category.forEach(id => {
             if (!sortedMarkets.includes(id)) {
               category.delete(id);
@@ -863,6 +1267,7 @@ export default function StakesPage() {
     claimed: marketCategories.claimed.size,
     resolved: marketCategories.resolved.size,
     lost: marketCategories.lost.size,
+    refunds: marketCategories.refunds.size,
   };
 
   // Update market category when StakesCard reports status
@@ -873,6 +1278,7 @@ export default function StakesPage() {
         claimed: new Set(prev.claimed),
         resolved: new Set(prev.resolved),
         lost: new Set(prev.lost),
+        refunds: new Set(prev.refunds),
       };
 
       // Remove from all categories first
@@ -880,13 +1286,18 @@ export default function StakesPage() {
       newCats.claimed.delete(marketId);
       newCats.resolved.delete(marketId);
       newCats.lost.delete(marketId);
+      newCats.refunds.delete(marketId);
 
       // Categorize: 
-      // Pending = not resolved
+      // Cancelled (state 3) = refunds
+      // Pending = not resolved and not cancelled
       // Claimed = resolved and claimed
       // Resolved = resolved, user won, but not claimed yet
       // Lost = resolved, user lost (not the winning option)
-      if (marketData?.state === 2 && marketData?.isResolved) {
+      if (marketData?.state === 3) {
+        // Cancelled - check if user has stake or support
+        newCats.refunds.add(marketId);
+      } else if (marketData?.state === 2 && marketData?.isResolved) {
         if (hasClaimed) {
           newCats.claimed.add(marketId);
         } else if (isWinningStake) {
@@ -991,7 +1402,13 @@ export default function StakesPage() {
         <main className="p-3 sm:p-4 lg:p-6">
           {/* Tabs */}
           {isConnected && Array.isArray(userMarketIds) && userMarketIds.length > 0 && (
-            <div className={`flex gap-1.5 sm:gap-2 lg:gap-3 mb-3 sm:mb-4 p-1 sm:p-1.5 rounded-lg overflow-x-auto ${isDarkMode ? 'bg-black' : 'bg-gray-200'}`}>
+            <div 
+              className={`tabs-scrollbar ${isDarkMode ? 'tabs-scrollbar-dark' : ''} flex gap-1.5 sm:gap-2 lg:gap-3 mb-3 sm:mb-4 p-1 sm:p-1.5 rounded-lg overflow-x-auto ${isDarkMode ? 'bg-black' : 'bg-gray-200'}`}
+              style={{
+                scrollbarWidth: 'thin',
+                scrollbarColor: isDarkMode ? '#374151 transparent' : '#9CA3AF transparent',
+              }}
+            >
               <button
                 onClick={() => setActiveTab('pending')}
                 className={`flex-shrink-0 px-2.5 sm:px-3 lg:px-4 py-2 sm:py-2.5 rounded-md text-xs sm:text-sm font-semibold transition-colors relative whitespace-nowrap ${
@@ -1035,6 +1452,19 @@ export default function StakesPage() {
               >
                 Lost ({tabCounts.lost})
               </button>
+              <button
+                onClick={() => setActiveTab('refunds')}
+                className={`flex-shrink-0 px-2.5 sm:px-3 lg:px-4 py-2 sm:py-2.5 rounded-md text-xs sm:text-sm font-semibold transition-colors relative whitespace-nowrap ${
+                  activeTab === 'refunds'
+                    ? (isDarkMode ? 'bg-[#39FF14] text-black' : 'bg-[#39FF14] text-black border border-black shadow-sm')
+                    : (isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900')
+                }`}
+              >
+                Refunds ({tabCounts.refunds})
+                {tabCounts.refunds > 0 && (
+                  <span className="absolute top-1.5 sm:top-2 right-1.5 sm:right-2 w-2 h-2 sm:w-2.5 sm:h-2.5 bg-orange-500 rounded-full"></span>
+                )}
+              </button>
             </div>
           )}
 
@@ -1075,16 +1505,26 @@ export default function StakesPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
-              {displayedMarkets.map((marketId: number) => (
-                <StakesCard
-                  key={marketId}
-                  marketId={marketId}
-                  userAddress={address!}
-                  isDarkMode={isDarkMode}
-                  onClaimableUpdate={handleClaimableUpdate}
-                  onStatusUpdate={handleMarketStatusUpdate}
-                />
-              ))}
+              {displayedMarkets.map((marketId: number) => 
+                activeTab === 'refunds' ? (
+                  <RefundCard
+                    key={marketId}
+                    marketId={marketId}
+                    userAddress={address!}
+                    isDarkMode={isDarkMode}
+                    onStatusUpdate={handleMarketStatusUpdate}
+                  />
+                ) : (
+                  <StakesCard
+                    key={marketId}
+                    marketId={marketId}
+                    userAddress={address!}
+                    isDarkMode={isDarkMode}
+                    onClaimableUpdate={handleClaimableUpdate}
+                    onStatusUpdate={handleMarketStatusUpdate}
+                  />
+                )
+              )}
             </div>
           )}
         </main>

@@ -1,0 +1,27 @@
+/* Custom scrollbar styling for tabs - thin and dark in dark mode */
+.tabs-scrollbar::-webkit-scrollbar {
+  height: 6px;
+}
+
+.tabs-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Light mode scrollbar */
+.tabs-scrollbar::-webkit-scrollbar-thumb {
+  background: #9CA3AF;
+  border-radius: 3px;
+}
+
+.tabs-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #6B7280;
+}
+
+/* Dark mode scrollbar */
+.tabs-scrollbar-dark::-webkit-scrollbar-thumb {
+  background: #374151;
+}
+
+.tabs-scrollbar-dark::-webkit-scrollbar-thumb:hover {
+  background: #4B5563;
+}
