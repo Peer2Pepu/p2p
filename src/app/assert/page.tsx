@@ -1116,6 +1116,7 @@ export default function AssertPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <button
+                  type="button"
                   onClick={() => setSidebarOpen(true)}
                   className={`lg:hidden p-2 rounded-lg ${dark("hover:bg-[#39FF14]/10 text-white", "hover:bg-gray-200")}`}
                 >
@@ -1132,6 +1133,7 @@ export default function AssertPage() {
               </div>
               <div className="flex items-center gap-2 lg:gap-4">
                 <button
+                  type="button"
                   onClick={toggleTheme}
                   className={`p-1.5 lg:p-2 rounded-lg ${dark("hover:bg-[#39FF14]/10", "hover:bg-gray-200")}`}
                 >
@@ -1174,14 +1176,14 @@ export default function AssertPage() {
             <div className={`mb-4 p-4 rounded-lg border flex items-center gap-3 ${dark("bg-red-900/20 border-red-800 text-red-300", "bg-red-50 border-red-200 text-red-800")}`}>
               <AlertCircle size={20} className="flex-shrink-0" />
               <span className="text-sm">{error}</span>
-              <button onClick={() => setError("")} className="ml-auto text-xs opacity-70 hover:opacity-100">✕</button>
+              <button type="button" onClick={() => setError("")} className="ml-auto text-xs opacity-70 hover:opacity-100">✕</button>
             </div>
           )}
           {success && (
             <div className={`mb-4 p-4 rounded-lg border flex items-center gap-3 ${dark("bg-green-900/20 border-green-800 text-green-300", "bg-green-50 border-green-200 text-green-800")}`}>
               <CheckCircle size={20} className="flex-shrink-0" />
               <span className="text-sm">{success}</span>
-              <button onClick={() => setSuccess("")} className="ml-auto text-xs opacity-70 hover:opacity-100">✕</button>
+              <button type="button" onClick={() => setSuccess("")} className="ml-auto text-xs opacity-70 hover:opacity-100">✕</button>
             </div>
           )}
 
@@ -1316,8 +1318,13 @@ export default function AssertPage() {
                                   const sel = selectedOptions[market.marketId] === optNum;
                                   return (
                                     <button
+                                      type="button"
                                       key={idx}
-                                      onClick={() => setSelectedOptions((p) => ({ ...p, [market.marketId]: optNum }))}
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setSelectedOptions((p) => ({ ...p, [market.marketId]: optNum }));
+                                      }}
                                       className={cls(
                                         "w-full text-left px-3 py-2 rounded text-sm border transition-colors",
                                         sel
@@ -1349,6 +1356,7 @@ export default function AssertPage() {
 
                               {!hasSufficientAllowance && minimumBond && bondBalance && bondBalance.value >= minimumBond && (
                                 <button
+                                  type="button"
                                   onClick={handleApprove}
                                   disabled={isApproving}
                                   className={cls(
@@ -1363,6 +1371,7 @@ export default function AssertPage() {
                               )}
 
                               <button
+                                type="button"
                                 onClick={() => handleMakeAssertion(market.marketId)}
                                 disabled={
                                   !isConnected ||
@@ -1390,7 +1399,12 @@ export default function AssertPage() {
                           {/* Cancel if grace period passed and no assertion */}
                           {(phase as any).gracePassed && (
                             <button
-                              onClick={() => handleCancelNoAssertion(market.marketId)}
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleCancelNoAssertion(market.marketId);
+                              }}
                               disabled={pendingAction === `cancel-${market.marketId}`}
                               className={cls(
                                 "w-full py-2 px-3 rounded text-xs font-medium transition-colors mt-1",
@@ -1444,8 +1458,11 @@ export default function AssertPage() {
                                 
                                 return (
                                   <button
+                                    type="button"
                                     key={index}
-                                    onClick={() => {
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
                                       if (!isAssertedOption) {
                                         setSelectedOptions(prev => ({ ...prev, [market.marketId]: optionId }));
                                       }
@@ -1489,7 +1506,12 @@ export default function AssertPage() {
 
                           {!hasSufficientAllowance && bondBalance && minimumBond && bondBalance.value >= minimumBond && (
                             <button
-                              onClick={handleApprove}
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleApprove();
+                              }}
                               disabled={isApproving}
                               className="w-full py-2 px-4 rounded text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors"
                             >
@@ -1498,7 +1520,12 @@ export default function AssertPage() {
                           )}
 
                           <button
-                            onClick={() => handleDispute(market.marketId)}
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleDispute(market.marketId);
+                            }}
                             disabled={
                               !isConnected ||
                               !selectedOptions[market.marketId] ||
@@ -1600,7 +1627,12 @@ export default function AssertPage() {
                                 if (needsApproval && stakeAmount > BigInt(0)) {
                                 return (
                                   <button
-                                      onClick={() => handleApproveVoting(market.marketId)}
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        handleApproveVoting(market.marketId);
+                                      }}
                                       disabled={pendingAction === `approve-voting-${market.marketId}` || isApproving}
                                       className={cls(
                                         "w-full py-1.5 px-3 rounded text-xs font-medium transition-colors",
@@ -1616,7 +1648,12 @@ export default function AssertPage() {
                                 
                                 return (
                                   <button
-                                    onClick={() => handleStakeForVoting(market.marketId)}
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      handleStakeForVoting(market.marketId);
+                                    }}
                                     disabled={pendingAction === `stake-${market.marketId}` || !stakeInputs[market.marketId] || needsApproval}
                                     className={cls(
                                       "w-full py-1.5 px-3 rounded text-xs font-medium transition-colors",
@@ -1641,7 +1678,10 @@ export default function AssertPage() {
                               <div className="space-y-1.5">
                                 {/* Assertion option (Accept) */}
                                 <button
-                                  onClick={() => {
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
                                     setSelectedVotes(prev => ({ ...prev, [market.marketId]: BigInt(1) }));
                                     handleVote(market.marketId, BigInt(1));
                                   }}
@@ -1669,7 +1709,10 @@ export default function AssertPage() {
                                 
                                 {/* Dispute option (Reject) */}
                                 <button
-                                  onClick={() => {
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
                                     setSelectedVotes(prev => ({ ...prev, [market.marketId]: BigInt(2) }));
                                     handleVote(market.marketId, BigInt(2));
                                   }}
@@ -1708,7 +1751,12 @@ export default function AssertPage() {
                           {/* Settle button when voting ends */}
                           {phase.phase === "voting-ended" && (
                             <button
-                              onClick={() => handleSettle(market.marketId)}
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleSettle(market.marketId);
+                              }}
                               disabled={pendingAction === `settle-${market.marketId}`}
                               className={cls(
                                 "w-full py-2 px-3 rounded text-sm font-medium transition-colors",
@@ -1731,7 +1779,12 @@ export default function AssertPage() {
                             <div>Participation too low. Oracle will accept the original assertion by default. Both bonds returned.</div>
                           </div>
                           <button
-                            onClick={() => handleSettle(market.marketId)}
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleSettle(market.marketId);
+                            }}
                             disabled={pendingAction === `settle-${market.marketId}`}
                             className="w-full py-2 px-3 rounded text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors"
                           >
@@ -1752,7 +1805,12 @@ export default function AssertPage() {
                             }
                             </div>
                             <button
-                            onClick={() => handleSettle(market.marketId)}
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleSettle(market.marketId);
+                            }}
                             disabled={pendingAction === `settle-${market.marketId}`}
                             className="w-full py-2 px-3 rounded text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors"
                           >
@@ -1773,7 +1831,12 @@ export default function AssertPage() {
                             <div className="mt-1 opacity-70">Asserted option: {options[market.assertion.assertedOptionId - 1] || `Option ${market.assertion.assertedOptionId}`}</div>
                           </div>
                           <button
-                            onClick={() => fetchMarkets()}
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              fetchMarkets();
+                            }}
                             className="w-full py-2 px-3 rounded text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors"
                           >
                             Refresh to load voting
@@ -1796,7 +1859,12 @@ export default function AssertPage() {
                             </div>
                           )}
                           <button
-                            onClick={() => handleResolve(market.marketId)}
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleResolve(market.marketId);
+                            }}
                             disabled={pendingAction === `resolve-${market.marketId}`}
                             className={cls(
                               "w-full py-2 px-3 rounded text-sm font-medium transition-colors",
