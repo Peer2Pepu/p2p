@@ -1312,7 +1312,7 @@ export default function AssertPage() {
                               <p className={`text-xs mb-2 ${dark("text-gray-400", "text-gray-600")}`}>
                                 Select the winning option and post an assertion bond ({minimumBond ? formatEther(minimumBond) : "..."} P2P):
                               </p>
-                              <div className="space-y-1.5">
+                              <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
                                 {options.map((opt, idx) => {
                                   const optNum = idx + 1;
                                   const sel = selectedOptions[market.marketId] === optNum;
@@ -1449,7 +1449,7 @@ export default function AssertPage() {
                             <label className={`block text-xs font-medium mb-1.5 ${dark("text-gray-300", "text-gray-700")}`}>
                               Dispute with:
                             </label>
-                            <div className="space-y-1.5">
+                            <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
                               {options.map((option: string, index: number) => {
                                 const optionId = index + 1;
                                 const assertedOptionId = market.assertion?.assertedOptionId || 0;
