@@ -458,96 +458,43 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
     }
   }, [market]);
 
-  // Fetch stakers from events
+  // Fetch stakers from API
   useEffect(() => {
     const fetchStakers = async () => {
-      if (!marketId || !MARKET_MANAGER_ADDRESS || !market) {
+      if (!marketId || !market) {
         setLoadingStakers(false);
         return;
       }
 
       try {
         setLoadingStakers(true);
-        const provider = new ethers.JsonRpcProvider('https://rpc-pepu-v2-mainnet-0.t.conduit.xyz');
-        const contract = new ethers.Contract(MARKET_MANAGER_ADDRESS, [
-          {
-            "anonymous": false,
-            "inputs": [
-              {"indexed": true, "name": "marketId", "type": "uint256"},
-              {"indexed": true, "name": "user", "type": "address"},
-              {"indexed": false, "name": "option", "type": "uint256"},
-              {"indexed": false, "name": "amount", "type": "uint256"}
-            ],
-            "name": "StakePlaced",
-            "type": "event"
-          }
-        ], provider);
-
-        const filter = contract.filters.StakePlaced(marketId);
-        const events = await contract.queryFilter(filter, 0, 'latest');
-
-        // Get unique stakers with their latest option and total amount
-        const stakerMap = new Map<string, { option: number; amount: bigint }>();
-        for (const event of events) {
-          if (!('args' in event) || !event.args) continue;
-          const stakerAddress = (event.args as any).user.toLowerCase();
-          const option = Number((event.args as any).option);
-          const amount = (event.args as any).amount as bigint;
-          
-          if (stakerMap.has(stakerAddress)) {
-            const existing = stakerMap.get(stakerAddress)!;
-            stakerMap.set(stakerAddress, {
-              option: option,
-              amount: existing.amount + amount
-            });
-          } else {
-            stakerMap.set(stakerAddress, { option, amount });
-          }
+        const response = await fetch(`/api/market/${marketId}/stakers`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch stakers');
         }
-
-        // Add creator's stake if they have a creatorDeposit (creator's stake doesn't emit StakePlaced event)
-        if (market.creator && market.creatorDeposit && market.creatorDeposit > 0) {
-          const creatorAddress = market.creator.toLowerCase();
-          const creatorOption = Number(market.creatorOutcome);
-          const creatorAmount = market.creatorDeposit as bigint;
-          
-          if (stakerMap.has(creatorAddress)) {
-            // Creator already in map (if they staked again after creation), add creatorDeposit to their total
-            const existing = stakerMap.get(creatorAddress)!;
-            stakerMap.set(creatorAddress, {
-              option: existing.option,
-              amount: existing.amount + creatorAmount
-            });
-          } else {
-            // Creator not in map, add them
-            stakerMap.set(creatorAddress, {
-              option: creatorOption,
-              amount: creatorAmount
-            });
-          }
-        }
+        const { stakers: stakersData } = await response.json();
 
         // Fetch profiles for all stakers and mark creator
         const stakerList: StakerInfo[] = [];
         const creatorAddress = market.creator?.toLowerCase();
         
-        for (const [addr, data] of stakerMap.entries()) {
+        for (const staker of stakersData) {
           try {
-            const profile = await getUserProfile(addr);
+            const profile = await getUserProfile(staker.address);
             stakerList.push({
-              address: addr,
-              option: data.option,
-              amount: data.amount,
+              address: staker.address,
+              option: staker.option,
+              amount: BigInt(staker.amount),
               username: profile?.username,
               displayName: profile?.display_name,
-              isCreator: addr === creatorAddress
+              isCreator: staker.isCreator || staker.address === creatorAddress
             });
           } catch {
             stakerList.push({
-              address: addr,
-              option: data.option,
-              amount: data.amount,
-              isCreator: addr === creatorAddress
+              address: staker.address,
+              option: staker.option,
+              amount: BigInt(staker.amount),
+              isCreator: staker.isCreator || staker.address === creatorAddress
             });
           }
         }
@@ -566,71 +513,23 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
     } else if (!market || !marketId) {
       setLoadingStakers(false);
     }
-  }, [marketId, market, MARKET_MANAGER_ADDRESS]);
+  }, [marketId, market]);
 
-  // Fetch chart data from StakePlaced events
+  // Fetch chart data from API
   useEffect(() => {
     const fetchChartData = async () => {
-      if (!marketId || !MARKET_MANAGER_ADDRESS || !market) {
+      if (!marketId || !market) {
         setLoadingChart(false);
         return;
       }
 
       try {
         setLoadingChart(true);
-        const provider = new ethers.JsonRpcProvider('https://rpc-pepu-v2-mainnet-0.t.conduit.xyz');
-        const contract = new ethers.Contract(MARKET_MANAGER_ADDRESS, [
-          {
-            "anonymous": false,
-            "inputs": [
-              {"indexed": true, "name": "marketId", "type": "uint256"},
-              {"indexed": true, "name": "user", "type": "address"},
-              {"indexed": false, "name": "option", "type": "uint256"},
-              {"indexed": false, "name": "amount", "type": "uint256"}
-            ],
-            "name": "StakePlaced",
-            "type": "event"
-          }
-        ], provider);
-
-        const filter = contract.filters.StakePlaced(marketId);
-        const events = await contract.queryFilter(filter, 0, 'latest');
-
-        const processedData: Array<{time: string, volume: number, cumulative: number}> = [];
-        let cumulative = 0;
-
-        for (const event of events) {
-          if (!('args' in event) || !event.args) continue;
-          const block = await provider.getBlock(event.blockNumber);
-          if (!block) continue;
-          const amount = Number(formatEther((event.args as any).amount as bigint));
-          cumulative += amount;
-          
-          processedData.push({
-            time: new Date(Number(block.timestamp) * 1000).toLocaleTimeString('en-US', { 
-              hour: '2-digit', 
-              minute: '2-digit',
-              month: 'short',
-              day: 'numeric'
-            }),
-            volume: amount,
-            cumulative: cumulative
-          });
+        const response = await fetch(`/api/market/${marketId}/chart`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch chart data');
         }
-
-        if (processedData.length === 0) {
-          processedData.push({
-            time: new Date(Number(market.startTime) * 1000).toLocaleTimeString('en-US', { 
-              hour: '2-digit', 
-              minute: '2-digit',
-              month: 'short',
-              day: 'numeric'
-            }),
-            volume: 0,
-            cumulative: 0
-          });
-        }
-
+        const { chartData: processedData } = await response.json();
         setChartData(processedData);
       } catch (error) {
         console.error('Error fetching chart data:', error);
@@ -643,7 +542,7 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
     if (market && marketId) {
       fetchChartData();
     }
-  }, [marketId, market, MARKET_MANAGER_ADDRESS]);
+  }, [marketId, market]);
 
   // Handle stake placement
   const handleStake = async () => {
