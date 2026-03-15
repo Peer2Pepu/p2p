@@ -17,11 +17,7 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid market ID or missing contract address' }, { status: 400 });
     }
 
-    const provider = new ethers.JsonRpcProvider(RPC_URL, undefined, {
-      timeout: 60000,
-      retryDelay: 3000,
-      maxRetries: 5
-    });
+    const provider = new ethers.JsonRpcProvider(RPC_URL);
 
     const contract = new ethers.Contract(MARKET_MANAGER_ADDRESS, [
       {
