@@ -97,20 +97,6 @@ export default function DocsPage() {
     }, 1000);
   };
 
-  const copyHeadingUrl = (e: React.MouseEvent<HTMLAnchorElement>, headingId: string) => {
-    e.preventDefault();
-    const url = `${window.location.origin}${window.location.pathname}#${headingId}`;
-    navigator.clipboard.writeText(url);
-    // Show feedback
-    const originalText = e.currentTarget.textContent;
-    e.currentTarget.textContent = 'Copied!';
-    setTimeout(() => {
-      if (e.currentTarget) {
-        e.currentTarget.textContent = originalText;
-      }
-    }, 1000);
-  };
-
   const renderSectionNavigation = (sectionId: string) => {
     const currentSection = SECTIONS.find(s => s.id === sectionId);
     if (!currentSection) return null;
