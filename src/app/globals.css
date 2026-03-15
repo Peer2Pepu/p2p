@@ -30,6 +30,10 @@ body {
   .text-balance {
     text-wrap: balance;
   }
+  
+  .font-inter {
+    font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+  }
 }
 
 /* Custom RainbowKit button styling - size and shape only */

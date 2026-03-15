@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { Inter } from 'next/font/google';
 import { 
   Sun,
   Moon,
@@ -16,6 +17,12 @@ import {
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount } from 'wagmi';
 import { useTheme } from '../context/ThemeContext';
+
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
+});
 
 const SECTIONS = [
   { id: 'overview', title: 'Overview', next: 'getting-started' },
@@ -94,7 +101,7 @@ export default function DocsPage() {
     <a 
       href={`#${headingId}`} 
       onClick={(e) => copyHeadingUrl(e, headingId)} 
-      className={`no-underline hover:text-[#39FF14] transition-colors cursor-pointer inline-flex items-center gap-2 group ${className}`}
+      className={`font-inter no-underline hover:text-[#39FF14] transition-colors cursor-pointer inline-flex items-center gap-2 group ${className}`}
     >
       {children}
       <LinkIcon className="w-4 h-4 opacity-0 group-hover:opacity-50 transition-opacity" />
@@ -142,7 +149,7 @@ export default function DocsPage() {
   };
 
   return (
-    <div className={`min-h-screen ${isDarkMode ? 'bg-black' : 'bg-[#F5F3F0]'}`}>
+    <div className={`${inter.variable} min-h-screen ${isDarkMode ? 'bg-black' : 'bg-[#F5F3F0]'}`}>
       {/* Mobile Sidebar Toggle */}
       <header className={`sticky top-0 z-40 border-b backdrop-blur-sm ${isDarkMode ? 'bg-black border-[#39FF14]/20' : 'bg-[#F5F3F0] border-gray-200'} lg:hidden`}>
         <div className="px-4 py-3 flex items-center justify-between">
@@ -288,7 +295,7 @@ export default function DocsPage() {
                 msOverflowStyle: 'none'
               }}
             >
-              <h1 id="overview" className={`text-3xl font-bold mb-6 text-left group ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h1 id="overview" className={`font-inter text-3xl font-bold mb-6 text-left group ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <a href="#overview" onClick={(e) => copyHeadingUrl(e, 'overview')} className="no-underline hover:text-[#39FF14] transition-colors cursor-pointer inline-flex items-center gap-2">
                   Overview
                   <LinkIcon className="w-4 h-4 opacity-0 group-hover:opacity-50 transition-opacity" />
@@ -299,7 +306,7 @@ export default function DocsPage() {
                 Welcome to the P2P Prediction Markets platform documentation. This comprehensive guide will help you understand how to create, participate in, and interact with decentralized prediction markets on the Pepe Unchained blockchain.
               </p>
 
-              <h2 id="what-are-prediction-markets" className={`text-2xl font-semibold mt-12 mb-4 text-left group ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="what-are-prediction-markets" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left group ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <a href="#what-are-prediction-markets" onClick={(e) => copyHeadingUrl(e, 'what-are-prediction-markets')} className="no-underline hover:text-[#39FF14] transition-colors cursor-pointer inline-flex items-center gap-2">
                   What are Prediction Markets?
                   <LinkIcon className="w-4 h-4 opacity-0 group-hover:opacity-50 transition-opacity" />
@@ -312,7 +319,7 @@ export default function DocsPage() {
                 In a prediction market, users stake tokens on their preferred outcome. The market price of each outcome reflects the collective belief about its probability. When the event resolves, winners receive payouts proportional to their stake and the total pool, while losers forfeit their staked tokens.
               </p>
 
-              <h2 id="key-features" className={`text-2xl font-semibold mt-12 mb-4 text-left group ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="key-features" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left group ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <a href="#key-features" onClick={(e) => copyHeadingUrl(e, 'key-features')} className="no-underline hover:text-[#39FF14] transition-colors cursor-pointer inline-flex items-center gap-2">
                   Key Features
                   <LinkIcon className="w-4 h-4 opacity-0 group-hover:opacity-50 transition-opacity" />
@@ -345,14 +352,14 @@ export default function DocsPage() {
                 msOverflowStyle: 'none'
               }}
             >
-              <h1 id="getting-started" className={`text-3xl font-bold mb-6 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h1 id="getting-started" className={`font-inter text-3xl font-bold mb-6 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="getting-started">Getting Started</HeadingLink>
               </h1>
               <p className={`text-xl leading-relaxed mb-12 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
                 Learn how to create and participate in prediction markets on the P2P platform.
               </p>
 
-              <h2 id="market-creation" className={`text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="market-creation" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="market-creation">Creating a Market</HeadingLink>
               </h2>
               <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
@@ -379,14 +386,14 @@ export default function DocsPage() {
                 msOverflowStyle: 'none'
               }}
             >
-              <h1 id="participating" className={`text-3xl font-bold mb-6 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h1 id="participating" className={`font-inter text-3xl font-bold mb-6 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="participating">Participating in Markets</HeadingLink>
               </h1>
               <p className={`text-xl leading-relaxed mb-12 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
                 Learn how to stake on markets, understand the resolution process, and claim your winnings.
               </p>
 
-              <h2 id="staking-phase" className={`text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="staking-phase" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="staking-phase">Staking Phase</HeadingLink>
               </h2>
               <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
@@ -399,7 +406,7 @@ export default function DocsPage() {
                 The staking phase ends at the specified stake end time. After this point, no new stakes can be placed, but the market remains active until the end time is reached. This allows for a period where the market is closed to new participants but hasn't yet ended.
               </p>
 
-              <h2 id="market-end" className={`text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="market-end" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="market-end">Market End</HeadingLink>
               </h2>
               <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
@@ -409,7 +416,7 @@ export default function DocsPage() {
                 The market remains in the Ended state until resolution occurs. For Price Feed markets, resolution happens automatically after the resolution end time. For Optimistic Oracle markets, resolution requires an assertion to be made and the liveness period to pass.
               </p>
 
-              <h2 id="resolution" className={`text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="resolution" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="resolution">Resolution</HeadingLink>
               </h2>
               <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
@@ -422,7 +429,7 @@ export default function DocsPage() {
                 The liveness period is a configurable time window (default 2 hours) during which assertions can be challenged. This provides security and ensures that incorrect assertions can be disputed before final settlement.
               </p>
 
-              <h2 id="payouts" className={`text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="payouts" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="payouts">Claiming Payouts</HeadingLink>
               </h2>
               <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
@@ -449,14 +456,14 @@ export default function DocsPage() {
                 msOverflowStyle: 'none'
               }}
             >
-              <h1 id="market-types" className={`text-3xl font-bold mb-6 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h1 id="market-types" className={`font-inter text-3xl font-bold mb-6 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="market-types">Market Types</HeadingLink>
               </h1>
               <p className={`text-xl leading-relaxed mb-12 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
                 Understand the different types of markets available and when to use each one.
               </p>
 
-              <h2 id="price-feed-markets" className={`text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="price-feed-markets" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="price-feed-markets">Price Feed Markets</HeadingLink>
               </h2>
               <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
@@ -469,7 +476,7 @@ export default function DocsPage() {
                 These markets are ideal for questions like "Will ETH be above $3000 by end of month?" or "Will BTC drop below $40,000 this week?" The resolution is trustless and automatic, requiring no human judgment or oracle intervention beyond the price feed itself.
               </p>
 
-              <h2 id="optimistic-oracle-markets" className={`text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="optimistic-oracle-markets" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="optimistic-oracle-markets">Optimistic Oracle Markets</HeadingLink>
               </h2>
               <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
@@ -496,14 +503,14 @@ export default function DocsPage() {
                 msOverflowStyle: 'none'
               }}
             >
-              <h1 id="optimistic-oracle" className={`text-3xl font-bold mb-6 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h1 id="optimistic-oracle" className={`font-inter text-3xl font-bold mb-6 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="optimistic-oracle">P2P Optimistic Oracle</HeadingLink>
               </h1>
               <p className={`text-xl leading-relaxed mb-12 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
                 The P2P Optimistic Oracle provides a decentralized mechanism for resolving subjective events in prediction markets. It uses an optimistic approach where assertions are assumed correct unless challenged, enabling fast resolution while maintaining security through dispute mechanisms and token-weighted voting.
               </p>
 
-              <h2 id="how-optimistic-works" className={`text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="how-optimistic-works" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="how-optimistic-works">How It Works</HeadingLink>
               </h2>
               <p className={`mb-6 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
@@ -563,7 +570,7 @@ export default function DocsPage() {
                 </ul>
               </div>
 
-              <h2 id="optimistic-flow" className={`text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="optimistic-flow" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="optimistic-flow">Resolution Flow</HeadingLink>
               </h2>
 
@@ -611,7 +618,7 @@ resolveP2PMarket(id)
                 </pre>
               </div>
 
-              <h2 id="optimistic-fallback" className={`text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="optimistic-fallback" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="optimistic-fallback">Fallback Mechanisms</HeadingLink>
               </h2>
               <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
@@ -636,14 +643,14 @@ resolveP2PMarket(id)
                 msOverflowStyle: 'none'
               }}
             >
-              <h1 id="price-feed-oracle" className={`text-3xl font-bold mb-6 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h1 id="price-feed-oracle" className={`font-inter text-3xl font-bold mb-6 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="price-feed-oracle">Price Feed Oracle</HeadingLink>
               </h1>
               <p className={`text-xl leading-relaxed mb-12 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
                 Price Feed markets use on-chain price data for automatic, trustless resolution. These markets are perfect for objective, price-based questions where the outcome can be definitively determined by querying a Chainlink-compatible price feed contract.
               </p>
 
-              <h2 id="how-price-feed-works" className={`text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="how-price-feed-works" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="how-price-feed-works">How It Works</HeadingLink>
               </h2>
               <p className={`mb-6 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
@@ -685,7 +692,7 @@ resolveP2PMarket(id)
                 </p>
                 </div>
 
-              <h2 id="price-feed-flow" className={`text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="price-feed-flow" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="price-feed-flow">Resolution Flow</HeadingLink>
               </h2>
 
@@ -710,7 +717,7 @@ resolvePriceFeedMarket(id)
                 </pre>
               </div>
 
-              <h2 id="price-feed-use-cases" className={`text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="price-feed-use-cases" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="price-feed-use-cases">Use Cases</HeadingLink>
               </h2>
               <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
@@ -739,14 +746,14 @@ resolvePriceFeedMarket(id)
                 msOverflowStyle: 'none'
               }}
             >
-              <h1 id="building-bots" className={`text-3xl font-bold mb-6 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h1 id="building-bots" className={`font-inter text-3xl font-bold mb-6 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="building-bots">Building Bots</HeadingLink>
               </h1>
               <p className={`text-xl leading-relaxed mb-12 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
                 This guide helps external developers build bots to monitor markets, track wallet activity, and create copy trading systems. All interactions happen directly with the blockchain through the MarketManager contract.
               </p>
 
-              <h2 id="watching-markets" className={`text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="watching-markets" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="watching-markets">Watching for New Markets</HeadingLink>
               </h2>
               <p className={`mb-6 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
@@ -769,7 +776,7 @@ resolvePriceFeedMarket(id)
                 You can listen to these events in real-time using WebSocket connections to the RPC endpoint, or poll for events using HTTP. The IPFS hash can be used to fetch the full market details including title, description, and images from any IPFS gateway.
               </p>
 
-              <h2 id="wallet-tracking" className={`text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="wallet-tracking" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="wallet-tracking">Tracking Wallet Activity</HeadingLink>
               </h2>
               <p className={`mb-6 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
@@ -785,7 +792,7 @@ resolvePriceFeedMarket(id)
                 You can filter these events by specific wallet addresses to track the activity of successful traders. This enables building copy trading systems that automatically mirror the trades of profitable wallets.
               </p>
 
-              <h2 id="copy-trading" className={`text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="copy-trading" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="copy-trading">Building a Copy Trading Bot</HeadingLink>
               </h2>
               <p className={`mb-6 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
@@ -819,7 +826,7 @@ resolvePriceFeedMarket(id)
                 You can also query the contract to check a wallet's historical performance by looking at their past stakes and comparing them to resolved market outcomes. The contract provides view functions to check market states, user stakes, and market pools.
               </p>
 
-              <h2 id="contract-reference" className={`text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="contract-reference" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="contract-reference">Contract Reference</HeadingLink>
               </h2>
               <p className={`mb-6 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
@@ -860,7 +867,7 @@ resolvePriceFeedMarket(id)
                 msOverflowStyle: 'none'
               }}
             >
-              <h1 id="contract-reference" className={`text-3xl font-bold mb-6 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h1 id="contract-reference" className={`font-inter text-3xl font-bold mb-6 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="contract-reference">Contract Reference</HeadingLink>
               </h1>
               <p className={`text-xl leading-relaxed mb-12 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
