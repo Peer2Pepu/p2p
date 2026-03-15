@@ -36,21 +36,32 @@ export default function RootLayout({
                 const root = document.documentElement;
                 const body = document.body;
                 
-                if (isDark) {
-                  root.classList.add('dark');
-                  root.classList.remove('light');
-                  body.classList.add('dark');
-                  body.classList.remove('light');
-                } else {
-                  root.classList.add('light');
-                  root.classList.remove('dark');
-                  body.classList.add('light');
-                  body.classList.remove('dark');
+                // Check if body exists before accessing classList
+                if (root) {
+                  if (isDark) {
+                    root.classList.add('dark');
+                    root.classList.remove('light');
+                    if (body) {
+                      body.classList.add('dark');
+                      body.classList.remove('light');
+                    }
+                  } else {
+                    root.classList.add('light');
+                    root.classList.remove('dark');
+                    if (body) {
+                      body.classList.add('light');
+                      body.classList.remove('dark');
+                    }
+                  }
                 }
               } catch (e) {
-                // Fallback to dark mode
-                document.documentElement.classList.add('dark');
-                document.body.classList.add('dark');
+                // Fallback to dark mode - check if elements exist
+                if (document.documentElement) {
+                  document.documentElement.classList.add('dark');
+                }
+                if (document.body) {
+                  document.body.classList.add('dark');
+                }
               }
             `,
           }}

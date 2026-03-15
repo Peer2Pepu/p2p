@@ -34,6 +34,8 @@ if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
 const MARKET_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS || process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS;
 const ADMIN_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_ADMIN_ADDRESS;
 const RPC_URL = 'https://rpc-pepu-v2-mainnet-0.t.conduit.xyz';
+// Convert HTTP RPC URL to WebSocket URL
+const WS_RPC_URL = RPC_URL.replace('https://', 'wss://').replace('http://', 'ws://');
 
 if (!MARKET_MANAGER_ADDRESS) {
     console.error('❌ Missing NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS in .env');
@@ -351,22 +353,19 @@ async function processMarketEvent(event, provider) {
 async function monitorMarketEvents() {
     console.log('🚀 Starting Market Event Monitor...');
     console.log(`📡 Monitoring MarketManager: ${MARKET_MANAGER_ADDRESS}`);
-    console.log(`🔄 Polling every 5 seconds`);
 
     // Track processed events to prevent duplicates
     const processedEvents = new Set(); // Track by txHash:logIndex
     const processedMarketIds = new Set(); // Track processed market IDs in this session
 
-    // Create provider with retry configuration
-    const provider = new ethers.JsonRpcProvider(RPC_URL, undefined, {
-        polling: true,
-        pollingInterval: 5000,
-        timeout: 60000, // 60 second timeout (increased for slow RPC)
-        retryDelay: 3000, // 3 second retry delay
-        maxRetries: 5 // Increased retries
+    // Create HTTP provider for initial connection check and missed events
+    const httpProvider = new ethers.JsonRpcProvider(RPC_URL, undefined, {
+        timeout: 60000,
+        retryDelay: 3000,
+        maxRetries: 5
     });
     
-    // Test connection with retry logic
+    // Test HTTP connection with retry logic
     let latestBlock;
     let retries = 0;
     const maxRetries = 5;
@@ -374,7 +373,7 @@ async function monitorMarketEvents() {
     while (retries < maxRetries) {
         try {
             console.log(`🔌 Testing RPC connection (attempt ${retries + 1}/${maxRetries})...`);
-            latestBlock = await provider.getBlockNumber();
+            latestBlock = await httpProvider.getBlockNumber();
             console.log(`📦 Connected! Starting from block: ${latestBlock}`);
             break;
         } catch (error) {
@@ -391,14 +390,14 @@ async function monitorMarketEvents() {
         }
     }
     
-    const contract = new ethers.Contract(MARKET_MANAGER_ADDRESS, MARKET_MANAGER_ABI, provider);
+    const httpContract = new ethers.Contract(MARKET_MANAGER_ADDRESS, MARKET_MANAGER_ABI, httpProvider);
     
     // Check last 500 blocks for any missed events on startup
     console.log(`🔍 Checking last 500 blocks for missed events...`);
     const startBlock = Math.max(0, latestBlock - 500);
     
-    const filter = contract.filters.MarketCreated();
-    const missedEvents = await contract.queryFilter(filter, startBlock, latestBlock);
+    const filter = httpContract.filters.MarketCreated();
+    const missedEvents = await httpContract.queryFilter(filter, startBlock, latestBlock);
     
     console.log(`📋 Found ${missedEvents.length} events in last 500 blocks`);
     
@@ -415,80 +414,122 @@ async function monitorMarketEvents() {
         
         processedEvents.add(eventKey);
         processedMarketIds.add(marketId);
-        await processMarketEvent(event, provider);
+        await processMarketEvent(event, httpProvider);
     }
     
-    console.log(`✅ Finished processing missed events. Starting real-time monitoring...`);
+    console.log(`✅ Finished processing missed events. Setting up real-time monitoring...`);
 
-    setInterval(async () => {
+    // Try WebSocket provider first
+    let provider;
+    let usingWebSocket = false;
+    
+    try {
+        console.log(`🔌 Attempting WebSocket connection to ${WS_RPC_URL}...`);
+        provider = new ethers.WebSocketProvider(WS_RPC_URL);
+        
+        // Test WebSocket connection
+        await provider.getBlockNumber();
+        
+        usingWebSocket = true;
+        console.log(`✅ WebSocket connection established! Using real-time event listening`);
+    } catch (wsError) {
+        console.warn(`⚠️  WebSocket connection failed: ${wsError.message}`);
+        console.warn(`   Falling back to HTTP polling...`);
+        provider = new ethers.JsonRpcProvider(RPC_URL, undefined, {
+            polling: true,
+            pollingInterval: 10000,
+            timeout: 60000,
+            retryDelay: 3000,
+            maxRetries: 5
+        });
+        usingWebSocket = false;
+        console.log(`✅ Using HTTP polling (checks every 10 seconds)`);
+    }
+    
+    const contract = new ethers.Contract(MARKET_MANAGER_ADDRESS, MARKET_MANAGER_ABI, provider);
+    
+    // Store references for cleanup
+    globalProvider = provider;
+    globalContract = contract;
+    
+    // Set up event listener for real-time events
+    console.log(`👂 Listening for MarketCreated events...`);
+    console.log(`⏰ Started at: ${new Date().toISOString()}`);
+    console.log(`📡 Method: ${usingWebSocket ? 'WebSocket ✅' : 'HTTP Polling ⚠️'}`);
+    console.log(`─`.repeat(60));
+    
+    contract.on("MarketCreated", async (...args) => {
         try {
-            // Get current block number with retry logic
-            let currentBlock;
-            let retries = 0;
-            const maxRetries = 3;
+            // The last argument is the event object
+            const event = args[args.length - 1];
+            const eventKey = `${event.log.transactionHash}:${event.log.logIndex}`;
+            const marketId = Number(event.args.marketId);
             
-            while (retries < maxRetries) {
-                try {
-                    currentBlock = await provider.getBlockNumber();
-                    break;
-                } catch (error) {
-                    retries++;
-                    if (retries >= maxRetries) {
-                        console.error(`❌ Failed to get block number after ${maxRetries} retries:`, error.message);
-                        return; // Skip this iteration, will retry next interval
-                    }
-                    console.warn(`⚠️  Block number fetch failed (attempt ${retries}/${maxRetries}), retrying...`);
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-                }
+            // Skip if already processed
+            if (processedEvents.has(eventKey) || processedMarketIds.has(marketId)) {
+                console.log(`⏭️  Skipping already processed event: Market #${marketId} (${eventKey})`);
+                return;
             }
             
-            if (currentBlock > latestBlock) {
-                console.log(`🔍 Checking blocks ${latestBlock + 1} to ${currentBlock}`);
-
-                try {
-                    // Filter for MarketCreated events with retry
-                    const filter = contract.filters.MarketCreated();
-                    const events = await contract.queryFilter(filter, latestBlock + 1, currentBlock);
-
-                    // Process new events
-                    for (const event of events) {
-                        const eventKey = `${event.transactionHash}:${event.logIndex}`;
-                        const marketId = Number(event.args.marketId);
-                        
-                        // Skip if already processed
-                        if (processedEvents.has(eventKey) || processedMarketIds.has(marketId)) {
-                            console.log(`⏭️  Skipping already processed event: Market #${marketId} (${eventKey})`);
-                            continue;
-                        }
-                        
-                        processedEvents.add(eventKey);
-                        processedMarketIds.add(marketId);
-                        await processMarketEvent(event, provider);
-                    }
-
-                    latestBlock = currentBlock;
-                } catch (error) {
-                    console.error(`❌ Error querying events:`, error.message);
-                    // Don't update latestBlock on error, will retry next interval
-                }
-            }
+            processedEvents.add(eventKey);
+            processedMarketIds.add(marketId);
+            
+            console.log(`\n🎯 New MarketCreated event received:`);
+            console.log(`   Market ID: ${marketId}`);
+            console.log(`   Block: ${event.log.blockNumber}`);
+            console.log(`   Tx Hash: ${event.log.transactionHash}`);
+            console.log(`   Method: ${usingWebSocket ? 'WebSocket ✅' : 'HTTP Polling ⚠️'}`);
+            console.log(`─`.repeat(60));
+            
+            await processMarketEvent(event, provider);
         } catch (error) {
-            console.error('❌ Error in monitoring loop:', error.message);
-            // Continue monitoring despite errors
+            console.error(`❌ Error processing event:`, error.message);
         }
-    }, 10000); // Poll every 10 seconds (increased from 5s to reduce RPC load)
+    });
+    
+    // Handle WebSocket connection errors and reconnection
+    if (usingWebSocket && provider.websocket) {
+        provider.websocket.on('error', (error) => {
+            console.error(`❌ WebSocket error: ${error.message}`);
+        });
+        
+        provider.websocket.on('close', () => {
+            console.error(`❌ WebSocket connection closed. Attempting to reconnect...`);
+            setTimeout(() => {
+                monitorMarketEvents();
+            }, 5000);
+        });
+    }
+    
+    console.log(`✅ Listener active! Waiting for new MarketCreated events...`);
+    console.log(`   Press Ctrl+C to stop\n`);
 }
 
-// Handle graceful shutdown
-process.on('SIGINT', () => {
-    console.log('\n🛑 Shutting down Market Event Monitor...');
-    process.exit(0);
-});
+// Global provider reference for cleanup
+let globalProvider = null;
+let globalContract = null;
 
-process.on('SIGTERM', () => {
+// Handle graceful shutdown
+function shutdown() {
     console.log('\n🛑 Shutting down Market Event Monitor...');
+    
+    if (globalContract) {
+        globalContract.removeAllListeners();
+        console.log('   Removed event listeners');
+    }
+    
+    if (globalProvider) {
+        if (globalProvider.websocket) {
+            globalProvider.websocket.close();
+            console.log('   Closed WebSocket connection');
+        }
+    }
+    
     process.exit(0);
-});
+}
+
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
 
 // Start monitoring
 monitorMarketEvents().catch(console.error);

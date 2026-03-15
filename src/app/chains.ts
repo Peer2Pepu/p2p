@@ -25,7 +25,7 @@ export const pepuMainnet: Chain = {
 
 export const config = getDefaultConfig({
   appName: 'Peer2Pepu',
-  projectId: 'test123', // Temporary for testing
+  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'test123', // Get from env or use placeholder
   chains: [pepuMainnet],
   ssr: true,
   transports: {
