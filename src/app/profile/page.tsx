@@ -33,7 +33,7 @@ import { useAccount, useReadContract } from 'wagmi';
 import { useTheme } from '../context/ThemeContext';
 import { formatEther } from 'viem';
 import { UserProfile, UserAnalytics, UserMarketData } from '@/types/profile';
-import { getUserMarketsFromSupabase } from '@/lib/profile';
+import { getUserMarketsFromSupabase, getUserMarketsByCreator } from '@/lib/profile';
 
 // Client-only wrapper to prevent hydration issues
 function ClientOnly({ children }: { children: React.ReactNode }) {
@@ -125,15 +125,6 @@ export default function ProfilePage() {
     }
   });
 
-  const { data: userMarketIds } = useReadContract({
-    address: ANALYTICS_CONTRACT,
-    abi: ANALYTICS_ABI,
-    functionName: 'getUserMarkets',
-    args: address ? [address] : undefined,
-    query: {
-      enabled: !!address && !!ANALYTICS_CONTRACT
-    }
-  });
 
   // Load profile data
   useEffect(() => {
@@ -149,16 +140,17 @@ export default function ProfilePage() {
     }
   }, [userStats]);
 
-  // Load user markets when market IDs are available
+  // Load user markets by creator address
   useEffect(() => {
-    if (userMarketIds && Array.isArray(userMarketIds)) {
-      loadUserMarkets(userMarketIds.map(id => id.toString()));
+    if (address) {
+      loadUserMarkets();
     }
-  }, [userMarketIds]);
+  }, [address]);
 
-  const loadUserMarkets = async (marketIds: string[]) => {
+  const loadUserMarkets = async () => {
+    if (!address) return;
     try {
-      const markets = await getUserMarketsFromSupabase(marketIds);
+      const markets = await getUserMarketsByCreator(address);
       setUserMarkets(markets);
     } catch (error) {
       console.error('Error loading user markets:', error);
@@ -427,7 +419,7 @@ export default function ProfilePage() {
               ) : (
                 <div className="space-y-4 sm:space-y-6">
                   {/* Profile Header */}
-                  <div className={`p-4 sm:p-6 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'} shadow-sm`}>
+                  <div className={`p-3 sm:p-4 lg:p-6 rounded-xl border ${isDarkMode ? 'bg-black border-gray-800' : 'bg-white border-gray-200'} shadow-sm`}>
                     <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
                       {/* Profile Image */}
                       <div className="relative flex-shrink-0 mx-auto sm:mx-0">
@@ -588,49 +580,49 @@ export default function ProfilePage() {
 
                   {/* Analytics Section */}
                   {analytics && (
-                    <div className={`p-4 sm:p-6 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'} shadow-sm`}>
+                    <div className={`p-3 sm:p-4 lg:p-6 rounded-xl border ${isDarkMode ? 'bg-black border-gray-800' : 'bg-white border-gray-200'} shadow-sm`}>
                       <h2 className={`text-lg sm:text-xl font-bold mb-4 sm:mb-6 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                         <BarChart3 className={`h-4 w-4 sm:h-5 sm:w-5 ${isDarkMode ? 'text-[#39FF14]' : 'text-gray-900'}`} />
                         Trading Analytics
                       </h2>
                       
-                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                        <div className={`text-center p-3 sm:p-4 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
-                          <Trophy className={`h-6 w-6 sm:h-8 sm:w-8 mx-auto mb-1.5 sm:mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-yellow-500'}`} />
-                          <div className={`text-xl sm:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
+                        <div className={`text-center p-2.5 sm:p-3 lg:p-4 rounded-lg border ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                          <Trophy className={`h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 mx-auto mb-1.5 sm:mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-yellow-500'}`} />
+                          <div className={`text-lg sm:text-xl lg:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             {calculateWinRate()}%
                           </div>
-                          <div className={`text-xs sm:text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
+                          <div className={`text-xs ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
                             Win Rate
                           </div>
                         </div>
                         
-                        <div className={`text-center p-3 sm:p-4 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
-                          <Target className={`h-6 w-6 sm:h-8 sm:w-8 mx-auto mb-1.5 sm:mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-blue-500'}`} />
-                          <div className={`text-xl sm:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        <div className={`text-center p-2.5 sm:p-3 lg:p-4 rounded-lg border ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                          <Target className={`h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 mx-auto mb-1.5 sm:mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-blue-500'}`} />
+                          <div className={`text-lg sm:text-xl lg:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             {analytics.totalStakesPlaced.toString()}
                           </div>
-                          <div className={`text-xs sm:text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
+                          <div className={`text-xs ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
                             Total Stakes
                           </div>
                         </div>
                         
-                        <div className={`text-center p-3 sm:p-4 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
-                          <DollarSign className={`h-6 w-6 sm:h-8 sm:w-8 mx-auto mb-1.5 sm:mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-green-500'}`} />
-                          <div className={`text-lg sm:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        <div className={`text-center p-2.5 sm:p-3 lg:p-4 rounded-lg border ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                          <DollarSign className={`h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 mx-auto mb-1.5 sm:mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-green-500'}`} />
+                          <div className={`text-sm sm:text-lg lg:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             {formatEther(analytics.totalWinnings)} ETH
                           </div>
-                          <div className={`text-xs sm:text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
+                          <div className={`text-xs ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
                             Total Winnings
                           </div>
                         </div>
                         
-                        <div className={`text-center p-3 sm:p-4 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
-                          <Users className={`h-6 w-6 sm:h-8 sm:w-8 mx-auto mb-1.5 sm:mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-purple-500'}`} />
-                          <div className={`text-xl sm:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        <div className={`text-center p-2.5 sm:p-3 lg:p-4 rounded-lg border ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                          <Users className={`h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 mx-auto mb-1.5 sm:mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-purple-500'}`} />
+                          <div className={`text-lg sm:text-xl lg:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             {analytics.marketsCreated.toString()}
                           </div>
-                          <div className={`text-xs sm:text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
+                          <div className={`text-xs ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
                             Markets Created
                           </div>
                         </div>
@@ -639,7 +631,7 @@ export default function ProfilePage() {
                   )}
 
                   {/* User Markets Section */}
-                  <div className={`p-4 sm:p-6 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'} shadow-sm`}>
+                  <div className={`p-3 sm:p-4 lg:p-6 rounded-xl border ${isDarkMode ? 'bg-black border-gray-800' : 'bg-white border-gray-200'} shadow-sm`}>
                     <h2 className={`text-lg sm:text-xl font-bold mb-4 sm:mb-6 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                       <TrendingUp className={`h-4 w-4 sm:h-5 sm:w-5 ${isDarkMode ? 'text-[#39FF14]' : 'text-gray-900'}`} />
                       Your Markets
@@ -653,31 +645,56 @@ export default function ProfilePage() {
                         </p>
                       </div>
                     ) : (
-                      <div className="space-y-3 sm:space-y-4">
+                      <div className="space-y-2 sm:space-y-3">
                         {userMarkets.map((market) => (
-                          <div key={market.marketId} className={`p-3 sm:p-4 border rounded-lg ${
-                            isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'
-                          }`}>
-                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-                              <img 
-                                src={market.image} 
-                                alt="Market" 
-                                className={`w-full sm:w-16 sm:h-16 h-32 sm:h-16 rounded-lg object-cover border flex-shrink-0 ${
-                                  isDarkMode ? 'border-[#39FF14]' : 'border-[#39FF14]'
-                                }`}
-                              />
+                          <Link
+                            key={market.marketId}
+                            href={`/market/${market.marketId}`}
+                            className={`block p-3 sm:p-4 border rounded-lg transition-all hover:shadow-md ${
+                              isDarkMode 
+                                ? 'bg-gray-900 border-gray-700 hover:border-gray-600' 
+                                : 'bg-gray-50 border-gray-200 hover:border-gray-300'
+                            }`}
+                          >
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                              {market.image && (
+                                <img 
+                                  src={market.image} 
+                                  alt="Market" 
+                                  className={`w-full sm:w-20 sm:h-20 h-40 sm:h-20 rounded-lg object-cover border flex-shrink-0 ${
+                                    isDarkMode ? 'border-gray-700' : 'border-gray-200'
+                                  }`}
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                  }}
+                                />
+                              )}
                               <div className="flex-1 min-w-0 w-full sm:w-auto">
-                                <h3 className={`font-semibold text-sm sm:text-base mb-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{market.title}</h3>
-                                <p className={`text-xs sm:text-sm mb-2 line-clamp-2 ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
-                                  {market.description}
-                                </p>
-                                <div className={`flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-500'}`}>
-                                  <span>Type: {market.type}</span>
-                                  <span>State: {market.state}</span>
+                                <h3 className={`font-semibold text-sm sm:text-base mb-1.5 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                  {market.title}
+                                </h3>
+                                {market.description && (
+                                  <p className={`text-xs sm:text-sm mb-2 line-clamp-2 ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
+                                    {market.description}
+                                  </p>
+                                )}
+                                <div className={`flex flex-wrap items-center gap-2 sm:gap-3 text-xs ${isDarkMode ? 'text-white/60' : 'text-gray-500'}`}>
+                                  <span className={`px-2 py-0.5 rounded ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
+                                    {market.type}
+                                  </span>
+                                  <span className={`px-2 py-0.5 rounded ${
+                                    market.state === 0 
+                                      ? isDarkMode ? 'bg-yellow-900/30 text-yellow-400' : 'bg-yellow-100 text-yellow-700'
+                                      : market.state === 1
+                                      ? isDarkMode ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-700'
+                                      : isDarkMode ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-700'
+                                  }`}>
+                                    {market.state === 0 ? 'Active' : market.state === 1 ? 'Ended' : 'Resolved'}
+                                  </span>
                                 </div>
                               </div>
                             </div>
-                          </div>
+                          </Link>
                         ))}
                       </div>
                     )}

@@ -39,6 +39,39 @@ export async function getUserMarketsFromSupabase(marketIds: string[]): Promise<U
   }
 }
 
+export async function getUserMarketsByCreator(creatorAddress: string): Promise<UserMarketData[]> {
+  if (!creatorAddress) return [];
+
+  try {
+    const { data, error } = await supabase
+      .from('market')
+      .select('*')
+      .eq('creator', creatorAddress.toLowerCase())
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching markets by creator:', error);
+      return [];
+    }
+
+    return data?.map(market => ({
+      marketId: market.market_id,
+      title: market.title || 'Untitled Market',
+      description: market.description || '',
+      image: market.image || '',
+      creator: market.creator,
+      type: market.type || 'linear',
+      token: market.token || '',
+      stakeend: market.stakeend || '',
+      endtime: market.endtime || '',
+      state: market.state || 0
+    })) || [];
+  } catch (error) {
+    console.error('Error in getUserMarketsByCreator:', error);
+    return [];
+  }
+}
+
 export async function getUserProfile(address: string) {
   try {
     const response = await fetch(`/api/profile?address=${address}`);
