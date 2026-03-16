@@ -43,7 +43,6 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse, isDarkMo
     { icon: Receipt, label: "Stakes", href: "/stakes", active: pathname === "/stakes" },
     { icon: Plus, label: "Create Market", href: "/create-market", active: pathname === "/create-market" },
     { icon: User, label: "Profile", href: "/profile", active: pathname === "/profile" },
-    { icon: TrendingUp, label: "Analytics", href: "/analytics", active: pathname === "/analytics" },
     { icon: FileText, label: "Docs", href: "/docs", active: pathname === "/docs" },
     { icon: Shield, label: "Admin", href: "/admin", active: pathname === "/admin" }
   ];
