@@ -1452,8 +1452,8 @@ export default function AssertPage() {
 
                       {/* ── PHASE: DISPUTE WINDOW ── */}
                       {phase.phase === "dispute-window" && market.assertion && (
-                        <div className="space-y-2">
-                          <div className={`text-xs px-3 py-2 rounded ${dark("bg-gray-900/50 text-gray-300 border border-gray-700", "bg-gray-100 text-gray-700 border border-gray-300")}`}>
+                        <div className="space-y-2 flex-1 min-h-0 flex flex-col">
+                          <div className={`text-xs px-3 py-2 rounded flex-shrink-0 ${dark("bg-gray-900/50 text-gray-300 border border-gray-700", "bg-gray-100 text-gray-700 border border-gray-300")}`}>
                             <div className="font-medium mb-0.5">
                               Dispute window open
                             </div>
@@ -1465,7 +1465,7 @@ export default function AssertPage() {
                           </div>
 
                           {/* Dispute with option selection */}
-                          <div>
+                          <div className="flex-shrink-0">
                             <label className={`block text-xs font-medium mb-1.5 flex-shrink-0 ${dark("text-gray-300", "text-gray-700")}`}>
                               Dispute with:
                             </label>
@@ -1520,6 +1520,7 @@ export default function AssertPage() {
                             </div>
                           </div>
 
+                          <div className="flex-shrink-0 space-y-1.5">
                           {minimumBond && (
                             <div className={`text-xs px-3 py-1.5 rounded ${dark("bg-gray-900 text-gray-400", "bg-gray-100 text-gray-600")}`}>
                               Dispute bond: {formatEther(minimumBond)} P2P
@@ -1567,7 +1568,8 @@ export default function AssertPage() {
                             {pendingAction === `dispute-${market.marketId}` ? "Disputing..." : "Dispute Assertion"}
                             </button>
                           </div>
-                        )}
+                        </div>
+                      )}
 
                       {/* ── PHASE: VOTING ACTIVE ── */}
                       {(phase.phase === "voting-active" || phase.phase === "voting-ended" || (phase.phase === "disputed" && market.voting)) && market.assertion && market.voting && (
