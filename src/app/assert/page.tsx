@@ -1222,15 +1222,17 @@ export default function AssertPage() {
                   <div
                     key={market.marketId}
                     className={cls(
-                      "border rounded-xl overflow-hidden flex flex-col transition-all duration-200 hover:shadow-lg max-h-[600px]",
+                      "border rounded-xl overflow-hidden flex flex-col transition-all duration-200 hover:shadow-lg",
                       dark(
                         "bg-black border-gray-800 hover:border-[#39FF14]/30 hover:bg-gray-900/50",
                         "bg-[#F5F3F0] border-gray-300"
                       )
                     )}
+                    style={{ height: '320px' }}
                   >
-                    {/* Card header */}
-                    <div className="p-4 flex flex-col overflow-y-auto min-h-0">
+                    <div className="p-4 flex flex-col flex-1 min-h-0">
+                      {/* Card header */}
+                      <div className="flex-shrink-0">
                       <div className="flex items-start gap-3 mb-3">
                         {market.metadata?.imageUrl && (
                           <img
@@ -1293,10 +1295,11 @@ export default function AssertPage() {
                         </div>
                         </div>
                       </div>
+                      </div>
 
                       {/* ── PHASE: NO ASSERTION ── */}
                       {phase.phase === "no-assertion" && (
-                        <div className="space-y-2">
+                        <div className="space-y-2 flex-1 min-h-0 flex flex-col">
                           {isCreator ? (
                             <div className={`text-xs px-3 py-2 rounded ${dark("bg-red-900/30 text-red-400 border border-red-800", "bg-red-100 text-red-800 border border-red-300")}`}>
                               <div className="font-medium mb-0.5">Creator Restriction</div>
@@ -1309,10 +1312,11 @@ export default function AssertPage() {
                             </div>
                           ) : (
                             <>
-                              <p className={`text-xs mb-2 ${dark("text-gray-400", "text-gray-600")}`}>
+                              <p className={`text-xs mb-2 flex-shrink-0 ${dark("text-gray-400", "text-gray-600")}`}>
                                 Select the winning option and post an assertion bond ({minimumBond ? formatEther(minimumBond) : "..."} P2P):
                               </p>
-                              <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                              <div className="overflow-y-auto pr-1 flex-shrink" style={{ maxHeight: '120px', scrollbarWidth: 'thin' }}>
+                                <div className="space-y-1.5">
                                 {options.map((opt, idx) => {
                                   const optNum = idx + 1;
                                   const sel = selectedOptions[market.marketId] === optNum;
@@ -1339,9 +1343,11 @@ export default function AssertPage() {
                                     </button>
                                   );
                                 })}
+                                </div>
                               </div>
 
                               {/* Balance / allowance info */}
+                              <div className="flex-shrink-0 space-y-1.5">
                               {bondBalance && minimumBond && (
                                 <div className={`text-xs px-3 py-1.5 rounded ${bondBalance.value >= minimumBond ? dark("bg-green-900/30 text-green-400", "bg-green-100 text-green-600") : dark("bg-red-900/30 text-red-400", "bg-red-100 text-red-600")}`}>
                                   Balance: {formatEther(bondBalance.value)} P2P
@@ -1393,6 +1399,7 @@ export default function AssertPage() {
                               >
                                 {pendingAction === `assert-${market.marketId}` ? "Submitting..." : "Assert Outcome"}
                               </button>
+                              </div>
                             </>
                           )}
 
@@ -1446,10 +1453,11 @@ export default function AssertPage() {
 
                           {/* Dispute with option selection */}
                           <div>
-                            <label className={`block text-xs font-medium mb-1.5 ${dark("text-gray-300", "text-gray-700")}`}>
+                            <label className={`block text-xs font-medium mb-1.5 flex-shrink-0 ${dark("text-gray-300", "text-gray-700")}`}>
                               Dispute with:
                             </label>
-                            <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                            <div className="overflow-y-auto pr-1" style={{ maxHeight: '120px', scrollbarWidth: 'thin' }}>
+                              <div className="space-y-1.5">
                               {options.map((option: string, index: number) => {
                                 const optionId = index + 1;
                                 const assertedOptionId = market.assertion?.assertedOptionId || 0;
@@ -1495,6 +1503,7 @@ export default function AssertPage() {
                                   </button>
                                 );
                               })}
+                              </div>
                             </div>
                           </div>
 
