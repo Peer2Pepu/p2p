@@ -470,7 +470,7 @@ export default function AssertPage() {
   const [success, setSuccess] = useState("");
   const [currentTime, setCurrentTime] = useState<bigint>(BigInt(0));
   const [isApproving, setIsApproving] = useState(false);
-  const [pendingTxType, setPendingTxType] = useState<'approval' | 'assert' | 'dispute' | null>(null);
+  const [pendingTxType, setPendingTxType] = useState<'approval' | 'assert' | 'dispute' | 'settle' | 'resolve' | 'stake-voting' | 'vote' | null>(null);
   const [selectedOptions, setSelectedOptions] = useState<Record<number, number>>({});
   const [stakeInputs, setStakeInputs] = useState<Record<number, string>>({});
   const [selectedVotes, setSelectedVotes] = useState<Record<number, bigint>>({});
@@ -854,6 +854,20 @@ export default function AssertPage() {
         setTimeout(() => {
           fetchMarkets();
         }, 2000);
+      } else if (pendingTxType === 'settle' || pendingTxType === 'resolve') {
+        setPendingTxType(null);
+        setSuccess(pendingTxType === 'settle' ? '✅ Oracle settled successfully!' : '✅ Market resolved successfully!');
+        // Refresh markets to show updated state
+        setTimeout(() => {
+          fetchMarkets();
+        }, 2000);
+      } else if (pendingTxType === 'stake-voting' || pendingTxType === 'vote') {
+        setPendingTxType(null);
+        setSuccess(pendingTxType === 'stake-voting' ? '✅ Staked successfully!' : '✅ Vote submitted successfully!');
+        // Refresh markets to show updated state
+        setTimeout(() => {
+          fetchMarkets();
+        }, 2000);
       }
       setPendingAction(null);
     }
@@ -998,6 +1012,7 @@ export default function AssertPage() {
     return withTx(
       `stake-${marketId}`,
       async () => {
+        setPendingTxType('stake-voting');
         await writeContract({
           address: votingContractAddress,
           abi: VOTING_ABI,
@@ -1006,6 +1021,7 @@ export default function AssertPage() {
           gas: BigInt(300_000),
         });
         setStakeInputs((p) => ({ ...p, [marketId]: "" }));
+        // Don't reset state here - wait for transaction confirmation
       },
       "Staked for voting!"
     );
@@ -1018,6 +1034,7 @@ export default function AssertPage() {
     return withTx(
       `vote-${marketId}`,
       async () => {
+        setPendingTxType('vote');
         if (!oracleAddress) throw new Error("Oracle not set");
         const votingAddr = await publicClient!.readContract({
           address: oracleAddress as `0x${string}`,
@@ -1031,6 +1048,7 @@ export default function AssertPage() {
           args: [market.voting!.requestId, value],
           gas: BigInt(300_000),
         });
+        // Don't reset state here - wait for transaction confirmation
       },
       `Vote submitted (${value === BigInt(1) ? "Accept" : "Reject"})`
     );
@@ -1040,13 +1058,15 @@ export default function AssertPage() {
     withTx(
       `settle-${marketId}`,
       async () => {
-      await writeContract({
-        address: MARKET_MANAGER_ADDRESS,
-        abi: MARKET_MANAGER_ABI,
+        setPendingTxType('settle');
+        await writeContract({
+          address: MARKET_MANAGER_ADDRESS,
+          abi: MARKET_MANAGER_ABI,
           functionName: "settleOracle",
           args: [BigInt(marketId)],
           gas: BigInt(400_000),
         });
+        // Don't reset state here - wait for transaction confirmation
       },
       "Oracle settled!"
     );
@@ -1055,6 +1075,7 @@ export default function AssertPage() {
     withTx(
       `resolve-${marketId}`,
       async () => {
+        setPendingTxType('resolve');
         await writeContract({
           address: MARKET_MANAGER_ADDRESS,
           abi: MARKET_MANAGER_ABI,
@@ -1062,6 +1083,7 @@ export default function AssertPage() {
           args: [BigInt(marketId)],
           gas: BigInt(400_000),
         });
+        // Don't reset state here - wait for transaction confirmation
       },
       "Market resolved!"
     );
