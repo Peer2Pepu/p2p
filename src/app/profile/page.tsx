@@ -80,6 +80,201 @@ const ANALYTICS_ABI = [
   }
 ];
 
+// Market Manager ABI
+const MARKET_MANAGER_ABI = [
+  {
+    "inputs": [{"name": "marketId", "type": "uint256"}],
+    "name": "getMarket",
+    "outputs": [
+      {
+        "components": [
+          {"name": "creator", "type": "address"},
+          {"name": "ipfsHash", "type": "string"},
+          {"name": "isMultiOption", "type": "bool"},
+          {"name": "maxOptions", "type": "uint256"},
+          {"name": "paymentToken", "type": "address"},
+          {"name": "minStake", "type": "uint256"},
+          {"name": "creatorDeposit", "type": "uint256"},
+          {"name": "creatorOutcome", "type": "uint256"},
+          {"name": "startTime", "type": "uint256"},
+          {"name": "stakeEndTime", "type": "uint256"},
+          {"name": "endTime", "type": "uint256"},
+          {"name": "resolutionEndTime", "type": "uint256"},
+          {"name": "state", "type": "uint8"},
+          {"name": "winningOption", "type": "uint256"},
+          {"name": "isResolved", "type": "bool"},
+          {"name": "resolvedTimestamp", "type": "uint256"},
+          {"name": "marketType", "type": "uint8"},
+          {"name": "priceFeed", "type": "address"},
+          {"name": "priceThreshold", "type": "uint256"},
+          {"name": "resolvedPrice", "type": "uint256"}
+        ],
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "token", "type": "address"}],
+    "name": "getTotalPool",
+    "outputs": [{"name": "", "type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "marketId", "type": "uint256"}],
+    "name": "getStakerCount",
+    "outputs": [{"name": "", "type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "option", "type": "uint256"}, {"name": "token", "type": "address"}],
+    "name": "getOptionPool",
+    "outputs": [{"name": "", "type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
+  }
+];
+
+// Market Card Component for Profile Page
+function ProfileMarketCard({ marketId, marketData, isDarkMode }: { 
+  marketId: string; 
+  marketData: UserMarketData;
+  isDarkMode: boolean;
+}) {
+  const MARKET_MANAGER_ADDRESS = (process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS || process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS) as `0x${string}`;
+  const marketIdNum = parseInt(marketId);
+
+  // Fetch market details from contract
+  const { data: market } = useReadContract({
+    address: MARKET_MANAGER_ADDRESS,
+    abi: MARKET_MANAGER_ABI,
+    functionName: 'getMarket',
+    args: marketIdNum ? [BigInt(marketIdNum)] : undefined,
+    query: {
+      enabled: !!marketIdNum && !!MARKET_MANAGER_ADDRESS,
+      refetchInterval: 10000,
+    }
+  }) as { data: any | undefined };
+
+  const { data: totalPool } = useReadContract({
+    address: MARKET_MANAGER_ADDRESS,
+    abi: MARKET_MANAGER_ABI,
+    functionName: 'getTotalPool',
+    args: marketIdNum && market?.paymentToken ? [BigInt(marketIdNum), market.paymentToken] : undefined,
+    query: {
+      enabled: !!marketIdNum && !!market?.paymentToken && !!MARKET_MANAGER_ADDRESS,
+      refetchInterval: 10000,
+    }
+  }) as { data: bigint | undefined };
+
+  const { data: stakerCount } = useReadContract({
+    address: MARKET_MANAGER_ADDRESS,
+    abi: MARKET_MANAGER_ABI,
+    functionName: 'getStakerCount',
+    args: marketIdNum ? [BigInt(marketIdNum)] : undefined,
+    query: {
+      enabled: !!marketIdNum && !!MARKET_MANAGER_ADDRESS,
+      refetchInterval: 10000,
+    }
+  }) as { data: bigint | undefined };
+
+  const { data: option1Pool } = useReadContract({
+    address: MARKET_MANAGER_ADDRESS,
+    abi: MARKET_MANAGER_ABI,
+    functionName: 'getOptionPool',
+    args: marketIdNum && market?.paymentToken ? [BigInt(marketIdNum), BigInt(1), market.paymentToken] : undefined,
+    query: {
+      enabled: !!marketIdNum && !!market?.paymentToken && !!MARKET_MANAGER_ADDRESS,
+      refetchInterval: 10000,
+    }
+  }) as { data: bigint | undefined };
+
+  const { data: option2Pool } = useReadContract({
+    address: MARKET_MANAGER_ADDRESS,
+    abi: MARKET_MANAGER_ABI,
+    functionName: 'getOptionPool',
+    args: marketIdNum && market?.paymentToken ? [BigInt(marketIdNum), BigInt(2), market.paymentToken] : undefined,
+    query: {
+      enabled: !!marketIdNum && !!market?.paymentToken && !!MARKET_MANAGER_ADDRESS,
+      refetchInterval: 10000,
+    }
+  }) as { data: bigint | undefined };
+
+  const marketState = market ? Number(market.state) : marketData.state;
+  const isERC20Market = market?.paymentToken && market.paymentToken !== '0x0000000000000000000000000000000000000000';
+
+  return (
+    <Link
+      href={`/market/${marketId}`}
+      className={`block p-3 sm:p-4 border rounded-lg transition-all hover:shadow-md ${
+        isDarkMode 
+          ? 'bg-gray-900 border-gray-700 hover:border-gray-600' 
+          : 'bg-gray-50 border-gray-200 hover:border-gray-300'
+      }`}
+    >
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+        {marketData.image && (
+          <img 
+            src={marketData.image} 
+            alt="Market" 
+            className={`w-full sm:w-20 sm:h-20 h-40 sm:h-20 rounded-lg object-cover border flex-shrink-0 ${
+              isDarkMode ? 'border-gray-700' : 'border-gray-200'
+            }`}
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+            }}
+          />
+        )}
+        <div className="flex-1 min-w-0 w-full sm:w-auto">
+          <div className="flex items-start justify-between gap-2 mb-1.5">
+            <h3 className={`font-semibold text-sm sm:text-base ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              {marketData.title}
+            </h3>
+            <span className={`text-xs font-medium px-2 py-0.5 rounded flex-shrink-0 ${
+              marketState === 0 
+                ? isDarkMode ? 'bg-yellow-900/30 text-yellow-400' : 'bg-yellow-100 text-yellow-700'
+                : marketState === 1
+                ? isDarkMode ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-700'
+                : isDarkMode ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-700'
+            }`}>
+              {marketState === 0 ? 'Active' : marketState === 1 ? 'Ended' : 'Resolved'}
+            </span>
+          </div>
+          {marketData.description && (
+            <p className={`text-xs sm:text-sm mb-2 line-clamp-2 ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
+              {marketData.description}
+            </p>
+          )}
+          <div className={`flex flex-wrap items-center gap-2 sm:gap-3 text-xs ${isDarkMode ? 'text-white/60' : 'text-gray-500'}`}>
+            <span className={`px-2 py-0.5 rounded ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
+              {marketData.type}
+            </span>
+            {totalPool !== undefined && (
+              <span className={isDarkMode ? 'text-white/70' : 'text-gray-600'}>
+                Volume: {Number(formatEther(totalPool)).toFixed(2)} {isERC20Market ? 'Tokens' : 'PEPU'}
+              </span>
+            )}
+            {stakerCount !== undefined && (
+              <span className={isDarkMode ? 'text-white/70' : 'text-gray-600'}>
+                Stakers: {Number(stakerCount)}
+              </span>
+            )}
+            {option1Pool !== undefined && option2Pool !== undefined && (
+              <span className={isDarkMode ? 'text-white/70' : 'text-gray-600'}>
+                Pools: {Number(formatEther(option1Pool)).toFixed(2)} / {Number(formatEther(option2Pool)).toFixed(2)}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 export default function ProfilePage() {
   const { isDarkMode, toggleTheme } = useTheme();
   const pathname = usePathname();
@@ -647,54 +842,12 @@ export default function ProfilePage() {
                     ) : (
                       <div className="space-y-2 sm:space-y-3">
                         {userMarkets.map((market) => (
-                          <Link
+                          <ProfileMarketCard
                             key={market.marketId}
-                            href={`/market/${market.marketId}`}
-                            className={`block p-3 sm:p-4 border rounded-lg transition-all hover:shadow-md ${
-                              isDarkMode 
-                                ? 'bg-gray-900 border-gray-700 hover:border-gray-600' 
-                                : 'bg-gray-50 border-gray-200 hover:border-gray-300'
-                            }`}
-                          >
-                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                              {market.image && (
-                                <img 
-                                  src={market.image} 
-                                  alt="Market" 
-                                  className={`w-full sm:w-20 sm:h-20 h-40 sm:h-20 rounded-lg object-cover border flex-shrink-0 ${
-                                    isDarkMode ? 'border-gray-700' : 'border-gray-200'
-                                  }`}
-                                  onError={(e) => {
-                                    e.currentTarget.style.display = 'none';
-                                  }}
-                                />
-                              )}
-                              <div className="flex-1 min-w-0 w-full sm:w-auto">
-                                <h3 className={`font-semibold text-sm sm:text-base mb-1.5 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                  {market.title}
-                                </h3>
-                                {market.description && (
-                                  <p className={`text-xs sm:text-sm mb-2 line-clamp-2 ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
-                                    {market.description}
-                                  </p>
-                                )}
-                                <div className={`flex flex-wrap items-center gap-2 sm:gap-3 text-xs ${isDarkMode ? 'text-white/60' : 'text-gray-500'}`}>
-                                  <span className={`px-2 py-0.5 rounded ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
-                                    {market.type}
-                                  </span>
-                                  <span className={`px-2 py-0.5 rounded ${
-                                    market.state === 0 
-                                      ? isDarkMode ? 'bg-yellow-900/30 text-yellow-400' : 'bg-yellow-100 text-yellow-700'
-                                      : market.state === 1
-                                      ? isDarkMode ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-700'
-                                      : isDarkMode ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-700'
-                                  }`}>
-                                    {market.state === 0 ? 'Active' : market.state === 1 ? 'Ended' : 'Resolved'}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          </Link>
+                            marketId={market.marketId}
+                            marketData={market}
+                            isDarkMode={isDarkMode}
+                          />
                         ))}
                       </div>
                     )}

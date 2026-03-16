@@ -27,7 +27,7 @@ import { useAccount, useReadContract } from 'wagmi';
 import { useTheme } from '../../context/ThemeContext';
 import { formatEther } from 'viem';
 import { UserProfile, UserAnalytics, UserMarketData } from '@/types/profile';
-import { getUserMarketsFromSupabase } from '@/lib/profile';
+import { getUserMarketsFromSupabase, getUserMarketsByCreator } from '@/lib/profile';
 
 // Client-only wrapper to prevent hydration issues
 function ClientOnly({ children }: { children: React.ReactNode }) {
@@ -74,6 +74,201 @@ const ANALYTICS_ABI = [
   }
 ];
 
+// Market Manager ABI
+const MARKET_MANAGER_ABI = [
+  {
+    "inputs": [{"name": "marketId", "type": "uint256"}],
+    "name": "getMarket",
+    "outputs": [
+      {
+        "components": [
+          {"name": "creator", "type": "address"},
+          {"name": "ipfsHash", "type": "string"},
+          {"name": "isMultiOption", "type": "bool"},
+          {"name": "maxOptions", "type": "uint256"},
+          {"name": "paymentToken", "type": "address"},
+          {"name": "minStake", "type": "uint256"},
+          {"name": "creatorDeposit", "type": "uint256"},
+          {"name": "creatorOutcome", "type": "uint256"},
+          {"name": "startTime", "type": "uint256"},
+          {"name": "stakeEndTime", "type": "uint256"},
+          {"name": "endTime", "type": "uint256"},
+          {"name": "resolutionEndTime", "type": "uint256"},
+          {"name": "state", "type": "uint8"},
+          {"name": "winningOption", "type": "uint256"},
+          {"name": "isResolved", "type": "bool"},
+          {"name": "resolvedTimestamp", "type": "uint256"},
+          {"name": "marketType", "type": "uint8"},
+          {"name": "priceFeed", "type": "address"},
+          {"name": "priceThreshold", "type": "uint256"},
+          {"name": "resolvedPrice", "type": "uint256"}
+        ],
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "token", "type": "address"}],
+    "name": "getTotalPool",
+    "outputs": [{"name": "", "type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "marketId", "type": "uint256"}],
+    "name": "getStakerCount",
+    "outputs": [{"name": "", "type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "marketId", "type": "uint256"}, {"name": "option", "type": "uint256"}, {"name": "token", "type": "address"}],
+    "name": "getOptionPool",
+    "outputs": [{"name": "", "type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
+  }
+];
+
+// Market Card Component for Profile Page
+function ProfileMarketCard({ marketId, marketData, isDarkMode }: { 
+  marketId: string; 
+  marketData: UserMarketData;
+  isDarkMode: boolean;
+}) {
+  const MARKET_MANAGER_ADDRESS = (process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS || process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS) as `0x${string}`;
+  const marketIdNum = parseInt(marketId);
+
+  // Fetch market details from contract
+  const { data: market } = useReadContract({
+    address: MARKET_MANAGER_ADDRESS,
+    abi: MARKET_MANAGER_ABI,
+    functionName: 'getMarket',
+    args: marketIdNum ? [BigInt(marketIdNum)] : undefined,
+    query: {
+      enabled: !!marketIdNum && !!MARKET_MANAGER_ADDRESS,
+      refetchInterval: 10000,
+    }
+  }) as { data: any | undefined };
+
+  const { data: totalPool } = useReadContract({
+    address: MARKET_MANAGER_ADDRESS,
+    abi: MARKET_MANAGER_ABI,
+    functionName: 'getTotalPool',
+    args: marketIdNum && market?.paymentToken ? [BigInt(marketIdNum), market.paymentToken] : undefined,
+    query: {
+      enabled: !!marketIdNum && !!market?.paymentToken && !!MARKET_MANAGER_ADDRESS,
+      refetchInterval: 10000,
+    }
+  }) as { data: bigint | undefined };
+
+  const { data: stakerCount } = useReadContract({
+    address: MARKET_MANAGER_ADDRESS,
+    abi: MARKET_MANAGER_ABI,
+    functionName: 'getStakerCount',
+    args: marketIdNum ? [BigInt(marketIdNum)] : undefined,
+    query: {
+      enabled: !!marketIdNum && !!MARKET_MANAGER_ADDRESS,
+      refetchInterval: 10000,
+    }
+  }) as { data: bigint | undefined };
+
+  const { data: option1Pool } = useReadContract({
+    address: MARKET_MANAGER_ADDRESS,
+    abi: MARKET_MANAGER_ABI,
+    functionName: 'getOptionPool',
+    args: marketIdNum && market?.paymentToken ? [BigInt(marketIdNum), BigInt(1), market.paymentToken] : undefined,
+    query: {
+      enabled: !!marketIdNum && !!market?.paymentToken && !!MARKET_MANAGER_ADDRESS,
+      refetchInterval: 10000,
+    }
+  }) as { data: bigint | undefined };
+
+  const { data: option2Pool } = useReadContract({
+    address: MARKET_MANAGER_ADDRESS,
+    abi: MARKET_MANAGER_ABI,
+    functionName: 'getOptionPool',
+    args: marketIdNum && market?.paymentToken ? [BigInt(marketIdNum), BigInt(2), market.paymentToken] : undefined,
+    query: {
+      enabled: !!marketIdNum && !!market?.paymentToken && !!MARKET_MANAGER_ADDRESS,
+      refetchInterval: 10000,
+    }
+  }) as { data: bigint | undefined };
+
+  const marketState = market ? Number(market.state) : marketData.state;
+  const isERC20Market = market?.paymentToken && market.paymentToken !== '0x0000000000000000000000000000000000000000';
+
+  return (
+    <Link
+      href={`/market/${marketId}`}
+      className={`block p-3 sm:p-4 border rounded-lg transition-all hover:shadow-md ${
+        isDarkMode 
+          ? 'bg-gray-900 border-gray-700 hover:border-gray-600' 
+          : 'bg-gray-50 border-gray-200 hover:border-gray-300'
+      }`}
+    >
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+        {marketData.image && (
+          <img 
+            src={marketData.image} 
+            alt="Market" 
+            className={`w-full sm:w-20 sm:h-20 h-40 sm:h-20 rounded-lg object-cover border flex-shrink-0 ${
+              isDarkMode ? 'border-gray-700' : 'border-gray-200'
+            }`}
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+            }}
+          />
+        )}
+        <div className="flex-1 min-w-0 w-full sm:w-auto">
+          <div className="flex items-start justify-between gap-2 mb-1.5">
+            <h3 className={`font-semibold text-sm sm:text-base ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              {marketData.title}
+            </h3>
+            <span className={`text-xs font-medium px-2 py-0.5 rounded flex-shrink-0 ${
+              marketState === 0 
+                ? isDarkMode ? 'bg-yellow-900/30 text-yellow-400' : 'bg-yellow-100 text-yellow-700'
+                : marketState === 1
+                ? isDarkMode ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-700'
+                : isDarkMode ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-700'
+            }`}>
+              {marketState === 0 ? 'Active' : marketState === 1 ? 'Ended' : 'Resolved'}
+            </span>
+          </div>
+          {marketData.description && (
+            <p className={`text-xs sm:text-sm mb-2 line-clamp-2 ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
+              {marketData.description}
+            </p>
+          )}
+          <div className={`flex flex-wrap items-center gap-2 sm:gap-3 text-xs ${isDarkMode ? 'text-white/60' : 'text-gray-500'}`}>
+            <span className={`px-2 py-0.5 rounded ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
+              {marketData.type}
+            </span>
+            {totalPool !== undefined && (
+              <span className={isDarkMode ? 'text-white/70' : 'text-gray-600'}>
+                Volume: {Number(formatEther(totalPool)).toFixed(2)} {isERC20Market ? 'Tokens' : 'PEPU'}
+              </span>
+            )}
+            {stakerCount !== undefined && (
+              <span className={isDarkMode ? 'text-white/70' : 'text-gray-600'}>
+                Stakers: {Number(stakerCount)}
+              </span>
+            )}
+            {option1Pool !== undefined && option2Pool !== undefined && (
+              <span className={isDarkMode ? 'text-white/70' : 'text-gray-600'}>
+                Pools: {Number(formatEther(option1Pool)).toFixed(2)} / {Number(formatEther(option2Pool)).toFixed(2)}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 export default function ProfileViewPage() {
   const { isDarkMode, toggleTheme } = useTheme();
   const params = useParams();
@@ -114,16 +309,6 @@ export default function ProfileViewPage() {
     }
   });
 
-  const { data: userMarketIds } = useReadContract({
-    address: ANALYTICS_CONTRACT,
-    abi: ANALYTICS_ABI,
-    functionName: 'getUserMarkets',
-    args: profile?.address ? [profile.address as `0x${string}`] : undefined,
-    query: {
-      enabled: !!profile?.address && !!ANALYTICS_CONTRACT
-    }
-  });
-
   // Load profile data
   useEffect(() => {
     if (username) {
@@ -138,16 +323,17 @@ export default function ProfileViewPage() {
     }
   }, [userStats]);
 
-  // Load user markets when market IDs are available
+  // Load user markets by creator address
   useEffect(() => {
-    if (userMarketIds && Array.isArray(userMarketIds)) {
-      loadUserMarkets(userMarketIds.map(id => id.toString()));
+    if (profile?.address) {
+      loadUserMarkets();
     }
-  }, [userMarketIds]);
+  }, [profile?.address]);
 
-  const loadUserMarkets = async (marketIds: string[]) => {
+  const loadUserMarkets = async () => {
+    if (!profile?.address) return;
     try {
-      const markets = await getUserMarketsFromSupabase(marketIds);
+      const markets = await getUserMarketsByCreator(profile.address);
       setUserMarkets(markets);
     } catch (error) {
       console.error('Error loading user markets:', error);
@@ -283,7 +469,7 @@ export default function ProfileViewPage() {
               ) : profile ? (
                 <div className="space-y-6">
                   {/* Profile Header */}
-                  <div className={`p-6 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'} shadow-sm`}>
+                  <div className={`p-3 sm:p-4 lg:p-6 rounded-xl border ${isDarkMode ? 'bg-black border-gray-800' : 'bg-white border-gray-200'} shadow-sm`}>
                     <div className="flex items-start gap-6">
                       {/* Profile Image */}
                       <div className="relative">
@@ -343,49 +529,49 @@ export default function ProfileViewPage() {
 
                   {/* Analytics Section */}
                   {analytics && (
-                    <div className={`p-6 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'} shadow-sm`}>
+                    <div className={`p-3 sm:p-4 lg:p-6 rounded-xl border ${isDarkMode ? 'bg-black border-gray-800' : 'bg-white border-gray-200'} shadow-sm`}>
                       <h2 className={`text-xl font-bold mb-6 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                         <BarChart3 className={`h-5 w-5 ${isDarkMode ? 'text-[#39FF14]' : 'text-gray-900'}`} />
                         Trading Analytics
                       </h2>
                       
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div className={`text-center p-4 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
-                          <Trophy className={`h-8 w-8 mx-auto mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-yellow-500'}`} />
-                          <div className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
+                        <div className={`text-center p-2.5 sm:p-3 lg:p-4 rounded-lg border ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                          <Trophy className={`h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 mx-auto mb-1.5 sm:mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-yellow-500'}`} />
+                          <div className={`text-lg sm:text-xl lg:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             {calculateWinRate()}%
                           </div>
-                          <div className={`text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
+                          <div className={`text-xs ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
                             Win Rate
                           </div>
                         </div>
                         
-                        <div className={`text-center p-4 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
-                          <Target className={`h-8 w-8 mx-auto mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-blue-500'}`} />
-                          <div className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        <div className={`text-center p-2.5 sm:p-3 lg:p-4 rounded-lg border ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                          <Target className={`h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 mx-auto mb-1.5 sm:mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-blue-500'}`} />
+                          <div className={`text-lg sm:text-xl lg:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             {analytics.totalStakesPlaced.toString()}
                           </div>
-                          <div className={`text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
+                          <div className={`text-xs ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
                             Total Stakes
                           </div>
                         </div>
                         
-                        <div className={`text-center p-4 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
-                          <DollarSign className={`h-8 w-8 mx-auto mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-green-500'}`} />
-                          <div className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        <div className={`text-center p-2.5 sm:p-3 lg:p-4 rounded-lg border ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                          <DollarSign className={`h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 mx-auto mb-1.5 sm:mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-green-500'}`} />
+                          <div className={`text-sm sm:text-lg lg:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             {formatEther(analytics.totalWinnings)} ETH
                           </div>
-                          <div className={`text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
+                          <div className={`text-xs ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
                             Total Winnings
                           </div>
                         </div>
                         
-                        <div className={`text-center p-4 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
-                          <Users className={`h-8 w-8 mx-auto mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-purple-500'}`} />
-                          <div className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        <div className={`text-center p-2.5 sm:p-3 lg:p-4 rounded-lg border ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                          <Users className={`h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 mx-auto mb-1.5 sm:mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-purple-500'}`} />
+                          <div className={`text-lg sm:text-xl lg:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             {analytics.marketsCreated.toString()}
                           </div>
-                          <div className={`text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
+                          <div className={`text-xs ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
                             Markets Created
                           </div>
                         </div>
@@ -394,49 +580,28 @@ export default function ProfileViewPage() {
                   )}
 
                   {/* User Markets Section */}
-                  <div className={`p-6 rounded-lg border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'} shadow-sm`}>
-                    <h2 className={`text-xl font-bold mb-6 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                      <TrendingUp className={`h-5 w-5 ${isDarkMode ? 'text-[#39FF14]' : 'text-gray-900'}`} />
+                  <div className={`p-3 sm:p-4 lg:p-6 rounded-xl border ${isDarkMode ? 'bg-black border-gray-800' : 'bg-white border-gray-200'} shadow-sm`}>
+                    <h2 className={`text-lg sm:text-xl font-bold mb-4 sm:mb-6 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                      <TrendingUp className={`h-4 w-4 sm:h-5 sm:w-5 ${isDarkMode ? 'text-[#39FF14]' : 'text-gray-900'}`} />
                       Markets
                     </h2>
                     
                     {userMarkets.length === 0 ? (
-                      <div className="text-center py-8">
-                        <Target className={`h-12 w-12 mx-auto mb-4 ${isDarkMode ? 'text-white/60' : 'text-gray-400'}`} />
-                        <p className={isDarkMode ? 'text-white/70' : 'text-gray-600'}>
+                      <div className="text-center py-6 sm:py-8">
+                        <Target className={`h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-3 sm:mb-4 ${isDarkMode ? 'text-white/60' : 'text-gray-400'}`} />
+                        <p className={`text-sm sm:text-base ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                           This user hasn't created any markets yet.
                         </p>
                       </div>
                     ) : (
-                      <div className="space-y-4">
+                      <div className="space-y-2 sm:space-y-3">
                         {userMarkets.map((market) => (
-                          <Link
+                          <ProfileMarketCard
                             key={market.marketId}
-                            href={`/market/${market.marketId}`}
-                            className={`block p-4 border rounded-lg transition-colors ${
-                              isDarkMode ? 'bg-black border-[#39FF14] hover:bg-gray-900' : 'bg-[#F5F3F0] border-[#39FF14] hover:bg-gray-50'
-                            }`}
-                          >
-                            <div className="flex items-center gap-4">
-                              <img 
-                                src={market.image} 
-                                alt="Market" 
-                                className={`w-16 h-16 rounded-lg object-cover border ${
-                                  isDarkMode ? 'border-[#39FF14]' : 'border-[#39FF14]'
-                                }`}
-                              />
-                              <div className="flex-1">
-                                <h3 className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{market.title}</h3>
-                                <p className={`text-sm ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
-                                  {market.description}
-                                </p>
-                                <div className={`flex items-center gap-4 mt-2 text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-500'}`}>
-                                  <span>Type: {market.type}</span>
-                                  <span>State: {market.state}</span>
-                                </div>
-                              </div>
-                            </div>
-                          </Link>
+                            marketId={market.marketId}
+                            marketData={market}
+                            isDarkMode={isDarkMode}
+                          />
                         ))}
                       </div>
                     )}
