@@ -147,6 +147,8 @@ function ProfileMarketCard({ marketId, marketData, isDarkMode }: {
 }) {
   const MARKET_MANAGER_ADDRESS = (process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS || process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS) as `0x${string}`;
   const marketIdNum = parseInt(marketId);
+  const [marketMetadata, setMarketMetadata] = useState<any>(null);
+  const [loadingMetadata, setLoadingMetadata] = useState(false);
 
   // Fetch market details from contract
   const { data: market } = useReadContract({
@@ -207,19 +209,59 @@ function ProfileMarketCard({ marketId, marketData, isDarkMode }: {
   const marketState = market ? Number(market.state) : marketData.state;
   const isERC20Market = market?.paymentToken && market.paymentToken !== '0x0000000000000000000000000000000000000000';
 
+  // Fetch IPFS metadata
+  useEffect(() => {
+    if (market && !marketMetadata && !loadingMetadata) {
+      setLoadingMetadata(true);
+      const fetchMetadata = async () => {
+        try {
+          const ipfsHash = (market as any).ipfsHash;
+          if (ipfsHash) {
+            const { fetchIPFSData } = await import('@/lib/ipfs');
+            const metadata = await fetchIPFSData(ipfsHash);
+            if (metadata) {
+              setMarketMetadata(metadata);
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching IPFS metadata:', error);
+        } finally {
+          setLoadingMetadata(false);
+        }
+      };
+      
+      fetchMetadata();
+    }
+  }, [market, marketMetadata, loadingMetadata]);
+
+  const getMarketTitle = () => {
+    if (loadingMetadata) return 'Loading...';
+    if (marketMetadata?.title) return marketMetadata.title;
+    return marketData.title || `Market #${marketId}`;
+  };
+
+  const getMarketDescription = () => {
+    if (loadingMetadata) return null;
+    if (marketMetadata?.description) return marketMetadata.description;
+    return marketData.description || null;
+  };
+
+  const getMarketImage = () => {
+    if (loadingMetadata) return null;
+    if (marketMetadata?.imageUrl) return marketMetadata.imageUrl;
+    return marketData.image || null;
+  };
+
   return (
-    <Link
-      href={`/market/${marketId}`}
-      className={`block p-3 sm:p-4 border rounded-lg transition-all hover:shadow-md ${
-        isDarkMode 
-          ? 'bg-gray-900 border-gray-700 hover:border-gray-600' 
-          : 'bg-gray-50 border-gray-200 hover:border-gray-300'
-      }`}
-    >
+    <div className={`block p-3 sm:p-4 border rounded-lg transition-all hover:shadow-md ${
+      isDarkMode 
+        ? 'bg-gray-900 border-gray-700 hover:border-gray-600' 
+        : 'bg-gray-50 border-gray-200 hover:border-gray-300'
+    }`}>
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-        {marketData.image && (
+        {getMarketImage() && (
           <img 
-            src={marketData.image} 
+            src={getMarketImage()!} 
             alt="Market" 
             className={`w-full sm:w-20 sm:h-20 h-40 sm:h-20 rounded-lg object-cover border flex-shrink-0 ${
               isDarkMode ? 'border-gray-700' : 'border-gray-200'
@@ -231,9 +273,12 @@ function ProfileMarketCard({ marketId, marketData, isDarkMode }: {
         )}
         <div className="flex-1 min-w-0 w-full sm:w-auto">
           <div className="flex items-start justify-between gap-2 mb-1.5">
-            <h3 className={`font-semibold text-sm sm:text-base ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-              {marketData.title}
-            </h3>
+            <Link 
+              href={`/market/${marketId}`}
+              className={`font-semibold text-sm sm:text-base hover:underline ${isDarkMode ? 'text-white' : 'text-gray-900'}`}
+            >
+              {getMarketTitle()}
+            </Link>
             <span className={`text-xs font-medium px-2 py-0.5 rounded flex-shrink-0 ${
               marketState === 0 
                 ? isDarkMode ? 'bg-yellow-900/30 text-yellow-400' : 'bg-yellow-100 text-yellow-700'
@@ -244,9 +289,9 @@ function ProfileMarketCard({ marketId, marketData, isDarkMode }: {
               {marketState === 0 ? 'Active' : marketState === 1 ? 'Ended' : 'Resolved'}
             </span>
           </div>
-          {marketData.description && (
+          {getMarketDescription() && (
             <p className={`text-xs sm:text-sm mb-2 line-clamp-2 ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
-              {marketData.description}
+              {getMarketDescription()}
             </p>
           )}
           <div className={`flex flex-wrap items-center gap-2 sm:gap-3 text-xs ${isDarkMode ? 'text-white/60' : 'text-gray-500'}`}>
@@ -271,7 +316,7 @@ function ProfileMarketCard({ marketId, marketData, isDarkMode }: {
           </div>
         </div>
       </div>
-    </Link>
+    </div>
   );
 }
 
