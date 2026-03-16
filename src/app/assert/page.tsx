@@ -1465,11 +1465,11 @@ export default function AssertPage() {
                           </div>
 
                           {/* Dispute with option selection */}
-                          <div className="flex-shrink-0">
+                          <div className="flex-1 min-h-0 flex flex-col">
                             <label className={`block text-xs font-medium mb-1.5 flex-shrink-0 ${dark("text-gray-300", "text-gray-700")}`}>
                               Dispute with:
                             </label>
-                            <div className="overflow-y-auto pr-1" style={{ maxHeight: '120px', scrollbarWidth: 'thin' }}>
+                            <div className="overflow-y-auto pr-1 flex-1 min-h-0" style={{ scrollbarWidth: 'thin' }}>
                               <div className="space-y-1.5">
                               {options.map((option: string, index: number) => {
                                 const optionId = index + 1;
