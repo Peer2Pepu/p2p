@@ -567,7 +567,11 @@ export default function AssertPage() {
   // ─── Fetch markets ────────────────────────────────────────────────────────
 
   const fetchMarkets = useCallback(async () => {
-    if (!publicClient) return;
+    if (!publicClient || !address) {
+      setMarkets([]);
+      setLoading(false);
+      return;
+    }
       setLoading(true);
       try {
       const nextId = await publicClient.readContract({
@@ -769,22 +773,23 @@ export default function AssertPage() {
           }
         }
 
-        // Check if user has staked in this market
+        // Check if user has staked in this market - only include markets where user has staked
         let hasStaked = false;
-        if (address) {
-          try {
-            hasStaked = await publicClient.readContract({
-              address: MARKET_MANAGER_ADDRESS,
-              abi: MARKET_MANAGER_ABI,
-              functionName: "userHasStaked",
-              args: [BigInt(i), address],
-            }) as boolean;
-          } catch (e) {
-            console.error(`Error checking stake for market ${i}:`, e);
-          }
+        try {
+          hasStaked = await publicClient.readContract({
+            address: MARKET_MANAGER_ADDRESS,
+            abi: MARKET_MANAGER_ABI,
+            functionName: "userHasStaked",
+            args: [BigInt(i), address],
+          }) as boolean;
+        } catch (e) {
+          console.error(`Error checking stake for market ${i}:`, e);
         }
 
-        result.push({ ...market, marketId: i, metadata, assertion, voting, userHasStaked: hasStaked });
+        // Only add market if user has staked
+        if (hasStaked) {
+          result.push({ ...market, marketId: i, metadata, assertion, voting, userHasStaked: hasStaked });
+        }
       }
 
       setMarkets(result);
@@ -1193,12 +1198,20 @@ export default function AssertPage() {
               <Loader2 className="w-8 h-8 animate-spin mb-4" />
               <p>Loading markets...</p>
             </div>
+          ) : !isConnected ? (
+            <div className={`flex flex-col items-center justify-center py-20 ${dark("text-white/70", "text-gray-600")}`}>
+              <FileText className="w-16 h-16 mb-4 opacity-50" />
+              <h3 className="text-xl font-semibold mb-2">Connect Your Wallet</h3>
+              <p className="text-center max-w-md">
+                Connect your wallet to see markets where you have staked that are awaiting resolution.
+              </p>
+            </div>
           ) : markets.length === 0 ? (
             <div className={`flex flex-col items-center justify-center py-20 ${dark("text-white/70", "text-gray-600")}`}>
               <FileText className="w-16 h-16 mb-4 opacity-50" />
               <h3 className="text-xl font-semibold mb-2">No Markets to Resolve</h3>
               <p className="text-center max-w-md">
-                No ended P2P Optimistic Oracle markets are awaiting resolution.
+                No ended P2P Optimistic Oracle markets where you have staked are awaiting resolution.
               </p>
             </div>
           ) : (
