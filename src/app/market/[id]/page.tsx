@@ -223,6 +223,7 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
   const [resolvedPrice, setResolvedPrice] = useState<string | null>(null);
   const [priceDecimals, setPriceDecimals] = useState<number>(8);
   const [pendingTxType, setPendingTxType] = useState<'approval' | 'stake' | null>(null);
+  const [formattedThreshold, setFormattedThreshold] = useState<string | null>(null);
 
   const MARKET_MANAGER_ADDRESS = (process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS || process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS) as `0x${string}`;
 
@@ -246,18 +247,15 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
   const chartConfig = priceFeedAddress ? PRICE_FEED_TO_CHART_CONFIG[priceFeedAddress] : null;
   const chartUrl = getChartUrl(chartConfig, isDarkMode);
 
-  // Format resolved price from contract for resolved price feed markets
+  // Fetch decimals from price feed contract for all price feed markets
   useEffect(() => {
-    const formatResolvedPrice = async () => {
-      const isResolved = market && Number(market.state) === 2;
-      
-      if (!isPriceFeedMarket || !isResolved || !priceFeedAddress || !market?.resolvedPrice) {
-        setResolvedPrice(null);
+    const fetchDecimals = async () => {
+      if (!isPriceFeedMarket || !priceFeedAddress) {
+        setPriceDecimals(8); // Default
         return;
       }
 
       try {
-        // Get decimals from price feed contract
         const provider = new ethers.JsonRpcProvider('https://rpc-pepu-v2-mainnet-0.t.conduit.xyz');
         const priceFeedContract = new ethers.Contract(
           priceFeedAddress,
@@ -276,13 +274,66 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
         const decimals = await priceFeedContract.decimals();
         const decimalsNum = Number(decimals);
         setPriceDecimals(decimalsNum);
+      } catch (error) {
+        console.error('Error fetching decimals:', error);
+        setPriceDecimals(8); // Default fallback
+      }
+    };
 
+    fetchDecimals();
+  }, [isPriceFeedMarket, priceFeedAddress]);
+
+  // Format threshold for all price feed markets
+  useEffect(() => {
+    const formatThreshold = () => {
+      if (!isPriceFeedMarket || !market?.priceThreshold) {
+        setFormattedThreshold(null);
+        return;
+      }
+
+      try {
+        const thresholdBigInt = BigInt(market.priceThreshold.toString());
+        const divisor = BigInt(10 ** priceDecimals);
+        const wholePart = thresholdBigInt / divisor;
+        const fractionalPart = thresholdBigInt % divisor;
+        const fractionalStr = fractionalPart.toString().padStart(priceDecimals, '0');
+        
+        // Remove trailing zeros but keep at least one decimal place
+        const trimmed = fractionalStr.replace(/0+$/, '');
+        const thresholdStr = `${wholePart}.${trimmed || '0'}`;
+        setFormattedThreshold(thresholdStr);
+      } catch (error) {
+        console.error('Error formatting threshold:', error);
+        setFormattedThreshold(null);
+      }
+    };
+
+    formatThreshold();
+  }, [isPriceFeedMarket, market?.priceThreshold, priceDecimals]);
+
+  // Format resolved price from contract for resolved price feed markets
+  useEffect(() => {
+    const formatResolvedPrice = async () => {
+      const isResolved = market && Number(market.state) === 2;
+      
+      if (!isPriceFeedMarket || !isResolved || !priceFeedAddress) {
+        setResolvedPrice(null);
+        return;
+      }
+
+      // Check if resolvedPrice exists (even if 0, it's valid)
+      if (market?.resolvedPrice === undefined || market?.resolvedPrice === null) {
+        setResolvedPrice(null);
+        return;
+      }
+
+      try {
         // Format resolved price from contract
         const priceValue = BigInt(market.resolvedPrice.toString());
-        const divisor = BigInt(10 ** decimalsNum);
+        const divisor = BigInt(10 ** priceDecimals);
         const wholePart = priceValue / divisor;
         const fractionalPart = priceValue % divisor;
-        const fractionalStr = fractionalPart.toString().padStart(decimalsNum, '0');
+        const fractionalStr = fractionalPart.toString().padStart(priceDecimals, '0');
         
         // Format price with full decimals
         let priceStr: string;
@@ -305,7 +356,7 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
     };
 
     formatResolvedPrice();
-  }, [isPriceFeedMarket, market, priceFeedAddress]);
+  }, [isPriceFeedMarket, market, priceFeedAddress, priceDecimals]);
 
   // Debug logging
   useEffect(() => {
@@ -1028,30 +1079,27 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
                       {Number(market?.state) === 0 ? 'Active' : Number(market?.state) === 1 ? 'Ended' : 'Resolved'}
                     </p>
                   </div>
-                  {isPriceFeedMarket && market && Number(market.state) === 2 && (
-                    <div>
-                      <span className={`text-xs sm:text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>Resolved Price</span>
-                      <p className={`text-lg sm:text-xl font-bold mt-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        {resolvedPrice ? `$${resolvedPrice}` : resolvedPrice === 'Error' ? 'Error loading price' : 'Loading...'}
-                      </p>
-                    </div>
-                  )}
-                  {isPriceFeedMarket && market?.priceThreshold && (
+                  {isPriceFeedMarket && formattedThreshold && (
                     <div>
                       <span className={`text-xs sm:text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>Price Threshold</span>
                       <p className={`text-lg sm:text-xl font-bold mt-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        ${(() => {
-                          try {
-                            const thresholdBigInt = BigInt(market.priceThreshold.toString());
-                            const divisor = BigInt(10 ** priceDecimals);
-                            const wholePart = thresholdBigInt / divisor;
-                            const fractionalPart = thresholdBigInt % divisor;
-                            const fractionalStr = fractionalPart.toString().padStart(priceDecimals, '0');
-                            return `${wholePart}.${fractionalStr.substring(0, 2)}`;
-                          } catch {
-                            return 'N/A';
-                          }
-                        })()}
+                        ${formattedThreshold}
+                      </p>
+                    </div>
+                  )}
+                  {isPriceFeedMarket && market && Number(market.state) === 2 && resolvedPrice && (
+                    <div>
+                      <span className={`text-xs sm:text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>Resolved Price</span>
+                      <p className={`text-lg sm:text-xl font-bold mt-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        ${resolvedPrice}
+                      </p>
+                    </div>
+                  )}
+                  {isPriceFeedMarket && market && Number(market.state) === 2 && market?.resolvedTimestamp && Number(market.resolvedTimestamp) > 0 && (
+                    <div>
+                      <span className={`text-xs sm:text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>Resolved Timestamp</span>
+                      <p className={`text-sm sm:text-base font-medium mt-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        {new Date(Number(market.resolvedTimestamp) * 1000).toLocaleString()}
                       </p>
                     </div>
                   )}
