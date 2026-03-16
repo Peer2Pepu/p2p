@@ -1222,7 +1222,7 @@ export default function AssertPage() {
                   <div
                     key={market.marketId}
                     className={cls(
-                      "border rounded-xl overflow-hidden flex flex-col transition-all duration-200 hover:shadow-lg",
+                      "border rounded-xl overflow-hidden flex flex-col transition-all duration-200 hover:shadow-lg max-h-[600px]",
                       dark(
                         "bg-black border-gray-800 hover:border-[#39FF14]/30 hover:bg-gray-900/50",
                         "bg-[#F5F3F0] border-gray-300"
@@ -1230,7 +1230,7 @@ export default function AssertPage() {
                     )}
                   >
                     {/* Card header */}
-                    <div className="p-4">
+                    <div className="p-4 flex flex-col overflow-y-auto min-h-0">
                       <div className="flex items-start gap-3 mb-3">
                         {market.metadata?.imageUrl && (
                           <img

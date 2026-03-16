@@ -37,7 +37,24 @@ export async function GET(
         "outputs": [
           {
             "components": [
-              {"name": "startTime", "type": "uint256"}
+              {"name": "creator", "type": "address"},
+              {"name": "ipfsHash", "type": "string"},
+              {"name": "isMultiOption", "type": "bool"},
+              {"name": "maxOptions", "type": "uint256"},
+              {"name": "paymentToken", "type": "address"},
+              {"name": "minStake", "type": "uint256"},
+              {"name": "creatorDeposit", "type": "uint256"},
+              {"name": "creatorOutcome", "type": "uint256"},
+              {"name": "startTime", "type": "uint256"},
+              {"name": "stakeEndTime", "type": "uint256"},
+              {"name": "endTime", "type": "uint256"},
+              {"name": "resolutionEndTime", "type": "uint256"},
+              {"name": "state", "type": "uint8"},
+              {"name": "winningOption", "type": "uint256"},
+              {"name": "isResolved", "type": "bool"},
+              {"name": "marketType", "type": "uint8"},
+              {"name": "priceFeed", "type": "address"},
+              {"name": "priceThreshold", "type": "uint256"}
             ],
             "name": "",
             "type": "tuple"
