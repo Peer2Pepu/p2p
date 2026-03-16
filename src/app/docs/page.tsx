@@ -543,7 +543,85 @@ export default function DocsPage() {
                   <li>Triggering a vote in the P2PVoting contract</li>
                 </ul>
                 <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
-                  When disputed, the matter goes to token-weighted voting where P2P token holders vote to accept or reject the assertion.
+                  When disputed, the matter goes to token-weighted voting where P2P token holders vote on which option should win: the asserted option or the disputed option.
+                </p>
+              </div>
+
+              <h2 id="voting-mechanism" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                <HeadingLink headingId="voting-mechanism">How Voting Works</HeadingLink>
+              </h2>
+              <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                When an assertion is disputed, the P2POptimisticOracle creates a vote request in the P2PVoting contract. P2P token holders who have staked tokens can vote on which outcome they believe is correct: the option that was asserted, or the option that was disputed.
+              </p>
+
+              <div className={`mb-8 p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
+                <h3 className={`text-xl font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Token-Weighted Voting</h3>
+                <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                  Voting is token-weighted, meaning your voting power is proportional to the amount of P2P tokens you have staked in the P2PVoting contract. To participate in voting:
+                </p>
+                <ul className={`list-disc list-inside space-y-2 mb-4 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                  <li><strong>Stake P2P tokens:</strong> You must stake P2P tokens in the P2PVoting contract before a vote request is created</li>
+                  <li><strong>Voting weight:</strong> Your voting weight equals your staked balance at the time you cast your vote</li>
+                  <li><strong>One vote per dispute:</strong> Each voter can only vote once per dispute, but can vote on multiple disputes</li>
+                </ul>
+                <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                  This system ensures that stakeholders with more tokens have proportionally more influence, aligning voting power with economic interest in the platform.
+                </p>
+              </div>
+
+              <div className={`mb-8 p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
+                <h3 className={`text-xl font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Vote Options</h3>
+                <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                  When voting on a disputed assertion, you choose between two options:
+                </p>
+                <ul className={`list-disc list-inside space-y-2 mb-4 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                  <li><strong>Vote for the asserted option:</strong> You believe the asserter is correct. If this wins, the market resolves with the asserted option and winners can claim payouts.</li>
+                  <li><strong>Vote for the disputed option:</strong> You believe the disputer is correct. If this wins, the market cancels and all stakers can claim refunds.</li>
+                </ul>
+                <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                  The outcome is determined by the majority of voting weight, not the number of voters. Whichever option receives more total staked tokens wins.
+                </p>
+              </div>
+
+              <div className={`mb-8 p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
+                <h3 className={`text-xl font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Voting Timeline</h3>
+                <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                  The voting process follows a specific timeline:
+                </p>
+                <ol className={`list-decimal list-inside space-y-2 mb-4 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                  <li><strong>Vote Request Created:</strong> When a dispute is filed, the oracle automatically creates a vote request with a 24-hour voting window (default)</li>
+                  <li><strong>Voting Period:</strong> P2P token holders have 24 hours to cast their votes. Votes can be cast at any time during this window</li>
+                  <li><strong>Resolution:</strong> After the deadline, anyone can call <code className={`px-2 py-1 rounded ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>settleOracle()</code> to finalize the outcome</li>
+                </ol>
+              </div>
+
+              <div className={`mb-8 p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
+                <h3 className={`text-xl font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Minimum Participation & Consensus</h3>
+                <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                  To ensure meaningful participation, the voting system requires a minimum threshold:
+                </p>
+                <ul className={`list-disc list-inside space-y-2 mb-4 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                  <li><strong>Minimum Participation:</strong> At least 1,000 P2P tokens (default) must be staked and voted for the result to be considered valid</li>
+                  <li><strong>Consensus Reached:</strong> If minimum participation is met, the majority vote determines the outcome</li>
+                  <li><strong>No Consensus:</strong> If participation is below the threshold, the vote resolves as "NO_CONSENSUS" and the oracle automatically accepts the assertion (fallback mechanism)</li>
+                </ul>
+                <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                  This fallback ensures that markets can still resolve even if voter turnout is low, preventing permanent fund lock.
+                </p>
+              </div>
+
+              <div className={`mb-8 p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
+                <h3 className={`text-xl font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Slashing & Rewards</h3>
+                <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                  The voting system includes economic incentives to encourage accurate voting:
+                </p>
+                <ul className={`list-disc list-inside space-y-2 mb-4 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                  <li><strong>Wrong Voters:</strong> Voters who vote for the losing option lose 20% of their staked balance</li>
+                  <li><strong>Correct Voters:</strong> Voters who vote for the winning option can claim a pro-rata share of the slashed tokens as a reward</li>
+                  <li><strong>Reward Calculation:</strong> Rewards are distributed proportionally based on each correct voter's stake weight relative to the total correct stake weight</li>
+                </ul>
+                <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                  This mechanism aligns incentives: voters are financially motivated to vote correctly, and incorrect voters face penalties. The slashing percentage and minimum participation thresholds are configurable by the contract owner.
                 </p>
               </div>
 

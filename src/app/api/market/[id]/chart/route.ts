@@ -54,7 +54,8 @@ export async function GET(
               {"name": "isResolved", "type": "bool"},
               {"name": "marketType", "type": "uint8"},
               {"name": "priceFeed", "type": "address"},
-              {"name": "priceThreshold", "type": "uint256"}
+              {"name": "priceThreshold", "type": "uint256"},
+              {"name": "resolvedPrice", "type": "uint256"}
             ],
             "name": "",
             "type": "tuple"

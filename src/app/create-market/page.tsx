@@ -973,6 +973,8 @@ export default function CreateMarketPage() {
       const errorMessage = err.message || err.toString() || '';
       if (errorMessage.includes('User rejected') || errorMessage.includes('User denied') || errorMessage.includes('rejected the request')) {
         setError('User rejected transaction');
+      } else if (errorMessage.includes('nonce too low') || errorMessage.includes('nonce')) {
+        setError('Transaction failed: You have a pending transaction. Please wait for it to confirm or reject it in your wallet, then try again.');
       } else if (errorMessage.includes('insufficient funds')) {
         setError('Insufficient funds for transaction');
       } else if (errorMessage.includes('gas')) {

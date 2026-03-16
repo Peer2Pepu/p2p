@@ -32,11 +32,13 @@ import {
   useAccount,
   useReadContract,
   useWriteContract,
+  useWaitForTransactionReceipt,
   usePublicClient,
   useBalance,
 } from "wagmi";
 import {
   formatEther,
+  parseEther,
   stringToBytes,
   bytesToString,
   decodeAbiParameters,
@@ -450,9 +452,14 @@ interface MarketWithMetadata extends MarketData {
 export default function AssertPage() {
   const { isDarkMode, toggleTheme } = useTheme();
   const { address, isConnected } = useAccount();
-  const { writeContract } = useWriteContract();
+  const { writeContract, data: writeHash } = useWriteContract();
   const publicClient = usePublicClient();
   const router = useRouter();
+
+  // Wait for transaction confirmation
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+    hash: writeHash,
+  });
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -463,6 +470,7 @@ export default function AssertPage() {
   const [success, setSuccess] = useState("");
   const [currentTime, setCurrentTime] = useState<bigint>(BigInt(0));
   const [isApproving, setIsApproving] = useState(false);
+  const [pendingTxType, setPendingTxType] = useState<'approval' | 'assert' | 'dispute' | null>(null);
   const [selectedOptions, setSelectedOptions] = useState<Record<number, number>>({});
   const [stakeInputs, setStakeInputs] = useState<Record<number, string>>({});
   const [selectedVotes, setSelectedVotes] = useState<Record<number, bigint>>({});
@@ -828,6 +836,29 @@ export default function AssertPage() {
     };
   }, [publicClient]);
 
+  // Handle transaction success and refresh
+  useEffect(() => {
+    if (isConfirmed && writeHash && pendingTxType) {
+      if (pendingTxType === 'approval') {
+        setIsApproving(false);
+        setPendingTxType(null);
+        setSuccess('✅ Tokens approved successfully!');
+        // Refetch allowance
+        setTimeout(() => {
+          refetchAllowance();
+        }, 2000);
+      } else if (pendingTxType === 'assert' || pendingTxType === 'dispute') {
+        setPendingTxType(null);
+        setSuccess(pendingTxType === 'assert' ? '✅ Assertion successful!' : '✅ Dispute successful!');
+        // Refresh markets to show updated state
+        setTimeout(() => {
+          fetchMarkets();
+        }, 2000);
+      }
+      setPendingAction(null);
+    }
+  }, [isConfirmed, writeHash, pendingTxType, refetchAllowance, fetchMarkets]);
+
   // ─── Tx helpers ──────────────────────────────────────────────────────────
 
   const isUserRejection = (err: any) => {
@@ -862,6 +893,7 @@ export default function AssertPage() {
   const handleApprove = () =>
     withTx("approve", async () => {
       setIsApproving(true);
+      setPendingTxType('approval');
       try {
         await writeContract({
           address: bondCurrency as `0x${string}`,
@@ -869,12 +901,14 @@ export default function AssertPage() {
           functionName: "approve",
           args: [
             MARKET_MANAGER_ADDRESS,
-            BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"),
+            parseEther('50000000'), // 50 million tokens
           ],
         });
-        setTimeout(() => refetchAllowance(), 3000);
-      } finally {
+        // Don't reset state here - wait for transaction confirmation
+      } catch (err) {
         setIsApproving(false);
+        setPendingTxType(null);
+        throw err;
       }
     }, "Approval submitted");
 
@@ -894,14 +928,16 @@ export default function AssertPage() {
     return withTx(
       `assert-${marketId}`,
       async () => {
-      await writeContract({
-        address: MARKET_MANAGER_ADDRESS,
-        abi: MARKET_MANAGER_ABI,
+        setPendingTxType('assert');
+        await writeContract({
+          address: MARKET_MANAGER_ADDRESS,
+          abi: MARKET_MANAGER_ABI,
           functionName: "requestP2PResolution",
           // NEW order: (marketId, optionId, claim)
           args: [BigInt(marketId), BigInt(optionId), claimBytes],
           gas: BigInt(500_000),
         });
+        // Don't reset state here - wait for transaction confirmation
       },
       "Assertion submitted!"
     );
@@ -915,6 +951,7 @@ export default function AssertPage() {
     return withTx(
       `dispute-${marketId}`,
       async () => {
+        setPendingTxType('dispute');
         await writeContract({
           address: MARKET_MANAGER_ADDRESS,
           abi: MARKET_MANAGER_ABI,
@@ -922,6 +959,7 @@ export default function AssertPage() {
           args: [BigInt(marketId), BigInt(optionId)],
           gas: BigInt(500_000),
         });
+        // Don't reset state here - wait for transaction confirmation
       },
       "Dispute submitted!"
     );
@@ -929,9 +967,6 @@ export default function AssertPage() {
 
   const handleApproveVoting = async (marketId: number) => {
     if (!votingContractAddress || !bondCurrency) return;
-    const amtStr = stakeInputs[marketId];
-    if (!amtStr || parseFloat(amtStr) <= 0) { setError("Enter a stake amount first"); return; }
-    const amount = BigInt(Math.floor(parseFloat(amtStr) * 1e18));
 
     return withTx(
       `approve-voting-${marketId}`,
@@ -940,7 +975,7 @@ export default function AssertPage() {
           address: bondCurrency as `0x${string}`,
           abi: ERC20_ABI,
           functionName: "approve",
-          args: [votingContractAddress, amount],
+          args: [votingContractAddress, parseEther('50000000')], // 50 million tokens
         });
         setTimeout(() => refetchVotingAllowance(), 2000);
       },
@@ -1243,7 +1278,7 @@ export default function AssertPage() {
                     )}
                     style={{ height: '320px' }}
                   >
-                    <div className="p-4 flex flex-col flex-1 min-h-0">
+                    <div className="p-4 flex flex-col flex-1 min-h-0 overflow-hidden">
                       {/* Card header */}
                       <div className="flex-shrink-0">
                       <div className="flex items-start gap-3 mb-3">
@@ -1573,7 +1608,7 @@ export default function AssertPage() {
 
                       {/* ── PHASE: VOTING ACTIVE ── */}
                       {(phase.phase === "voting-active" || phase.phase === "voting-ended" || (phase.phase === "disputed" && market.voting)) && market.assertion && market.voting && (
-                        <div className="space-y-2">
+                        <div className="space-y-2 flex-1 min-h-0 flex flex-col overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
                           <div className={`text-xs px-3 py-2 rounded ${dark("bg-red-900/30 text-red-300 border border-red-800", "bg-red-100 text-red-800 border border-red-300")}`}>
                             <div className="font-medium mb-0.5">
                               Claim disputed — token holders vote

@@ -90,6 +90,7 @@ contract EventPool is Ownable {
         // PRICE_FEED fields
         address     priceFeed;
         uint256     priceThreshold;
+        uint256     resolvedPrice;  // Price at resolution time (for PRICE_FEED markets)
         // P2POPTIMISTIC fields
         bytes32     p2pAssertionId;
         bool        p2pAssertionMade;
@@ -408,6 +409,7 @@ contract EventPool is Ownable {
         AggregatorV3Interface feed = AggregatorV3Interface(m.priceFeed);
         (, int256 price, , , ) = feed.latestRoundData();
 
+        m.resolvedPrice = uint256(price);
         m.winningOption = uint256(price) >= m.priceThreshold ? 1 : 2;
         m.isResolved    = true;
         m.state         = MarketState.Resolved;

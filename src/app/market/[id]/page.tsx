@@ -105,7 +105,8 @@ const MARKET_MANAGER_ABI = [
           {"name": "isResolved", "type": "bool"},
           {"name": "marketType", "type": "uint8"},
           {"name": "priceFeed", "type": "address"},
-          {"name": "priceThreshold", "type": "uint256"}
+          {"name": "priceThreshold", "type": "uint256"},
+          {"name": "resolvedPrice", "type": "uint256"}
         ],
         "name": "",
         "type": "tuple"
@@ -201,7 +202,7 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
   }, [params]);
   
   const { address, isConnected } = useAccount();
-  const { writeContract } = useWriteContract();
+  const { writeContract, data: writeHash } = useWriteContract();
   const { isDarkMode, toggleTheme } = useTheme();
   
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -220,6 +221,7 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
   const [chartType, setChartType] = useState<'activity' | 'price'>('activity');
   const [resolvedPrice, setResolvedPrice] = useState<string | null>(null);
   const [priceDecimals, setPriceDecimals] = useState<number>(8);
+  const [pendingTxType, setPendingTxType] = useState<'approval' | 'stake' | null>(null);
 
   const MARKET_MANAGER_ADDRESS = (process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS || process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS) as `0x${string}`;
 
@@ -243,27 +245,19 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
   const chartConfig = priceFeedAddress ? PRICE_FEED_TO_CHART_CONFIG[priceFeedAddress] : null;
   const chartUrl = getChartUrl(chartConfig, isDarkMode);
 
-  // Fetch resolved price for price feed markets
+  // Format resolved price from contract for resolved price feed markets
   useEffect(() => {
-    const fetchResolvedPrice = async () => {
+    const formatResolvedPrice = async () => {
       const isResolved = market && Number(market.state) === 2;
       
-      if (!isPriceFeedMarket || !isResolved || !priceFeedAddress) {
-        console.log('Skipping resolved price fetch:', {
-          isPriceFeedMarket,
-          isResolved,
-          priceFeedAddress,
-          marketState: market?.state
-        });
+      if (!isPriceFeedMarket || !isResolved || !priceFeedAddress || !market?.resolvedPrice) {
         setResolvedPrice(null);
         return;
       }
 
       try {
-        console.log('Fetching resolved price for:', priceFeedAddress);
+        // Get decimals from price feed contract
         const provider = new ethers.JsonRpcProvider('https://rpc-pepu-v2-mainnet-0.t.conduit.xyz');
-        
-        // Get price feed contract
         const priceFeedContract = new ethers.Contract(
           priceFeedAddress,
           [
@@ -273,57 +267,43 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
               "outputs": [{"name": "", "type": "uint8"}],
               "stateMutability": "view",
               "type": "function"
-            },
-            {
-              "inputs": [],
-              "name": "latestRoundData",
-              "outputs": [
-                {"name": "roundId", "type": "uint80"},
-                {"name": "answer", "type": "int256"},
-                {"name": "startedAt", "type": "uint256"},
-                {"name": "updatedAt", "type": "uint256"},
-                {"name": "answeredInRound", "type": "uint80"}
-              ],
-              "stateMutability": "view",
-              "type": "function"
             }
           ],
           provider
         );
 
-        // Get decimals
         const decimals = await priceFeedContract.decimals();
-        setPriceDecimals(Number(decimals));
+        const decimalsNum = Number(decimals);
+        setPriceDecimals(decimalsNum);
 
-        // Get latest price (approximation of resolution price)
-        const roundData = await priceFeedContract.latestRoundData();
-        const priceValue = BigInt(roundData.answer.toString());
-        
-        // Convert to human-readable price
-        const divisor = BigInt(10 ** Number(decimals));
+        // Format resolved price from contract
+        const priceValue = BigInt(market.resolvedPrice.toString());
+        const divisor = BigInt(10 ** decimalsNum);
         const wholePart = priceValue / divisor;
         const fractionalPart = priceValue % divisor;
-        const fractionalStr = fractionalPart.toString().padStart(Number(decimals), '0');
+        const fractionalStr = fractionalPart.toString().padStart(decimalsNum, '0');
         
-        // Format price
+        // Format price with full decimals
         let priceStr: string;
         if (wholePart === BigInt(0)) {
-          const leadingZeros = fractionalStr.match(/^0*/)?.[0].length || 0;
-          const totalDigits = leadingZeros + 3;
-          priceStr = `0.${fractionalStr.substring(0, totalDigits)}`;
+          // Remove trailing zeros but keep at least one decimal place
+          const trimmed = fractionalStr.replace(/0+$/, '');
+          priceStr = `0.${trimmed || '0'}`;
         } else {
-          priceStr = `${wholePart}.${fractionalStr.substring(0, 2)}`;
+          // Remove trailing zeros but keep at least one decimal place
+          const trimmed = fractionalStr.replace(/0+$/, '');
+          priceStr = `${wholePart}.${trimmed || '0'}`;
         }
         
-        console.log('Resolved price fetched:', priceStr);
+        console.log('Resolved price from contract:', priceStr);
         setResolvedPrice(priceStr);
       } catch (error) {
-        console.error('Error fetching resolved price:', error);
-        setResolvedPrice('Error');
+        console.error('Error formatting resolved price:', error);
+        setResolvedPrice(null);
       }
     };
 
-    fetchResolvedPrice();
+    formatResolvedPrice();
   }, [isPriceFeedMarket, market, priceFeedAddress]);
 
   // Debug logging
@@ -404,7 +384,7 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
 
   // Check token allowance for ERC20 markets
   const isERC20Market = market?.paymentToken && market.paymentToken !== '0x0000000000000000000000000000000000000000';
-  const { data: tokenAllowance } = useReadContract({
+  const { data: tokenAllowance, refetch: refetchAllowance } = useReadContract({
     address: isERC20Market ? market.paymentToken : undefined,
     abi: ERC20_ABI,
     functionName: 'allowance',
@@ -413,7 +393,31 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
       enabled: !!isERC20Market && !!address,
       refetchInterval: 10000,
     }
-  }) as { data: bigint | undefined };
+  }) as { data: bigint | undefined; refetch: () => void };
+
+  // Wait for transaction confirmation
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+    hash: writeHash,
+  });
+
+  // Handle transaction success
+  useEffect(() => {
+    if (isConfirmed && writeHash) {
+      if (pendingTxType === 'approval') {
+        setIsApproving(false);
+        setPendingTxType(null);
+        // Refetch allowance to update button state
+        refetchAllowance();
+      } else if (pendingTxType === 'stake') {
+        setIsStaking(false);
+        setPendingTxType(null);
+        // Refresh stakers and chart data
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      }
+    }
+  }, [isConfirmed, writeHash, pendingTxType, refetchAllowance]);
 
   // Fetch IPFS metadata
   useEffect(() => {
@@ -552,24 +556,30 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
     const needsApproval = isERC20Market && tokenAllowance !== undefined && tokenAllowance < amount;
 
     if (needsApproval) {
-      // Approve first
+      // Approve first - approve 50 million tokens
       try {
         setIsApproving(true);
+        setPendingTxType('approval');
+        const approvalAmount = parseEther('50000000'); // 50 million
         await writeContract({
           address: market.paymentToken,
           abi: ERC20_ABI,
           functionName: 'approve',
-          args: [MARKET_MANAGER_ADDRESS, amount],
+          args: [MARKET_MANAGER_ADDRESS, approvalAmount],
         });
+        // Don't reset state here - wait for transaction confirmation
+        return;
       } catch (error) {
         console.error('Error approving:', error);
         setIsApproving(false);
+        setPendingTxType(null);
         return;
       }
     }
 
     try {
       setIsStaking(true);
+      setPendingTxType('stake');
       if (isERC20Market) {
         await writeContract({
           address: MARKET_MANAGER_ADDRESS,
@@ -586,11 +596,11 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
           value: amount,
         });
       }
+      // Don't reset state here - wait for transaction confirmation
     } catch (error) {
       console.error('Error placing stake:', error);
-    } finally {
       setIsStaking(false);
-      setIsApproving(false);
+      setPendingTxType(null);
     }
   };
 
@@ -1220,27 +1230,36 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
                     </div>
 
                     {/* Stake Button */}
-                    <button
-                      onClick={handleStake}
-                      disabled={!betAmount || isStaking || isApproving || needsApproval}
-                      className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
-                        !betAmount || isStaking || isApproving || needsApproval
-                          ? isDarkMode
-                            ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
-                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                          : isDarkMode
-                            ? 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black'
-                            : 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black border border-black'
-                      }`}
-                    >
-                      {isApproving ? 'Approving...' : isStaking ? 'Staking...' : needsApproval ? 'Approve First' : 'Place Stake'}
-                    </button>
+                    {(() => {
+                      const amount = betAmount ? parseEther(betAmount) : BigInt(0);
+                      const needsApproval = isERC20Market && tokenAllowance !== undefined && tokenAllowance < amount;
+                      
+                      return (
+                        <>
+                          <button
+                            onClick={handleStake}
+                            disabled={!betAmount || isStaking || isApproving || (needsApproval && !isApproving && !isConfirming)}
+                            className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
+                              !betAmount || isStaking || isApproving || (needsApproval && !isApproving && !isConfirming)
+                                ? isDarkMode
+                                  ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                : isDarkMode
+                                  ? 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black'
+                                  : 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black border border-black'
+                            }`}
+                          >
+                            {isApproving || isConfirming ? 'Approving...' : isStaking ? 'Staking...' : needsApproval ? 'Approve First' : 'Place Stake'}
+                          </button>
 
-                    {needsApproval && (
-                      <p className={`text-xs text-center ${isDarkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>
-                        Please approve tokens first
-                      </p>
-                    )}
+                          {needsApproval && !isApproving && !isConfirming && (
+                            <p className={`text-xs text-center ${isDarkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>
+                              Please approve tokens first
+                            </p>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                 )}
               </div>

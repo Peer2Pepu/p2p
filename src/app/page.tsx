@@ -271,6 +271,10 @@ export default function HomePage() {
   // State to track which markets the user has staked in
   const [userStakedMarkets, setUserStakedMarkets] = useState<Set<number>>(new Set());
 
+  // State for Supabase markets
+  const [supabaseMarkets, setSupabaseMarkets] = useState<SupabaseMarket[]>([]);
+  const [loadingMarkets, setLoadingMarkets] = useState(true);
+
   const { address, isConnected } = useAccount();
 
   // Contract addresses - check both environment variable naming conventions
@@ -284,14 +288,23 @@ export default function HomePage() {
     hash: writeHash,
   });
 
+  // Track transaction type
+  const [pendingTxType, setPendingTxType] = useState<'approval' | 'stake' | null>(null);
+
   // Handle transaction success
   useEffect(() => {
-    if (isConfirmed) {
-      if (isApprovalPending) {
+    if (isConfirmed && writeHash) {
+      if (pendingTxType === 'approval') {
         setIsApprovalPending(false);
+        setPendingTxType(null);
         setSuccess('✅ Tokens approved successfully! You can now place your stake.');
-      } else if (isStakePending) {
+        // Refetch allowance to update button state
+        setTimeout(() => {
+          window.location.reload(); // Simple refresh to update allowance
+        }, 1000);
+      } else if (pendingTxType === 'stake') {
         setIsStakePending(false);
+        setPendingTxType(null);
         setSuccess('✅ Successfully added a stake!');
         // Refresh stake status to hide the market from main page
         setTimeout(() => {
@@ -322,11 +335,11 @@ export default function HomePage() {
           };
           
           checkUserStakes();
-        }, 2000); // Wait 2 seconds for transaction to be processed
+        }, 2000);
       }
       setError('');
     }
-  }, [isConfirmed, isApprovalPending, isStakePending, address]);
+  }, [isConfirmed, writeHash, pendingTxType, address, supabaseMarkets, MARKET_MANAGER_ADDRESS]);
 
   // Fetch only truly active markets (state = 0)
   const { data: activeMarketIds } = useReadContract({
@@ -340,10 +353,6 @@ export default function HomePage() {
 
   // State to store market details for filtering
   const [marketDetails, setMarketDetails] = useState<Map<number, any>>(new Map());
-
-  // State for Supabase markets
-  const [supabaseMarkets, setSupabaseMarkets] = useState<SupabaseMarket[]>([]);
-  const [loadingMarkets, setLoadingMarkets] = useState(true);
   
   // Fetch markets from Supabase with filtering
   useEffect(() => {
@@ -554,7 +563,11 @@ export default function HomePage() {
       
       if (isApproval && isERC20Market) {
         setIsApprovalPending(true);
+        setPendingTxType('approval');
         setError('');
+        
+        // Approve 50 million tokens instead of exact amount
+        const approvalAmount = parseEther('50000000'); // 50 million
         
         writeContract({
           address: paymentToken as `0x${string}`,
@@ -571,19 +584,15 @@ export default function HomePage() {
             }
           ],
           functionName: 'approve',
-          args: [MARKET_MANAGER_ADDRESS, stakeAmount],
-          gas: BigInt(300000), // Increased gas limit for approval
+          args: [MARKET_MANAGER_ADDRESS, approvalAmount],
+          gas: BigInt(300000),
         });
         
         setSuccess('Approval transaction submitted...');
         
-        // Reset pending state after 10 seconds
-        setTimeout(() => {
-          setIsApprovalPending(false);
-        }, 10000);
-        
       } else if (isERC20Market) {
         setIsStakePending(true);
+        setPendingTxType('stake');
         setError('');
         
         writeContract({
@@ -603,18 +612,14 @@ export default function HomePage() {
           ],
           functionName: 'placeStakeWithToken',
           args: [BigInt(marketId), BigInt(option), stakeAmount],
-          gas: BigInt(800000), // Increased gas limit for staking with token
+          gas: BigInt(800000),
         });
         
         setSuccess('Stake transaction submitted...');
         
-        // Reset pending state after 10 seconds
-        setTimeout(() => {
-          setIsStakePending(false);
-        }, 10000);
-        
       } else {
         setIsStakePending(true);
+        setPendingTxType('stake');
         setError('');
         
         writeContract({
@@ -623,21 +628,17 @@ export default function HomePage() {
           functionName: 'placeStake',
           args: [BigInt(marketId), BigInt(option)],
           value: stakeAmount,
-          gas: BigInt(700000), // Increased gas limit for native staking
+          gas: BigInt(700000),
         });
         
         setSuccess('Stake transaction submitted...');
-        
-        // Reset pending state after 10 seconds
-        setTimeout(() => {
-          setIsStakePending(false);
-        }, 10000);
         
       }
     } catch (err: any) {
       setError(err.message || 'Failed to place stake');
       setIsApprovalPending(false);
       setIsStakePending(false);
+      setPendingTxType(null);
     }
   };
 
