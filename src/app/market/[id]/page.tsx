@@ -103,6 +103,7 @@ const MARKET_MANAGER_ABI = [
           {"name": "state", "type": "uint8"},
           {"name": "winningOption", "type": "uint256"},
           {"name": "isResolved", "type": "bool"},
+          {"name": "resolvedTimestamp", "type": "uint256"},
           {"name": "marketType", "type": "uint8"},
           {"name": "priceFeed", "type": "address"},
           {"name": "priceThreshold", "type": "uint256"},

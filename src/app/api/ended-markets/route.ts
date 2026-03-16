@@ -45,7 +45,8 @@ export async function GET(request: NextRequest) {
               {"name": "resolutionEndTime", "type": "uint256"},
               {"name": "state", "type": "uint8"},
               {"name": "winningOption", "type": "uint256"},
-              {"name": "isResolved", "type": "bool"}
+              {"name": "isResolved", "type": "bool"},
+              {"name": "resolvedTimestamp", "type": "uint256"}
             ],
             "name": "",
             "type": "tuple"

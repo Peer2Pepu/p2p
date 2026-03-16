@@ -86,6 +86,7 @@ contract EventPool is Ownable {
         MarketState state;
         uint256     winningOption;
         bool        isResolved;
+        uint256     resolvedTimestamp;  // Timestamp when market was resolved (for all market types)
         MarketType  marketType;
         // PRICE_FEED fields
         address     priceFeed;
@@ -412,6 +413,7 @@ contract EventPool is Ownable {
         m.resolvedPrice = uint256(price);
         m.winningOption = uint256(price) >= m.priceThreshold ? 1 : 2;
         m.isResolved    = true;
+        m.resolvedTimestamp = block.timestamp;
         m.state         = MarketState.Resolved;
 
         _distributeFees(marketId);
@@ -526,6 +528,7 @@ contract EventPool is Ownable {
 
             m.winningOption = optionId;
             m.isResolved    = true;
+            m.resolvedTimestamp = block.timestamp;
             m.state         = MarketState.Resolved;
 
             _distributeFees(marketId);
