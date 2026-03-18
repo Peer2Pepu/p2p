@@ -504,7 +504,7 @@ export default function InteractionsPage() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4">
+            <div className="grid grid-cols-1 gap-4 max-w-2xl mx-auto w-full">
               {/* Tabs (show one section at a time) */}
               <div
                 className={cls(
@@ -553,21 +553,21 @@ export default function InteractionsPage() {
                 ) : (
                   <>
                     <div className="space-y-2 mb-4">
-                      <div className={cls("flex items-center justify-between gap-4", dark("text-white/70", "text-gray-600"))}>
+                      <div className={cls("flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-4", dark("text-white/70", "text-gray-600"))}>
                         <span className="text-[14px]">Your staked</span>
                         <span className={cls("text-[16px] font-semibold tabular-nums", dark("text-white", "text-gray-900"))}>
                           {formatTokenAmount(stakedBalance)}{" "}
                           <span className={cls("text-[12px] font-semibold opacity-70", dark("text-white", "text-gray-900"))}>{tokenSymbol}</span>
                         </span>
                       </div>
-                      <div className={cls("flex items-center justify-between gap-4", dark("text-white/70", "text-gray-600"))}>
+                      <div className={cls("flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-4", dark("text-white/70", "text-gray-600"))}>
                         <span className="text-[14px]">Locked stake</span>
                         <span className={cls("text-[16px] font-semibold tabular-nums", dark("text-white", "text-gray-900"))}>
                           {formatTokenAmount(lockedStake)}{" "}
                           <span className={cls("text-[12px] font-semibold opacity-70", dark("text-white", "text-gray-900"))}>{tokenSymbol}</span>
                         </span>
                       </div>
-                      <div className={cls("flex items-center justify-between gap-4", dark("text-white/70", "text-gray-600"))}>
+                      <div className={cls("flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-4", dark("text-white/70", "text-gray-600"))}>
                         <span className="text-[14px]">Available to unstake</span>
                         <span className={cls("text-[16px] font-semibold tabular-nums", dark("text-[#39FF14]", "text-emerald-700"))}>
                           {formatTokenAmount(availableToUnstake)}{" "}
@@ -593,7 +593,7 @@ export default function InteractionsPage() {
                           )}
                         />
 
-                        <div className="text-[13px] mt-2 flex items-center justify-between">
+                        <div className="text-[13px] mt-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
                           <span className={dark("text-white/60", "text-gray-500")}>Allowance to voting contract</span>
                           <span className={cls("font-semibold tabular-nums", dark("text-white", "text-gray-900"))}>
                             {formatTokenAmount(allowanceVoting)}{" "}
@@ -696,14 +696,14 @@ export default function InteractionsPage() {
                   <>
                     <div className="space-y-4">
                       <div className={cls("rounded-xl p-4", dark("bg-gray-900/30", "bg-gray-100"))}>
-                        <div className="flex items-start justify-between gap-2">
+                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                           <div>
                             <div className={cls("text-xs font-medium", dark("text-white", "text-gray-900"))}>Market Manager</div>
                             <div className={cls("text-[11px]", dark("text-white/60", "text-gray-500"))}>
                               Spender: {MARKET_MANAGER_ADDRESS?.slice(0, 6)}...{MARKET_MANAGER_ADDRESS?.slice(-4)}
                             </div>
                           </div>
-                          <div className="text-right">
+                          <div className="text-left sm:text-right">
                             <div className={cls("text-[11px]", dark("text-white/60", "text-gray-500"))}>Current allowance</div>
                             <div className={cls("text-xs font-semibold", dark("text-white", "text-gray-900"))}>
                               {formatTokenAmount(allowanceMarketManager)} {tokenSymbol}
@@ -770,14 +770,14 @@ export default function InteractionsPage() {
                       </div>
 
                       <div className={cls("rounded-xl p-4", dark("bg-gray-900/30", "bg-gray-100"))}>
-                        <div className="flex items-start justify-between gap-2">
+                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                           <div>
                             <div className={cls("text-xs font-medium", dark("text-white", "text-gray-900"))}>Voting Contract</div>
                             <div className={cls("text-[11px]", dark("text-white/60", "text-gray-500"))}>
                               Spender: {votingContractAddress?.slice(0, 6)}...{votingContractAddress?.slice(-4)}
                             </div>
                           </div>
-                          <div className="text-right">
+                          <div className="text-left sm:text-right">
                             <div className={cls("text-[11px]", dark("text-white/60", "text-gray-500"))}>Current allowance</div>
                             <div className={cls("text-xs font-semibold", dark("text-white", "text-gray-900"))}>
                               {formatTokenAmount(allowanceVoting)} {tokenSymbol}

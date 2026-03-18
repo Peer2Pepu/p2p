@@ -239,11 +239,16 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
     }
   }) as { data: any; isLoading: boolean; error: any };
 
-  // Determine if this is a price feed market
-  // Handle both possible marketType values: 0 (PRICE_FEED) or undefined/null (legacy markets)
+  // Determine if this is a price-feed market.
+  // We primarily rely on `priceFeed` being non-zero, because some markets may have
+  // `marketType` values that are inconsistent with the UI mapping.
+  const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
   const marketTypeValue = market?.marketType !== undefined ? Number(market.marketType) : null;
-  const isPriceFeedMarket = market && marketTypeValue === 0; // 0 = PRICE_FEED
   const priceFeedAddress = market?.priceFeed?.toLowerCase();
+  const isPriceFeedMarket =
+    !!market &&
+    !!priceFeedAddress &&
+    priceFeedAddress !== ZERO_ADDRESS;
   const chartConfig = priceFeedAddress ? PRICE_FEED_TO_CHART_CONFIG[priceFeedAddress] : null;
   const chartUrl = getChartUrl(chartConfig, isDarkMode);
 
@@ -332,10 +337,13 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
       try {
         // Format resolved price from contract
         const priceValue = BigInt(market.resolvedPrice.toString());
-        const divisor = BigInt(10 ** priceDecimals);
+        // Cap decimals + abbreviate huge integer part so the UI doesn't print
+        // extremely long numbers.
+        const displayDecimals = Math.min(priceDecimals, 6);
+        const divisor = BigInt(10 ** displayDecimals);
         const wholePart = priceValue / divisor;
         const fractionalPart = priceValue % divisor;
-        const fractionalStr = fractionalPart.toString().padStart(priceDecimals, '0');
+        const fractionalStr = fractionalPart.toString().padStart(displayDecimals, '0');
         
         // Format price with full decimals
         let priceStr: string;
@@ -346,10 +354,19 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
         } else {
           // Remove trailing zeros but keep at least one decimal place
           const trimmed = fractionalStr.replace(/0+$/, '');
-          priceStr = `${wholePart}.${trimmed || '0'}`;
+          const wholeStr = wholePart.toString();
+
+          // If the integer part is enormous, abbreviate (e.g. 6.86e42) for readability.
+          if (wholeStr.length > 10) {
+            const exp = wholeStr.length - 1;
+            const first4 = wholeStr.slice(0, 4); // 4 digits
+            const mantissa = `${first4[0]}.${first4.slice(1)}`;
+            priceStr = `${mantissa}e${exp}`;
+          } else {
+            priceStr = `${wholeStr}.${trimmed || '0'}`;
+          }
         }
         
-        console.log('Resolved price from contract:', priceStr);
         setResolvedPrice(priceStr);
       } catch (error) {
         console.error('Error formatting resolved price:', error);
