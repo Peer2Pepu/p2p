@@ -293,10 +293,12 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
 
       try {
         const thresholdBigInt = BigInt(market.priceThreshold.toString());
-        const divisor = BigInt(10 ** priceDecimals);
+        // Cap display decimals so the UI can't create an infinitely-long number string.
+        const displayDecimals = Math.min(priceDecimals, 6);
+        const divisor = BigInt(10 ** displayDecimals);
         const wholePart = thresholdBigInt / divisor;
         const fractionalPart = thresholdBigInt % divisor;
-        const fractionalStr = fractionalPart.toString().padStart(priceDecimals, '0');
+        const fractionalStr = fractionalPart.toString().padStart(displayDecimals, '0');
         
         // Remove trailing zeros but keep at least one decimal place
         const trimmed = fractionalStr.replace(/0+$/, '');
@@ -1082,7 +1084,9 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
                   {isPriceFeedMarket && formattedThreshold && (
                     <div>
                       <span className={`text-xs sm:text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>Price Threshold</span>
-                      <p className={`text-lg sm:text-xl font-bold mt-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                      <p
+                        className={`text-lg sm:text-xl font-bold mt-1 ${isDarkMode ? 'text-white' : 'text-gray-900'} break-all break-words whitespace-normal leading-snug`}
+                      >
                         ${formattedThreshold}
                       </p>
                     </div>

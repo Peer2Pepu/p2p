@@ -41,6 +41,7 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse, isDarkMo
     { icon: Home, label: "Markets", href: "/", active: pathname === "/" },
     { icon: Shield, label: "Assert", href: "/assert", active: pathname === "/assert" },
     { icon: Receipt, label: "Stakes", href: "/stakes", active: pathname === "/stakes" },
+    { icon: Lock, label: "Interactions", href: "/interactions", active: pathname === "/interactions" },
     { icon: Plus, label: "Create Market", href: "/create-market", active: pathname === "/create-market" },
     { icon: User, label: "Profile", href: "/profile", active: pathname === "/profile" },
     { icon: FileText, label: "Docs", href: "/docs", active: pathname === "/docs" },

@@ -95,6 +95,7 @@ export default function CreateMarketPage() {
   const [success, setSuccess] = useState('');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [createdMarketId, setCreatedMarketId] = useState<number | null>(null);
+  const [marketIdForShare, setMarketIdForShare] = useState<number | null>(null);
 
   // Contract addresses from environment
   const P2P_MARKETMANAGER_ADDRESS = (process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS || process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS) as `0x${string}`;
@@ -777,6 +778,7 @@ export default function CreateMarketPage() {
     setIsUploadingImage(true);
     setError('');
     setSuccess('');
+      setMarketIdForShare(null);
 
     try {
       console.log('🚀 Starting market creation process...');
@@ -934,6 +936,29 @@ export default function CreateMarketPage() {
       console.log('💸 Transaction value:', totalValue.toString());
 
       console.log('🚀 Creating market contract...');
+
+      // Predict the new market id so the success UI can provide a share link.
+      try {
+        const provider = new ethers.JsonRpcProvider('https://rpc-pepu-v2-mainnet-0.t.conduit.xyz');
+        const MARKETMANAGER_ID_ABI = [
+          {
+            inputs: [],
+            name: 'getNextMarketId',
+            outputs: [{ name: '', type: 'uint256' }],
+            stateMutability: 'view',
+            type: 'function',
+          },
+        ];
+        const marketManager = new ethers.Contract(P2P_MARKETMANAGER_ADDRESS, MARKETMANAGER_ID_ABI, provider);
+        const nextId = await marketManager.getNextMarketId();
+        const nextIdNumber = Number(nextId.toString());
+        if (Number.isFinite(nextIdNumber) && nextIdNumber > 0) {
+          setMarketIdForShare(nextIdNumber);
+        }
+      } catch (e) {
+        // If prediction fails, sharing will just be unavailable.
+        setMarketIdForShare(null);
+      }
       const txResult = await writeContract({
         address: P2P_MARKETMANAGER_ADDRESS,
         abi: [
@@ -990,6 +1015,18 @@ export default function CreateMarketPage() {
       setSuccess('');
       setShowConfirmModal(false);
     }
+  };
+
+  const handleShareToX = () => {
+    if (typeof window === 'undefined') return;
+    if (!marketIdForShare) return;
+
+    const link = `${window.location.origin}/market/${marketIdForShare}`;
+    // Put the link last so the invite reads naturally.
+    const tweetText = `Just created a new market. Join the debate @peer2pepu — ${link}`;
+    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
+
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   // Handle approval success
@@ -2211,6 +2248,19 @@ export default function CreateMarketPage() {
               }`}>
                 <CheckCircle size={20} className="flex-shrink-0" />
                 <span className="flex-1 text-sm font-medium">{success}</span>
+                {isConfirmed && marketIdForShare && (
+                  <button
+                    type="button"
+                    onClick={handleShareToX}
+                    className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                      isDarkMode
+                        ? 'bg-gray-800 hover:bg-gray-700 text-white'
+                        : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
+                    }`}
+                  >
+                    Share to X
+                  </button>
+                )}
                 <button
                   onClick={() => setSuccess('')}
                   className="p-1 rounded hover:bg-emerald-200/50 transition-colors"
