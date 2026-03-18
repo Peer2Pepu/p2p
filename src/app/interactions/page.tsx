@@ -7,7 +7,7 @@ import { Menu, Moon, Sun, Lock, Wallet, AlertTriangle, CheckCircle } from "lucid
 import { HeaderWallet } from "@/components/HeaderWallet";
 import { Sidebar } from "../components/Sidebar";
 import { useTheme } from "../context/ThemeContext";
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { useAccount, useBalance, useReadContract, useWriteContract, useWaitForTransactionReceipt, useChainId } from "wagmi";
 import { formatUnits, parseUnits } from "viem";
 
 // ─── Minimal ABIs ─────────────────────────────────────────────────────────────
@@ -115,6 +115,7 @@ type PendingAction =
 export default function InteractionsPage() {
   const { isDarkMode, toggleTheme } = useTheme();
   const { address, isConnected } = useAccount();
+  const chainId = useChainId();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -181,7 +182,8 @@ export default function InteractionsPage() {
     query: { enabled: erc20Enabled },
   });
 
-  const tokenSymbol = (tokenSymbolData as string | undefined) || "P2P";
+  // Hardcode the display symbol to P2P even if the on-chain symbol differs (e.g. "SPRING").
+  const tokenSymbol = "P2P";
 
   const formatTokenAmount = (amount: bigint, maxFractionDigits = 4) => {
     const s = formatUnits(amount, tokenDecimals);
@@ -216,6 +218,15 @@ export default function InteractionsPage() {
 
   // ─── Allowances ────────────────────────────────────────────────────────────
   const allowEnabled = erc20Enabled && !!address && !!MARKET_MANAGER_ADDRESS && !!votingContractAddress;
+
+  const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+  const isNativeBond = !bondCurrency || bondCurrency === ZERO_ADDRESS;
+  const { data: walletBalanceData } = useBalance({
+    address,
+    chainId,
+    token: isNativeBond ? undefined : (bondCurrency as `0x${string}`),
+    query: { enabled: !!address && !!chainId && !!bondCurrency },
+  });
 
   const { data: allowanceMarketManagerData, refetch: refetchAllowanceMarketManager } = useReadContract({
     address: bondCurrency as `0x${string}` | undefined,
@@ -553,25 +564,25 @@ export default function InteractionsPage() {
                 ) : (
                   <>
                     <div className="space-y-2 mb-4">
-                      <div className={cls("flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-4", dark("text-white/70", "text-gray-600"))}>
+                      <div className={cls("grid grid-cols-[1fr_auto] items-center gap-x-4", dark("text-white/70", "text-gray-600"))}>
                         <span className="text-[14px]">Your staked</span>
-                        <span className={cls("text-[16px] font-semibold tabular-nums", dark("text-white", "text-gray-900"))}>
+                        <span className={cls("text-[16px] font-semibold tabular-nums text-right", dark("text-white", "text-gray-900"))}>
                           {formatTokenAmount(stakedBalance)}{" "}
-                          <span className={cls("text-[12px] font-semibold opacity-70", dark("text-white", "text-gray-900"))}>{tokenSymbol}</span>
+                          <span className={cls("text-[12px] font-semibold opacity-70 ml-1", dark("text-white", "text-gray-900"))}>{tokenSymbol}</span>
                         </span>
                       </div>
-                      <div className={cls("flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-4", dark("text-white/70", "text-gray-600"))}>
+                      <div className={cls("grid grid-cols-[1fr_auto] items-center gap-x-4", dark("text-white/70", "text-gray-600"))}>
                         <span className="text-[14px]">Locked stake</span>
-                        <span className={cls("text-[16px] font-semibold tabular-nums", dark("text-white", "text-gray-900"))}>
+                        <span className={cls("text-[16px] font-semibold tabular-nums text-right", dark("text-white", "text-gray-900"))}>
                           {formatTokenAmount(lockedStake)}{" "}
-                          <span className={cls("text-[12px] font-semibold opacity-70", dark("text-white", "text-gray-900"))}>{tokenSymbol}</span>
+                          <span className={cls("text-[12px] font-semibold opacity-70 ml-1", dark("text-white", "text-gray-900"))}>{tokenSymbol}</span>
                         </span>
                       </div>
-                      <div className={cls("flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-4", dark("text-white/70", "text-gray-600"))}>
+                      <div className={cls("grid grid-cols-[1fr_auto] items-center gap-x-4", dark("text-white/70", "text-gray-600"))}>
                         <span className="text-[14px]">Available to unstake</span>
-                        <span className={cls("text-[16px] font-semibold tabular-nums", dark("text-[#39FF14]", "text-emerald-700"))}>
+                        <span className={cls("text-[16px] font-semibold tabular-nums text-right", dark("text-[#39FF14]", "text-emerald-700"))}>
                           {formatTokenAmount(availableToUnstake)}{" "}
-                          <span className={cls("text-[12px] font-semibold opacity-70", dark("text-[#39FF14]", "text-emerald-700"))}>{tokenSymbol}</span>
+                          <span className={cls("text-[12px] font-semibold opacity-70 ml-1", dark("text-[#39FF14]", "text-emerald-700"))}>{tokenSymbol}</span>
                         </span>
                       </div>
                     </div>
@@ -579,7 +590,9 @@ export default function InteractionsPage() {
                     <div className="space-y-3">
                       {/* Stake */}
                       <div className={cls("rounded-2xl p-6", dark("bg-gray-900/30", "bg-gray-100"))}>
-                        <div className="text-[14px] font-semibold mb-3">Increase stake</div>
+                        <div className={cls("text-[14px] font-semibold mb-3", dark("text-white", "text-gray-900"))}>
+                          Increase stake
+                        </div>
                         <input
                           type="number"
                           step="0.1"
@@ -592,6 +605,15 @@ export default function InteractionsPage() {
                             dark("bg-gray-900 border-gray-700 text-white", "bg-white border-gray-300 text-gray-900")
                           )}
                         />
+
+                        {isConnected && walletBalanceData?.value !== undefined && (
+                          <div className="mt-2 text-[13px] flex items-center justify-between">
+                            <span className={dark("text-white/60", "text-gray-500")}>Balance</span>
+                            <span className={cls("font-semibold tabular-nums", dark("text-white", "text-gray-900"))}>
+                              {formatTokenAmount(walletBalanceData.value)} {tokenSymbol}
+                            </span>
+                          </div>
+                        )}
 
                         <div className="text-[13px] mt-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
                           <span className={dark("text-white/60", "text-gray-500")}>Allowance to voting contract</span>
