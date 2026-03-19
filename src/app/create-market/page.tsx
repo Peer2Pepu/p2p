@@ -778,8 +778,7 @@ export default function CreateMarketPage() {
     setIsUploadingImage(true);
     setError('');
     setSuccess('');
-      setMarketIdForShare(null);
-      setImageUrlForShare(null);
+    setMarketIdForShare(null);
 
     try {
       console.log('🚀 Starting market creation process...');
