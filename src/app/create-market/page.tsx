@@ -779,6 +779,7 @@ export default function CreateMarketPage() {
     setError('');
     setSuccess('');
       setMarketIdForShare(null);
+      setImageUrlForShare(null);
 
     try {
       console.log('🚀 Starting market creation process...');
@@ -820,6 +821,7 @@ export default function CreateMarketPage() {
         console.log('✅ Image uploaded to IPFS:', imageUrl);
         console.log('🔗 Image IPFS Hash:', imageIpfsHash);
         
+        // (no image URL sharing needed in the tweet)
       } catch (uploadError: any) {
         console.error('❌ Lighthouse upload failed:', uploadError);
         throw new Error(`Image upload failed: ${uploadError.message}`);
@@ -1013,6 +1015,7 @@ export default function CreateMarketPage() {
       setIsUploadingMetadata(false);
       setIsCreatingContract(false);
       setSuccess('');
+      // no image sharing state
       setShowConfirmModal(false);
     }
   };
@@ -1022,7 +1025,7 @@ export default function CreateMarketPage() {
     if (!marketIdForShare) return;
 
     const link = `${window.location.origin}/market/${marketIdForShare}`;
-    // Put the link last so the invite reads naturally.
+    // Put the market link last so the invite reads naturally.
     const tweetText = `Just created a new market. Join the debate @peer2pepu — ${link}`;
     const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
 
@@ -1085,6 +1088,7 @@ export default function CreateMarketPage() {
       setIsUploadingMetadata(false);
       setIsCreatingContract(false);
       setSuccess('');
+      // no image sharing state
       setShowConfirmModal(false);
     }
   }, [writeError]);
@@ -2121,6 +2125,20 @@ export default function CreateMarketPage() {
                         <span className="text-sm">{success}</span>
                       </div>
                     )}
+
+                    {success && isConfirmed && marketIdForShare && (
+                      <button
+                        type="button"
+                        onClick={handleShareToX}
+                        className={`w-full px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                          isDarkMode
+                            ? 'bg-gray-800 hover:bg-gray-700 text-white'
+                            : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
+                        }`}
+                      >
+                        Share to X
+                      </button>
+                    )}
                   </div>
                 )}
 
@@ -2148,6 +2166,7 @@ export default function CreateMarketPage() {
                         setVanityInfo('');
                         setImageFile(null);
                         setImagePreview(null);
+                        // no image sharing state
                         setSelectedCategories([]);
                         setOutcomeType('yesno');
                         setMultipleOptions(['', '']);

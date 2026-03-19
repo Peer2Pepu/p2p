@@ -759,7 +759,7 @@ export default function InteractionsPage() {
                       <div className={cls("rounded-xl p-4", dark("bg-gray-900/30", "bg-gray-100"))}>
                         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                           <div>
-                            <div className={cls("text-xs font-medium", dark("text-white", "text-gray-900"))}>Market Manager</div>
+                            <div className={cls("text-xs font-medium", dark("text-white", "text-gray-900"))}>Optimistic Oracle (via Market Manager)</div>
                             <div className={cls("text-[11px]", dark("text-white/60", "text-gray-500"))}>
                               Spender: {MARKET_MANAGER_ADDRESS?.slice(0, 6)}...{MARKET_MANAGER_ADDRESS?.slice(-4)}
                             </div>
@@ -906,7 +906,7 @@ export default function InteractionsPage() {
                     </div>
 
                     <div className={cls("mt-4 text-[11px] leading-relaxed", dark("text-white/60", "text-gray-500"))}>
-                      Tip: if staking fails, approve the voting contract first. If asserting/disputing fails, approve the Market Manager first.
+                      Tip: if staking fails, approve the voting contract first. If asserting/disputing fails, approve OptimisticOracle via the Market Manager first.
                     </div>
                   </>
                 )}

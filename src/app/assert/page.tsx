@@ -47,6 +47,7 @@ import {
 import { Sidebar } from "../components/Sidebar";
 import { useTheme } from "../context/ThemeContext";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 const MARKET_MANAGER_ADDRESS = process.env
   .NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS as `0x${string}`;
@@ -75,6 +76,8 @@ const MARKET_MANAGER_ABI = [
           { name: "state", type: "uint8" },
           { name: "winningOption", type: "uint256" },
           { name: "isResolved", type: "bool" },
+          { name: "resolvedTimestamp", type: "uint256" },
+          { name: "resolvedPrice", type: "uint256" },
           { name: "marketType", type: "uint8" },
           { name: "priceFeed", type: "address" },
           { name: "priceThreshold", type: "uint256" },
@@ -404,7 +407,9 @@ interface MarketData {
   state: number;
   winningOption: bigint;
   isResolved: boolean;
-  marketType: number;
+  resolvedTimestamp: bigint;
+  resolvedPrice: bigint;
+  marketType: bigint | number;
   priceFeed: `0x${string}`;
   priceThreshold: bigint;
   p2pAssertionId: `0x${string}`;
@@ -613,7 +618,8 @@ export default function AssertPage() {
             }) as MarketData;
 
         // Only show: state=1 (Ended) + marketType=1 (P2POPTIMISTIC)
-        if (market.state !== 1 || market.marketType !== 1) continue;
+        // Cast to Number to avoid bigint/number mismatches.
+        if (Number(market.state) !== 1 || Number(market.marketType) !== 1) continue;
 
         // Fetch IPFS metadata with fallback gateways
         let metadata: any = null;
@@ -1444,6 +1450,15 @@ export default function AssertPage() {
                                 </div>
                               )}
 
+                              {!hasSufficientAllowance && (
+                                <div className={`text-[11px] ${dark("text-yellow-300/90", "text-yellow-800")}`}>
+                                  Approve the MarketManager:{" "}
+                                  <Link href="/interactions" className={cls("underline font-medium", dark("text-[#39FF14]", "text-emerald-700"))}>
+                                    here
+                                  </Link>
+                                </div>
+                              )}
+
                               {!hasSufficientAllowance && minimumBond && bondBalance && bondBalance.value >= minimumBond && (
                                 <button
                                   type="button"
@@ -1611,6 +1626,15 @@ export default function AssertPage() {
                             >
                               {isApproving ? "Approving..." : "Approve P2P"}
                             </button>
+                          )}
+
+                          {!hasSufficientAllowance && (
+                            <div className={`text-[11px] ${dark("text-yellow-300/90", "text-yellow-800")}`}>
+                              Approve the MarketManager:{" "}
+                              <Link href="/interactions" className={cls("underline font-medium", dark("text-[#39FF14]", "text-emerald-700"))}>
+                                here
+                              </Link>
+                            </div>
                           )}
 
                           <button

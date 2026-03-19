@@ -104,6 +104,36 @@ function MultiSegmentCircle({ segments, size = 60, isDarkMode }: {
 }) {
   const radius = (size - 6) / 2;
   const circumference = radius * 2 * Math.PI;
+  const MIN_SEGMENT_PCT = 0.0001;
+
+  const normalizedSegments = (() => {
+    const cleaned = segments
+      .map((s) => ({
+        ...s,
+        percentage:
+          Number.isFinite(s.percentage) && !Number.isNaN(s.percentage)
+            ? Math.max(0, s.percentage)
+            : 0,
+      }))
+      .filter((s) => s.percentage > 0);
+
+    if (cleaned.length === 0) return [];
+
+    const total = cleaned.reduce((sum, s) => sum + s.percentage, 0);
+    if (total <= 0) return [];
+
+    // Normalize so all segments sum to exactly 100%.
+    const normalized = cleaned.map((s) => ({
+      ...s,
+      percentage: (s.percentage / total) * 100,
+    }));
+
+    // Keep tiny slices from disappearing due to floating errors.
+    return normalized.map((s) => ({
+      ...s,
+      percentage: Math.max(MIN_SEGMENT_PCT, s.percentage),
+    }));
+  })();
   
   return (
     <div className="relative inline-flex items-center justify-center flex-shrink-0">
@@ -118,12 +148,9 @@ function MultiSegmentCircle({ segments, size = 60, isDarkMode }: {
           fill="none"
         />
         
-        {/* Segments - render all segments with > 0% */}
+        {/* Segments */}
         {(() => {
-          const validSegments = segments.filter(s => s.percentage > 0.1 && isFinite(s.percentage) && !isNaN(s.percentage));
-          
-          // If no valid segments, show first segment with 100% (default state)
-          if (validSegments.length === 0) {
+          if (normalizedSegments.length === 0) {
             const defaultSegment = segments[0] || { label: 'Yes', percentage: 100, color: '#6B7280' };
             return (
               <circle
@@ -136,14 +163,14 @@ function MultiSegmentCircle({ segments, size = 60, isDarkMode }: {
                 fill="none"
                 strokeDasharray={`${circumference} ${circumference}`}
                 strokeDashoffset={0}
-                strokeLinecap="round"
+                strokeLinecap="butt"
                 className="transition-all duration-500"
               />
             );
           }
           
           let cumulative = 0;
-          return validSegments.map((segment, index) => {
+          return normalizedSegments.map((segment, index) => {
             const segmentLength = (segment.percentage / 100) * circumference;
             const offset = circumference - (cumulative / 100) * circumference;
             cumulative += segment.percentage;
@@ -159,7 +186,8 @@ function MultiSegmentCircle({ segments, size = 60, isDarkMode }: {
                 fill="none"
                 strokeDasharray={`${segmentLength} ${circumference}`}
                 strokeDashoffset={offset}
-                strokeLinecap="round"
+                // Use butt caps so adjacent segments don't visually overlap.
+                strokeLinecap="butt"
                 className="transition-all duration-500"
               />
             );
@@ -170,8 +198,7 @@ function MultiSegmentCircle({ segments, size = 60, isDarkMode }: {
       {/* Center display - show highest percentage with option label */}
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         {(() => {
-          const validSegments = segments.filter(s => s.percentage > 0.1 && isFinite(s.percentage) && !isNaN(s.percentage));
-          if (validSegments.length === 0) {
+          if (normalizedSegments.length === 0) {
             return (
               <span className={`text-sm font-bold leading-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 50%
@@ -179,7 +206,7 @@ function MultiSegmentCircle({ segments, size = 60, isDarkMode }: {
             );
           }
           // Find segment with highest percentage
-          const topSegment = validSegments.reduce((max, seg) => seg.percentage > max.percentage ? seg : max);
+          const topSegment = normalizedSegments.reduce((max, seg) => seg.percentage > max.percentage ? seg : max);
           const roundedPercentage = Math.round(topSegment.percentage); // Round to nearest integer
           return (
             <>

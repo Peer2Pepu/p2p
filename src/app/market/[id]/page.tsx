@@ -816,9 +816,10 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
     return null;
   };
 
-  const getDisplayName = (address: string, username?: string, displayName?: string) => {
+  const getDisplayName = (address?: string, username?: string, displayName?: string) => {
     if (username) return `@${username}`;
     if (displayName) return displayName;
+    if (!address || typeof address !== "string") return "Unknown";
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
