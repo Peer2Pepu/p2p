@@ -19,6 +19,7 @@
     "bot:market": "node market-bot.js",
     "bot:monitor": "node market-event-monitor.js",
     "sync:market": "node scripts/sync-market.js",
+    "inspect:market": "node scripts/inspect-market.js",
     "ws:deploy": "npx hardhat run scripts/deploy-websocket-test.js --network pepe_unchained_v2",
     "ws:call": "node scripts/call-websocket-test.js",
     "ws:listen": "node scripts/websocket-listener.js"

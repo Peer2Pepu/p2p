@@ -167,6 +167,80 @@ const MARKET_MANAGER_ABI = [
   }
 ];
 
+const GET_MARKET_ABI_V2 = [
+  {
+    "inputs": [{ "name": "marketId", "type": "uint256" }],
+    "name": "getMarket",
+    "outputs": [
+      {
+        "components": [
+          { "name": "creator", "type": "address" },
+          { "name": "ipfsHash", "type": "string" },
+          { "name": "isMultiOption", "type": "bool" },
+          { "name": "maxOptions", "type": "uint256" },
+          { "name": "paymentToken", "type": "address" },
+          { "name": "minStake", "type": "uint256" },
+          { "name": "creatorDeposit", "type": "uint256" },
+          { "name": "creatorOutcome", "type": "uint256" },
+          { "name": "startTime", "type": "uint256" },
+          { "name": "stakeEndTime", "type": "uint256" },
+          { "name": "endTime", "type": "uint256" },
+          { "name": "resolutionEndTime", "type": "uint256" },
+          { "name": "state", "type": "uint8" },
+          { "name": "winningOption", "type": "uint256" },
+          { "name": "isResolved", "type": "bool" },
+          { "name": "resolvedTimestamp", "type": "uint256" },
+          { "name": "marketType", "type": "uint8" },
+          { "name": "priceFeed", "type": "address" },
+          { "name": "priceThreshold", "type": "uint256" },
+          { "name": "resolvedPrice", "type": "uint256" }
+        ],
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+];
+
+const GET_MARKET_ABI_LEGACY = [
+  {
+    "inputs": [{ "name": "marketId", "type": "uint256" }],
+    "name": "getMarket",
+    "outputs": [
+      {
+        "components": [
+          { "name": "creator", "type": "address" },
+          { "name": "ipfsHash", "type": "string" },
+          { "name": "isMultiOption", "type": "bool" },
+          { "name": "maxOptions", "type": "uint256" },
+          { "name": "paymentToken", "type": "address" },
+          { "name": "minStake", "type": "uint256" },
+          { "name": "creatorDeposit", "type": "uint256" },
+          { "name": "creatorOutcome", "type": "uint256" },
+          { "name": "startTime", "type": "uint256" },
+          { "name": "stakeEndTime", "type": "uint256" },
+          { "name": "endTime", "type": "uint256" },
+          { "name": "resolutionEndTime", "type": "uint256" },
+          { "name": "state", "type": "uint8" },
+          { "name": "winningOption", "type": "uint256" },
+          { "name": "isResolved", "type": "bool" },
+          { "name": "marketType", "type": "uint8" },
+          { "name": "priceFeed", "type": "address" },
+          { "name": "priceThreshold", "type": "uint256" },
+          { "name": "p2pAssertionId", "type": "bytes32" },
+          { "name": "p2pAssertionMade", "type": "bool" }
+        ],
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+];
+
 const ERC20_ABI = [
   {
     "inputs": [{"name": "owner", "type": "address"}, {"name": "spender", "type": "address"}],
@@ -224,20 +298,67 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
   const [priceDecimals, setPriceDecimals] = useState<number>(8);
   const [pendingTxType, setPendingTxType] = useState<'approval' | 'stake' | null>(null);
   const [formattedThreshold, setFormattedThreshold] = useState<string | null>(null);
+  const [market, setMarket] = useState<any | null>(null);
+  const [marketLoading, setMarketLoading] = useState(true);
+  const [marketError, setMarketError] = useState<any>(null);
 
   const MARKET_MANAGER_ADDRESS = (process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS || process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS) as `0x${string}`;
 
-  // Fetch market data
-  const { data: market, isLoading: marketLoading, error: marketError } = useReadContract({
-    address: MARKET_MANAGER_ADDRESS,
-    abi: MARKET_MANAGER_ABI,
-    functionName: 'getMarket',
-    args: marketId !== null ? [BigInt(marketId)] : [BigInt(0)],
-    query: {
-      enabled: !!marketId && !!MARKET_MANAGER_ADDRESS,
-      refetchInterval: 10000,
-    }
-  }) as { data: any; isLoading: boolean; error: any };
+  // Fetch market data with ABI fallback (v2 -> legacy), matching inspect script behavior.
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchMarket = async () => {
+      if (!marketId || !MARKET_MANAGER_ADDRESS) {
+        if (!cancelled) {
+          setMarket(null);
+          setMarketLoading(false);
+        }
+        return;
+      }
+
+      try {
+        if (!cancelled) {
+          setMarketLoading(true);
+          setMarketError(null);
+        }
+
+        const provider = new ethers.JsonRpcProvider('https://rpc-pepu-v2-mainnet-0.t.conduit.xyz');
+        const contractV2 = new ethers.Contract(MARKET_MANAGER_ADDRESS, GET_MARKET_ABI_V2, provider);
+        const contractLegacy = new ethers.Contract(MARKET_MANAGER_ADDRESS, GET_MARKET_ABI_LEGACY, provider);
+
+        let fetchedMarket = await contractV2.getMarket(BigInt(marketId));
+        if (Number(fetchedMarket?.marketType) > 1) {
+          fetchedMarket = await contractLegacy.getMarket(BigInt(marketId));
+        }
+
+        const normalizedMarket = {
+          ...fetchedMarket,
+          resolvedTimestamp: fetchedMarket?.resolvedTimestamp ?? BigInt(0),
+          resolvedPrice: fetchedMarket?.resolvedPrice ?? BigInt(0),
+        };
+
+        if (!cancelled) {
+          setMarket(normalizedMarket);
+          setMarketLoading(false);
+        }
+      } catch (error) {
+        console.error('Error fetching market from contract:', error);
+        if (!cancelled) {
+          setMarket(null);
+          setMarketError(error);
+          setMarketLoading(false);
+        }
+      }
+    };
+
+    fetchMarket();
+    const interval = setInterval(fetchMarket, 10000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [marketId, MARKET_MANAGER_ADDRESS]);
 
   // Determine if this is a price-feed market.
   // We primarily rely on `priceFeed` being non-zero, because some markets may have

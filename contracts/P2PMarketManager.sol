@@ -3,7 +3,7 @@
 pragma solidity ^0.8.20;
 
 /**
- * @title EventPool
+ * @title P2PMarketManager
  * @notice P2P prediction market contract.
  *
  * ─── Oracle integration (P2POPTIMISTIC markets) ──────────────────────────────
@@ -13,9 +13,12 @@ pragma solidity ^0.8.20;
  *  1. endMarket(id)                  — anyone, after market.endTime
  *  2. requestP2PResolution(id, ...)  — anyone except creator, after endTime;
  *                                      posts a claim + bond to the oracle
- *  3. [optional] disputeOracle(id)   — anyone, after assertionDeadline and
- *                                      before expirationTime; puts up counter-bond
- *  4. settleOracle(id)               — anyone, after expirationTime
+ *  3. [optional] disputeOracle(id)   — anyone who disagrees with the assertion;
+ *                                      posts a counter-bond and supplies the option
+ *                                      they believe actually won; triggers a
+ *                                      token-weighted vote in P2PVoting
+ *  4. settleOracle(id)               — anyone, after the oracle expirationTime
+ *                                      (which is >= vote window close)
  *  5. resolveP2PMarket(id)           — anyone, after oracle is settled
  *
  *  Fallback paths that prevent permanent fund-lock:
@@ -23,13 +26,25 @@ pragma solidity ^0.8.20;
  *  • If nobody asserts within ASSERTION_GRACE_PERIOD after endTime
  *    → cancelMarketNoAssertion(id) cancels the market and allows refunds.
  *
- *  • If oracle settles with result=false (disputer won / assertion was wrong)
- *    → resolveP2PMarket() cancels the market and allows refunds.
- *      (The asserter lied; we don't know the real outcome, so refund everyone.)
+ *  • If the oracle vote had no consensus, the oracle automatically accepts the
+ *    assertion as true and returns both bonds. Market resolves to the originally
+ *    asserted option. This is handled inside the oracle.
  *
- *  • If oracle vote had no consensus, the oracle automatically accepts the
- *    assertion as true and returns both bonds. Market resolves normally.
- *    This path is handled inside the oracle itself (see P2POptimisticOracle.sol).
+ * ─── Fee model ────────────────────────────────────────────────────────────────
+ *
+ *  Fees are taken ONLY from the losing pool (not total pool).
+ *  This ensures: sum(winner payouts) + sum(fees) == totalPool exactly.
+ *
+ *    creatorFee  = losingPool * CREATOR_FEE_BPS  / 10_000   (3.5%)
+ *    platformFee = losingPool * PLATFORM_FEE_BPS / 10_000   (5.0%)
+ *    winningsPool = losingPool * NET_WINNER_BPS  / 10_000   (91.5%)
+ *
+ *  Each winner receives their original stake back, plus a pro-rata share of
+ *  winningsPool proportional to their stake in the winning pool.
+ *
+ *  Edge cases:
+ *    • All-win (totalLosingPool == 0): everyone gets stake back; no fees taken.
+ *    • All-lose (totalWinningStake == 0): platform keeps all after creator fee.
  */
 
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -86,6 +101,8 @@ contract P2PMarketManager is Ownable {
         MarketState state;
         uint256     winningOption;
         bool        isResolved;
+        uint256     resolvedTimestamp;
+        uint256     resolvedPrice;
         MarketType  marketType;
         // PRICE_FEED fields
         address     priceFeed;
@@ -93,31 +110,38 @@ contract P2PMarketManager is Ownable {
         // P2POPTIMISTIC fields
         bytes32     p2pAssertionId;
         bool        p2pAssertionMade;
-        uint256     p2pDisputedOptionId; // Option ID that the disputer claimed (0 if not disputed or no option specified)
+        // Option ID the disputer claimed won. 0 = not disputed.
+        // Used as the winning option if the oracle rejects the original assertion
+        // (i.e. oracleResult = false, meaning the asserter lied and disputer was right).
+        uint256     p2pDisputedOptionId;
     }
 
     // ─── Constants ────────────────────────────────────────────────────────────
 
     uint256 public constant marketCreationFee = 1e18;
-    uint256 public constant CREATOR_FEE_BPS   = 350;  // 3.5 %
-    uint256 public constant PLATFORM_FEE_BPS  = 500;  // 5.0 %
+
+    /// @notice Fee percentages — applied to losingPool only, not totalPool.
+    uint256 public constant CREATOR_FEE_BPS   = 350;   // 3.5%
+    uint256 public constant PLATFORM_FEE_BPS  = 500;   // 5.0%
+    uint256 public constant TOTAL_FEE_BPS     = 850;   // 8.5% (sum of above)
+    /// @notice Basis points of losingPool that flow to winners after fees.
+    uint256 public constant NET_WINNER_BPS    = 9_150; // 91.5% = 10_000 - 850
 
     /**
      * @notice Grace period after market.endTime during which someone must assert.
      *         If no assertion is made within this window, the market can be cancelled.
-     *         Set to 48 hours to give asserters plenty of time.
      */
     uint256 public assertionGracePeriod = 48 hours;
 
     // ─── Storage ──────────────────────────────────────────────────────────────
 
-    mapping(uint256 => Market)   public markets;
-    mapping(uint256 => mapping(address => bool))    public userHasStaked;
-    mapping(uint256 => mapping(address => bool))    public userHasSupported;
-    mapping(uint256 => mapping(address => uint256)) public userStakeOptions;
-    mapping(uint256 => address[]) public marketStakers;
-    mapping(uint256 => address[]) public marketSupporters;
-    mapping(address => uint256[]) public userMarketHistory;
+    mapping(uint256 => Market)                                      public markets;
+    mapping(uint256 => mapping(address => bool))                    public userHasStaked;
+    mapping(uint256 => mapping(address => bool))                    public userHasSupported;
+    mapping(uint256 => mapping(address => uint256))                 public userStakeOptions;
+    mapping(uint256 => address[])                                   public marketStakers;
+    mapping(uint256 => address[])                                   public marketSupporters;
+    mapping(address => uint256[])                                   public userMarketHistory;
 
     uint256   public nextMarketId = 1;
     uint256[] public activeMarkets;
@@ -140,11 +164,17 @@ contract P2PMarketManager is Ownable {
     );
     event StakePlaced(uint256 indexed marketId, address indexed user, uint256 option, uint256 amount);
     event MarketResolved(uint256 indexed marketId, uint256 winningOption);
+    event MarketResolvedDetailed(
+        uint256 indexed marketId,
+        uint256 winningOption,
+        uint256 resolvedTimestamp,
+        uint256 resolvedPrice
+    );
     event MarketCancelled(uint256 indexed marketId, string reason);
     event RefundClaimed(uint256 indexed marketId, address indexed user, uint256 amount);
     event WinningsClaimed(uint256 indexed marketId, address indexed user, uint256 amount);
     event ResolutionRequested(uint256 indexed marketId, bytes32 indexed assertionId);
-    event OracleDisputed(uint256 indexed marketId, bytes32 indexed assertionId, address indexed disputer);
+    event OracleDisputed(uint256 indexed marketId, bytes32 indexed assertionId, address indexed disputer, uint256 disputedOptionId);
     event OracleSettled(uint256 indexed marketId, bytes32 indexed assertionId);
     event OracleResultProcessed(uint256 indexed marketId, bytes32 indexed assertionId, bool accepted);
 
@@ -173,12 +203,6 @@ contract P2PMarketManager is Ownable {
 
     // ─── Market creation ──────────────────────────────────────────────────────
 
-    /**
-     * @notice Create a new prediction market.
-     * @param marketType        0 = PRICE_FEED, 1 = P2POPTIMISTIC
-     * @param priceFeed         Chainlink-compatible feed (PRICE_FEED only, else address(0))
-     * @param priceThreshold    Price in feed units (PRICE_FEED only, else 0)
-     */
     function createMarket(
         string memory ipfsHash,
         bool          isMultiOption,
@@ -200,8 +224,8 @@ contract P2PMarketManager is Ownable {
         require(creatorOutcome > 0 && creatorOutcome <= maxOptions, "EP: bad outcome");
 
         if (marketType == MarketType.PRICE_FEED) {
-            require(priceFeed != address(0),  "EP: feed required");
-            require(priceThreshold > 0,       "EP: threshold required");
+            require(priceFeed != address(0), "EP: feed required");
+            require(priceThreshold > 0,      "EP: threshold required");
         }
 
         uint256 minDuration = IAdminManager(adminManager).minMarketDurationMinutes();
@@ -217,43 +241,44 @@ contract P2PMarketManager is Ownable {
 
         require(msg.value >= marketCreationFee, "EP: fee too low");
 
-        uint256 startTime     = block.timestamp;
-        uint256 stakeEndTime  = startTime + stakeDurationMinutes    * 1 minutes;
-        uint256 endTime       = startTime + resolutionDurationMinutes * 1 minutes;
-        // For P2POPTIMISTIC: add assertionWindow(2h) + disputeWindow(12h) + buffer(2h) = 16h
+        uint256 startTime         = block.timestamp;
+        uint256 stakeEndTime      = startTime + stakeDurationMinutes      * 1 minutes;
+        uint256 endTime           = startTime + resolutionDurationMinutes * 1 minutes;
+        // For P2POPTIMISTIC: oracle expiry = assertionWindow(2h) + liveness(26h) = 28h; add 2h buffer
         uint256 resolutionEndTime = marketType == MarketType.PRICE_FEED
             ? endTime
-            : endTime + 16 hours;
+            : endTime + 30 hours;
 
         uint256 marketId = nextMarketId++;
         markets[marketId] = Market({
-            creator:           msg.sender,
-            ipfsHash:          ipfsHash,
-            isMultiOption:     isMultiOption,
-            maxOptions:        maxOptions,
-            paymentToken:      paymentToken,
-            minStake:          minStake,
-            creatorDeposit:    creatorDeposit,
-            creatorOutcome:    creatorOutcome,
-            startTime:         startTime,
-            stakeEndTime:      stakeEndTime,
-            endTime:           endTime,
-            resolutionEndTime: resolutionEndTime,
-            state:             MarketState.Active,
-            winningOption:     0,
-            isResolved:        false,
-            marketType:        marketType,
-            priceFeed:         priceFeed,
-            priceThreshold:    priceThreshold,
-            p2pAssertionId:    bytes32(0),
-            p2pAssertionMade:  false,
+            creator:             msg.sender,
+            ipfsHash:            ipfsHash,
+            isMultiOption:       isMultiOption,
+            maxOptions:          maxOptions,
+            paymentToken:        paymentToken,
+            minStake:            minStake,
+            creatorDeposit:      creatorDeposit,
+            creatorOutcome:      creatorOutcome,
+            startTime:           startTime,
+            stakeEndTime:        stakeEndTime,
+            endTime:             endTime,
+            resolutionEndTime:   resolutionEndTime,
+            state:               MarketState.Active,
+            winningOption:       0,
+            isResolved:          false,
+            resolvedTimestamp:   0,
+            resolvedPrice:       0,
+            marketType:          marketType,
+            priceFeed:           priceFeed,
+            priceThreshold:      priceThreshold,
+            p2pAssertionId:      bytes32(0),
+            p2pAssertionMade:    false,
             p2pDisputedOptionId: 0
         });
 
         activeMarkets.push(marketId);
         isActiveMarket[marketId] = true;
 
-        // Collect creation fee
         if (paymentToken == address(0)) {
             require(msg.value >= marketCreationFee + creatorDeposit, "EP: insufficient PEPU");
             (bool ok1, ) = owner().call{value: marketCreationFee}("");
@@ -266,13 +291,11 @@ contract P2PMarketManager is Ownable {
             IERC20(paymentToken).safeTransferFrom(msg.sender, treasury, creatorDeposit);
         }
 
-        // Register creator's deposit as their stake
         userHasStaked[marketId][msg.sender]    = true;
         userStakeOptions[marketId][msg.sender] = creatorOutcome;
         userMarketHistory[msg.sender].push(marketId);
 
         PoolVault(treasury).placeStake(marketId, msg.sender, paymentToken, creatorDeposit, creatorOutcome);
-
         _trackCreation(marketId, msg.sender, creatorOutcome, creatorDeposit);
 
         emit MarketCreated(
@@ -284,13 +307,12 @@ contract P2PMarketManager is Ownable {
 
     // ─── Staking ──────────────────────────────────────────────────────────────
 
-    /// @notice Stake PEPU (native token) on a market option.
     function placeStake(uint256 marketId, uint256 option)
         external payable notDeleted(marketId)
     {
         Market storage m = markets[marketId];
-        require(m.state == MarketState.Active,       "EP: not active");
-        require(m.paymentToken == address(0),        "EP: use placeStakeWithToken");
+        require(m.state == MarketState.Active,        "EP: not active");
+        require(m.paymentToken == address(0),         "EP: use placeStakeWithToken");
         require(option > 0 && option <= m.maxOptions, "EP: bad option");
 
         _checkBettingRestriction(m);
@@ -305,13 +327,12 @@ contract P2PMarketManager is Ownable {
         emit StakePlaced(marketId, msg.sender, option, amount);
     }
 
-    /// @notice Stake ERC-20 tokens on a market option.
     function placeStakeWithToken(uint256 marketId, uint256 option, uint256 amount)
         external notDeleted(marketId)
     {
         Market storage m = markets[marketId];
-        require(m.state == MarketState.Active,       "EP: not active");
-        require(m.paymentToken != address(0),        "EP: use placeStake");
+        require(m.state == MarketState.Active,        "EP: not active");
+        require(m.paymentToken != address(0),         "EP: use placeStake");
         require(option > 0 && option <= m.maxOptions, "EP: bad option");
         require(amount >= m.minStake,                 "EP: below min");
 
@@ -323,7 +344,6 @@ contract P2PMarketManager is Ownable {
         emit StakePlaced(marketId, msg.sender, option, amount);
     }
 
-    /// @notice Support a market with liquidity (no option chosen).
     function supportMarket(uint256 marketId, uint256 amount)
         external payable notBlacklisted notDeleted(marketId)
     {
@@ -352,16 +372,12 @@ contract P2PMarketManager is Ownable {
         if (analytics != address(0)) MetricsHub(analytics).trackSupport(marketId, msg.sender, amount);
     }
 
-    /// @notice Withdraw market support (before stakeEndTime - 12h, or if cancelled/deleted).
     function withdrawSupport(uint256 marketId) external {
         Market storage m = markets[marketId];
         require(userHasSupported[marketId][msg.sender], "EP: no support");
 
         if (m.state == MarketState.Active) {
-            require(
-                block.timestamp < m.stakeEndTime - 12 hours,
-                "EP: too late to withdraw"
-            );
+            require(block.timestamp < m.stakeEndTime - 12 hours, "EP: too late to withdraw");
         } else if (m.state == MarketState.Deleted || m.state == MarketState.Cancelled) {
             // always allowed
         } else {
@@ -377,58 +393,59 @@ contract P2PMarketManager is Ownable {
 
     // ─── Market lifecycle ─────────────────────────────────────────────────────
 
-    /// @notice End the betting period. Anyone can call after endTime.
     function endMarket(uint256 marketId) external {
         Market storage m = markets[marketId];
-        require(m.state == MarketState.Active,      "EP: not active");
-        require(block.timestamp >= m.endTime,        "EP: not ended");
+        require(m.state == MarketState.Active, "EP: not active");
+        require(block.timestamp >= m.endTime,  "EP: not ended");
 
         m.state = MarketState.Ended;
         _removeFromActiveMarkets(marketId);
     }
 
-    /// @notice Creator cancels (more than 12 h before stakeEndTime).
     function creatorCancelMarket(uint256 marketId) external {
         Market storage m = markets[marketId];
-        require(msg.sender == m.creator,                          "EP: not creator");
-        require(m.state == MarketState.Active,                    "EP: not active");
-        require(block.timestamp < m.stakeEndTime - 12 hours,     "EP: too late");
+        require(msg.sender == m.creator,                      "EP: not creator");
+        require(m.state == MarketState.Active,                "EP: not active");
+        require(block.timestamp < m.stakeEndTime - 12 hours, "EP: too late");
 
         _cancelMarket(marketId, "Creator cancelled");
     }
 
     // ─── PRICE_FEED resolution ────────────────────────────────────────────────
 
-    /// @notice Resolve a PRICE_FEED market by reading the on-chain oracle price.
     function resolvePriceFeedMarket(uint256 marketId) external {
         Market storage m = markets[marketId];
-        require(m.marketType == MarketType.PRICE_FEED,  "EP: not PRICE_FEED");
-        require(m.state == MarketState.Ended,            "EP: not ended");
-        require(!m.isResolved,                           "EP: already resolved");
-        require(block.timestamp >= m.resolutionEndTime,  "EP: too early");
+        require(m.marketType == MarketType.PRICE_FEED, "EP: not PRICE_FEED");
+        require(m.state == MarketState.Ended,           "EP: not ended");
+        require(!m.isResolved,                          "EP: already resolved");
+        require(block.timestamp >= m.resolutionEndTime, "EP: too early");
 
         AggregatorV3Interface feed = AggregatorV3Interface(m.priceFeed);
         (, int256 price, , , ) = feed.latestRoundData();
 
-        m.winningOption = uint256(price) >= m.priceThreshold ? 1 : 2;
-        m.isResolved    = true;
-        m.state         = MarketState.Resolved;
+        m.winningOption     = uint256(price) >= m.priceThreshold ? 1 : 2;
+        m.resolvedPrice     = uint256(price);
+        m.isResolved        = true;
+        m.resolvedTimestamp = block.timestamp;
+        m.state             = MarketState.Resolved;
 
         _distributeFees(marketId);
         _trackResolution(marketId, m.winningOption);
         emit MarketResolved(marketId, m.winningOption);
+        emit MarketResolvedDetailed(marketId, m.winningOption, m.resolvedTimestamp, m.resolvedPrice);
     }
 
     // ─── P2POPTIMISTIC resolution ─────────────────────────────────────────────
 
     /**
-     * @notice Step 1 — Post an assertion to the oracle claiming a specific option won.
+     * @notice Step 1 — Post an assertion claiming a specific option won.
      * @param marketId  The market to assert for.
-     * @param optionId  The winning option (1-based). Encoded as callbackData.
-     * @param claim     Human-readable UTF-8 description, e.g. "Option 2 (No) won".
+     * @param optionId  The winning option (1-based). Encoded into callbackData.
+     * @param claim     Human-readable description, e.g. "Option 2 (No) won".
      *
-     * @dev Caller must have approved `defaultBondCurrency` for `minimumBond` to this
-     *      contract before calling. This contract then approves the oracle and asserts.
+     * @dev Caller must approve `defaultBondCurrency` for `minimumBond` to this contract.
+     *      Cannot be the market creator (prevents self-assertion).
+     *      Must have a stake in the market.
      */
     function requestP2PResolution(
         uint256 marketId,
@@ -436,7 +453,7 @@ contract P2PMarketManager is Ownable {
         bytes calldata claim
     ) external {
         Market storage m = markets[marketId];
-        require(m.marketType == MarketType.P2POPTIMISTIC, "EP: not P2POPTIMISTIC");
+        require(m.marketType == MarketType.P2POPTIMISTIC,  "EP: not P2POPTIMISTIC");
         require(m.state == MarketState.Ended,              "EP: not ended");
         require(!m.isResolved,                             "EP: resolved");
         require(!m.p2pAssertionMade,                       "EP: assertion exists");
@@ -448,13 +465,10 @@ contract P2PMarketManager is Ownable {
 
         uint256 bond = optimisticOracle.getMinimumBond(defaultBondCurrency);
 
-        // Pull bond from asserter to this contract, then approve oracle
         IERC20(defaultBondCurrency).safeTransferFrom(msg.sender, address(this), bond);
         IERC20(defaultBondCurrency).forceApprove(address(optimisticOracle), bond);
 
-        // callbackData encodes (marketId, optionId) — oracle stores and returns it
         bytes memory callbackData = abi.encode(marketId, optionId);
-
         bytes32 assertionId = optimisticOracle.assertTruth(claim, msg.sender, callbackData);
 
         m.p2pAssertionId   = assertionId;
@@ -465,20 +479,27 @@ contract P2PMarketManager is Ownable {
 
     /**
      * @notice Step 2 (optional) — Dispute the oracle assertion.
-     *         Can be called by anyone who disagrees, within the dispute window.
      *
-     * @dev Caller must have approved `defaultBondCurrency` for `minimumBond` to this contract.
+     *         The disputer must supply the option ID they believe actually won.
+     *         If the community vote agrees the original assertion was wrong
+     *         (majority votes REJECT), the market resolves to the disputer's optionId.
+     *
+     *         Design rationale: the disputer must have skin-in-the-game knowledge
+     *         of what the correct outcome is, not just that the asserter was wrong.
+     *         They put up a bond for this. If they're right, they win both bonds.
+     *
      * @param marketId The market to dispute.
-     * @param optionId The option ID that the disputer claims is the correct outcome.
+     * @param optionId The option the disputer claims actually won.
      */
     function disputeOracle(uint256 marketId, uint256 optionId) external {
         Market storage m = markets[marketId];
-        require(m.marketType == MarketType.P2POPTIMISTIC, "EP: not P2POPTIMISTIC");
-        require(m.p2pAssertionMade,                        "EP: no assertion");
-        require(!m.isResolved,                             "EP: resolved");
-        require(address(optimisticOracle) != address(0),   "EP: oracle not set");
-        require(defaultBondCurrency != address(0),         "EP: bond currency not set");
-        require(optionId > 0 && optionId <= m.maxOptions, "EP: invalid option");
+        require(m.marketType == MarketType.P2POPTIMISTIC,  "EP: not P2POPTIMISTIC");
+        require(m.p2pAssertionMade,                         "EP: no assertion");
+        require(!m.isResolved,                              "EP: resolved");
+        require(m.p2pDisputedOptionId == 0,                 "EP: already disputed");
+        require(address(optimisticOracle) != address(0),    "EP: oracle not set");
+        require(defaultBondCurrency != address(0),          "EP: bond currency not set");
+        require(optionId > 0 && optionId <= m.maxOptions,  "EP: invalid option");
 
         uint256 bond = optimisticOracle.getMinimumBond(defaultBondCurrency);
 
@@ -487,15 +508,17 @@ contract P2PMarketManager is Ownable {
 
         optimisticOracle.disputeAssertion(m.p2pAssertionId, msg.sender);
 
-        // Store the disputed option so we can resolve to it if dispute wins
         m.p2pDisputedOptionId = optionId;
 
-        emit OracleDisputed(marketId, m.p2pAssertionId, msg.sender);
+        emit OracleDisputed(marketId, m.p2pAssertionId, msg.sender, optionId);
     }
 
     /**
      * @notice Step 3 — Settle the oracle assertion after expiration.
-     *         Anyone can call. Triggers vote resolution inside the oracle if needed.
+     *         Anyone can call. Internally triggers vote resolution if the vote has closed.
+     *
+     * @dev Will revert with "OO: vote window still open" if called before
+     *      the vote window closes. Try again once the voting period ends.
      */
     function settleOracle(uint256 marketId) external {
         Market storage m = markets[marketId];
@@ -510,9 +533,14 @@ contract P2PMarketManager is Ownable {
      * @notice Step 4 — Resolve the market using the settled oracle result.
      *
      *  Two outcomes:
-     *    • result = true  → assertion was accepted; market resolves with the asserted optionId.
-     *    • result = false → assertion was rejected (disputer won); market is cancelled
-     *                       so all stakers can claim refunds. The true outcome is unknown.
+     *    • oracleResult = true  → assertion accepted; market resolves with the asserted optionId.
+     *    • oracleResult = false → assertion rejected (disputer won); market resolves with
+     *                             the disputed optionId the disputer supplied.
+     *
+     *  Note: oracleResult=false can ONLY occur if disputeOracle() was called, which
+     *  always sets p2pDisputedOptionId > 0. There is no path where this value is 0
+     *  when oracleResult=false — the oracle only returns false after a successful
+     *  community vote rejecting the assertion (Path B in the oracle).
      */
     function resolveP2PMarket(uint256 marketId) external {
         Market storage m = markets[marketId];
@@ -525,45 +553,39 @@ contract P2PMarketManager is Ownable {
 
         emit OracleResultProcessed(marketId, m.p2pAssertionId, oracleResult);
 
+        uint256 optionId;
         if (oracleResult) {
-            // Assertion accepted — decode the winning option from callbackData
-            (, uint256 optionId) = abi.decode(callbackData, (uint256, uint256));
-
-            require(optionId > 0 && optionId <= m.maxOptions, "EP: bad option from oracle");
-
-            m.winningOption = optionId;
-            m.isResolved    = true;
-            m.state         = MarketState.Resolved;
-
-            _distributeFees(marketId);
-            _trackResolution(marketId, m.winningOption);
-            emit MarketResolved(marketId, m.winningOption);
-
+            // Assertion accepted — decode winning option from callbackData
+            (, optionId) = abi.decode(callbackData, (uint256, uint256));
         } else {
-            // Assertion rejected — dispute won. Resolve to the disputed option.
-            require(m.p2pDisputedOptionId > 0 && m.p2pDisputedOptionId <= m.maxOptions, "EP: no disputed option");
-
-            m.winningOption = m.p2pDisputedOptionId;
-            m.isResolved    = true;
-            m.state         = MarketState.Resolved;
-
-            _distributeFees(marketId);
-            _trackResolution(marketId, m.winningOption);
-            emit MarketResolved(marketId, m.winningOption);
+            // Assertion rejected — disputer's option wins.
+            // p2pDisputedOptionId is always set here (see NatSpec above).
+            optionId = m.p2pDisputedOptionId;
         }
+
+        require(optionId > 0 && optionId <= m.maxOptions, "EP: bad option");
+
+        m.winningOption     = optionId;
+        m.resolvedPrice     = 0;
+        m.isResolved        = true;
+        m.resolvedTimestamp = block.timestamp;
+        m.state             = MarketState.Resolved;
+
+        _distributeFees(marketId);
+        _trackResolution(marketId, m.winningOption);
+        emit MarketResolved(marketId, m.winningOption);
+        emit MarketResolvedDetailed(marketId, m.winningOption, m.resolvedTimestamp, 0);
     }
 
     /**
      * @notice Cancel a P2POPTIMISTIC market if nobody made an assertion within the
      *         grace period after endTime. Allows stakers to claim full refunds.
-     *
-     *         This prevents permanent fund-lock when the market ends but no one asserts.
      */
     function cancelMarketNoAssertion(uint256 marketId) external {
         Market storage m = markets[marketId];
-        require(m.marketType == MarketType.P2POPTIMISTIC,         "EP: not P2POPTIMISTIC");
-        require(m.state == MarketState.Ended,                      "EP: not ended");
-        require(!m.p2pAssertionMade,                               "EP: assertion exists");
+        require(m.marketType == MarketType.P2POPTIMISTIC,           "EP: not P2POPTIMISTIC");
+        require(m.state == MarketState.Ended,                        "EP: not ended");
+        require(!m.p2pAssertionMade,                                 "EP: assertion exists");
         require(block.timestamp >= m.endTime + assertionGracePeriod, "EP: grace period active");
 
         _cancelMarket(marketId, unicode"No assertion made — refunds available");
@@ -571,13 +593,13 @@ contract P2PMarketManager is Ownable {
 
     /**
      * @notice Cancel a market after the full resolution period expires without resolution.
-     *         Works for both market types. Serves as the last-resort escape hatch.
+     *         Last-resort escape hatch for both market types.
      */
     function cancelMarket(uint256 marketId) external {
         Market storage m = markets[marketId];
-        require(m.state == MarketState.Ended,                  "EP: not ended");
-        require(block.timestamp >= m.resolutionEndTime,         "EP: resolution period active");
-        require(!m.isResolved,                                  "EP: already resolved");
+        require(m.state == MarketState.Ended,                "EP: not ended");
+        require(block.timestamp >= m.resolutionEndTime,       "EP: resolution period active");
+        require(!m.isResolved,                                "EP: already resolved");
 
         _cancelMarket(marketId, "Resolution period expired");
     }
@@ -612,9 +634,9 @@ contract P2PMarketManager is Ownable {
 
     function claimWinnings(uint256 marketId) external {
         Market storage m = markets[marketId];
-        require(m.state == MarketState.Resolved,                      "EP: not resolved");
-        require(m.winningOption > 0,                                   "EP: no winner");
-        require(userHasStaked[marketId][msg.sender],                   "EP: no stake");
+        require(m.state == MarketState.Resolved,                          "EP: not resolved");
+        require(m.winningOption > 0,                                       "EP: no winner");
+        require(userHasStaked[marketId][msg.sender],                       "EP: no stake");
         require(!PoolVault(treasury).hasUserClaimed(marketId, msg.sender), "EP: claimed");
 
         uint256 winnings = _calculateWinnings(marketId, msg.sender);
@@ -634,58 +656,89 @@ contract P2PMarketManager is Ownable {
 
     // ─── Internal helpers ─────────────────────────────────────────────────────
 
+    /**
+     * @notice Calculate winnings for a user in a resolved market.
+     *
+     * Fee model (fees from losingPool only):
+     *   losingPool   = sum of all non-winning option stakes + support pool
+     *   creatorFee   = losingPool * CREATOR_FEE_BPS  / 10_000
+     *   platformFee  = losingPool * PLATFORM_FEE_BPS / 10_000
+     *   winningsPool = losingPool * NET_WINNER_BPS   / 10_000
+     *
+     *   payout = userStake + (userStake / totalWinningStake) * winningsPool
+     *
+     * Invariant: sum(all payouts) + creatorFee + platformFee == totalPool
+     */
     function _calculateWinnings(uint256 marketId, address user) internal view returns (uint256) {
-        Market storage m          = markets[marketId];
+        Market storage m = markets[marketId];
+
         uint256 userStake         = PoolVault(treasury).getUserStake(marketId, user, m.paymentToken);
         uint256 totalWinningStake = PoolVault(treasury).getOptionPool(marketId, m.winningOption, m.paymentToken);
 
-        uint256 totalLosingPool;
-        for (uint256 i = 1; i <= m.maxOptions; i++) {
-            if (i != m.winningOption)
-                totalLosingPool += PoolVault(treasury).getOptionPool(marketId, i, m.paymentToken);
-        }
-        totalLosingPool += PoolVault(treasury).getSupportPool(marketId, m.paymentToken);
-
-        if (totalWinningStake == 0) return 0;
+        uint256 losingPool = _getLosingPool(marketId);
 
         bool isWinner = userStakeOptions[marketId][user] == m.winningOption;
         if (!isWinner) return 0;
+        if (totalWinningStake == 0) return 0;
+        if (losingPool == 0) return userStake; // All-win: everyone gets stake back
 
-        if (totalLosingPool == 0) return userStake; // all-win: everyone gets stake back
-
-        uint256 winningsPool = (totalLosingPool * 9_000) / 10_000; // 90% after 10% fees
+        // winningsPool is what remains of losingPool after creator + platform fees
+        uint256 winningsPool = (losingPool * NET_WINNER_BPS) / 10_000;
         return userStake + (userStake * winningsPool) / totalWinningStake;
     }
 
+    /**
+     * @notice Distribute creator and platform fees on market resolution.
+     *
+     *  Fees come from the losing pool only, ensuring:
+     *    sum(winner payouts) + creatorFee + platformFee == totalPool
+     *
+     *  Edge cases:
+     *    • All-win (losingPool == 0): no fees taken.
+     *    • All-lose (totalWinningStake == 0): platform takes all after creator fee.
+     */
     function _distributeFees(uint256 marketId) internal {
         Market storage m = markets[marketId];
 
-        uint256 totalLosingPool;
-        for (uint256 i = 1; i <= m.maxOptions; i++) {
-            if (i != m.winningOption)
-                totalLosingPool += PoolVault(treasury).getOptionPool(marketId, i, m.paymentToken);
-        }
-        totalLosingPool += PoolVault(treasury).getSupportPool(marketId, m.paymentToken);
-
         uint256 totalWinningStake = PoolVault(treasury).getOptionPool(marketId, m.winningOption, m.paymentToken);
-        uint256 totalPool         = PoolVault(treasury).getMarketPool(marketId, m.paymentToken);
+        uint256 losingPool        = _getLosingPool(marketId);
 
-        uint256 creatorFee  = (totalPool * CREATOR_FEE_BPS)  / 10_000;
-        uint256 platformFee = (totalPool * PLATFORM_FEE_BPS) / 10_000;
+        if (losingPool == 0) {
+            // All-win: everyone gets stake back. No fees.
+            return;
+        }
+
+        uint256 creatorFee  = (losingPool * CREATOR_FEE_BPS)  / 10_000;
+        uint256 platformFee = (losingPool * PLATFORM_FEE_BPS) / 10_000;
 
         if (totalWinningStake == 0) {
-            // All-lose: platform keeps everything after creator fee
+            // All-lose: no winners. Platform takes all after creator fee.
             if (creatorFee > 0)
                 PoolVault(treasury).transferToCreator(m.creator, m.paymentToken, creatorFee);
-            uint256 platformTotal = totalPool - creatorFee;
+            uint256 platformTotal = losingPool - creatorFee; // includes what would have been NET_WINNER_BPS
             if (platformTotal > 0)
                 PoolVault(treasury).addToPlatformPool(m.paymentToken, platformTotal);
-        } else if (totalLosingPool == 0) {
-            // All-win: no fees taken
         } else {
+            // Normal case: distribute creator and platform fees from the losing pool.
             if (creatorFee  > 0) PoolVault(treasury).transferToCreator(m.creator, m.paymentToken, creatorFee);
             if (platformFee > 0) PoolVault(treasury).distributeFees(m.paymentToken, platformFee);
+            // The remaining losingPool * NET_WINNER_BPS / 10_000 stays in the vault
+            // to be claimed by winners via claimWinnings().
         }
+    }
+
+    /**
+     * @notice Sum of all non-winning stakes plus the support pool.
+     */
+    function _getLosingPool(uint256 marketId) internal view returns (uint256) {
+        Market storage m = markets[marketId];
+        uint256 losingPool;
+        for (uint256 i = 1; i <= m.maxOptions; i++) {
+            if (i != m.winningOption)
+                losingPool += PoolVault(treasury).getOptionPool(marketId, i, m.paymentToken);
+        }
+        losingPool += PoolVault(treasury).getSupportPool(marketId, m.paymentToken);
+        return losingPool;
     }
 
     function _cancelMarket(uint256 marketId, string memory reason) internal {
@@ -770,9 +823,9 @@ contract P2PMarketManager is Ownable {
     }
 
     function markMarketDeleted(uint256 marketId) external {
-        require(msg.sender == adminManager,              "EP: only AdminManager");
-        require(marketId < nextMarketId,                 "EP: bad ID");
-        require(markets[marketId].creator != address(0), "EP: no market");
+        require(msg.sender == adminManager,               "EP: only AdminManager");
+        require(marketId < nextMarketId,                  "EP: bad ID");
+        require(markets[marketId].creator != address(0),  "EP: no market");
         require(markets[marketId].state != MarketState.Deleted, "EP: already deleted");
 
         markets[marketId].state = MarketState.Deleted;
@@ -781,8 +834,8 @@ contract P2PMarketManager is Ownable {
     }
 
     function markMarketPermanentlyRemoved(uint256 marketId) external {
-        require(msg.sender == adminManager,                        "EP: only AdminManager");
-        require(markets[marketId].state == MarketState.Resolved,   "EP: not resolved");
+        require(msg.sender == adminManager,                      "EP: only AdminManager");
+        require(markets[marketId].state == MarketState.Resolved, "EP: not resolved");
         delete markets[marketId];
         if (isActiveMarket[marketId]) _removeFromActiveMarkets(marketId);
         emit MarketCancelled(marketId, "Permanently removed");
@@ -832,5 +885,3 @@ contract P2PMarketManager is Ownable {
 
     receive() external payable {}
 }
-
-

@@ -297,6 +297,20 @@ const VOTING_ABI = [
   },
   {
     inputs: [{ name: "voter", type: "address" }],
+    name: "lockedBalance",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "voter", type: "address" }],
+    name: "getFreeBalance",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "voter", type: "address" }],
     name: "stakedBalance",
     outputs: [{ name: "", type: "uint256" }],
     stateMutability: "view",

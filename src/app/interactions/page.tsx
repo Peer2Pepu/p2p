@@ -85,7 +85,21 @@ const VOTING_ABI = [
   },
   {
     inputs: [{ name: "voter", type: "address" }],
-    name: "lockedStake",
+    name: "lockedBalance",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "voter", type: "address" }],
+    name: "getFreeBalance",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "slashBps",
     outputs: [{ name: "", type: "uint256" }],
     stateMutability: "view",
     type: "function",
@@ -207,14 +221,30 @@ export default function InteractionsPage() {
   const { data: lockedStakeData, refetch: refetchLockedStake } = useReadContract({
     address: votingContractAddress as `0x${string}` | undefined,
     abi: VOTING_ABI,
-    functionName: "lockedStake",
+    functionName: "lockedBalance",
     args: address ? [address] : undefined,
     query: { enabled: votingEnabled },
   });
 
+  const { data: freeBalanceData, refetch: refetchFreeBalance } = useReadContract({
+    address: votingContractAddress as `0x${string}` | undefined,
+    abi: VOTING_ABI,
+    functionName: "getFreeBalance",
+    args: address ? [address] : undefined,
+    query: { enabled: votingEnabled },
+  });
+
+  const { data: slashBpsData } = useReadContract({
+    address: votingContractAddress as `0x${string}` | undefined,
+    abi: VOTING_ABI,
+    functionName: "slashBps",
+    query: { enabled: !!votingContractAddress },
+  });
+
   const stakedBalance = (stakedBalanceData as bigint | undefined) || BigInt(0);
   const lockedStake = (lockedStakeData as bigint | undefined) || BigInt(0);
-  const availableToUnstake = stakedBalance > lockedStake ? stakedBalance - lockedStake : BigInt(0);
+  const availableToUnstake = (freeBalanceData as bigint | undefined) ?? (stakedBalance > lockedStake ? stakedBalance - lockedStake : BigInt(0));
+  const slashBps = (slashBpsData as bigint | undefined) ?? BigInt(0);
 
   // ─── Allowances ────────────────────────────────────────────────────────────
   const allowEnabled = erc20Enabled && !!address && !!MARKET_MANAGER_ADDRESS && !!votingContractAddress;
@@ -290,12 +320,14 @@ export default function InteractionsPage() {
       setTimeout(() => setSuccess(""), clearIn);
       refetchStakedBalance();
       refetchLockedStake();
+      refetchFreeBalance();
       // allowance might stay the same, but UI is okay without refetch
     } else if (pendingAction === "unstake") {
       setSuccess("✅ Unstaked from voting contract");
       setTimeout(() => setSuccess(""), clearIn);
       refetchStakedBalance();
       refetchLockedStake();
+      refetchFreeBalance();
     }
 
     setPendingAction(null);
@@ -307,6 +339,7 @@ export default function InteractionsPage() {
     refetchAllowanceVoting,
     refetchStakedBalance,
     refetchLockedStake,
+    refetchFreeBalance,
   ]);
 
   const isOracleConfigured = useMemo(() => {
@@ -583,6 +616,12 @@ export default function InteractionsPage() {
                         <span className={cls("text-[16px] font-semibold tabular-nums text-right", dark("text-[#39FF14]", "text-emerald-700"))}>
                           {formatTokenAmount(availableToUnstake)}{" "}
                           <span className={cls("text-[12px] font-semibold opacity-70 ml-1", dark("text-[#39FF14]", "text-emerald-700"))}>{tokenSymbol}</span>
+                        </span>
+                      </div>
+                      <div className={cls("grid grid-cols-[1fr_auto] items-center gap-x-4", dark("text-white/70", "text-gray-600"))}>
+                        <span className="text-[14px]">Wrong-vote slash rate</span>
+                        <span className={cls("text-[16px] font-semibold tabular-nums text-right", dark("text-white", "text-gray-900"))}>
+                          {(Number(slashBps) / 100).toFixed(2)}%
                         </span>
                       </div>
                     </div>

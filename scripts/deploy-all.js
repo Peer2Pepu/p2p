@@ -89,11 +89,11 @@ async function main() {
     // 11. Configure P2P Optimistic Oracle (using existing deployed addresses from oracle-docs.md)
     console.log("\n11. Configuring P2P Optimistic Oracle...");
     
-    // Latest addresses from oracle-docs.md:
-    // P2POptimisticOracleV2: 0xfd52d7EBa4Cfc72c8001c8512fBbFb4BAb043DA6
-    // P2PVoting: 0x17e603B507E99CbceE1183Bb1A144b56F02921BF
-    const P2P_OPTIMISTIC_ORACLE = "0xfd52d7EBa4Cfc72c8001c8512fBbFb4BAb043DA6";
-    const P2P_VOTING = "0x17e603B507E99CbceE1183Bb1A144b56F02921BF";
+    // Latest oracle stack addresses (from oracle/p2p-oracle/p2p-oracle-addresses.json):
+    // P2POptimisticOracleV2: 0xB33695131Cbaf9dc120995f94786B00F06749171
+    // P2PVoting: 0xCA6a469a90f504fA10E72Fe3d81414c7D49dA950
+    const P2P_OPTIMISTIC_ORACLE = "0xB33695131Cbaf9dc120995f94786B00F06749171";
+    const P2P_VOTING = "0xCA6a469a90f504fA10E72Fe3d81414c7D49dA950";
     
     console.log("   Using P2P OptimisticOracleV2 address:", P2P_OPTIMISTIC_ORACLE);
     console.log("   Using P2P Voting address:", P2P_VOTING);
