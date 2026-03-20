@@ -395,12 +395,14 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
   // We primarily rely on `priceFeed` being non-zero, because some markets may have
   // `marketType` values that are inconsistent with the UI mapping.
   const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+  const SENTINEL_NON_FEED_ADDRESS = "0x0000000000000000000000000000000000000001";
   const marketTypeValue = market?.marketType !== undefined ? Number(market.marketType) : null;
   const priceFeedAddress = market?.priceFeed?.toLowerCase();
   const isPriceFeedMarket =
     !!market &&
     !!priceFeedAddress &&
-    priceFeedAddress !== ZERO_ADDRESS;
+    priceFeedAddress !== ZERO_ADDRESS &&
+    priceFeedAddress !== SENTINEL_NON_FEED_ADDRESS;
   const chartConfig = priceFeedAddress ? PRICE_FEED_TO_CHART_CONFIG[priceFeedAddress] : null;
   const chartUrl = getChartUrl(chartConfig, isDarkMode);
 
