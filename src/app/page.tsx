@@ -756,36 +756,35 @@ export default function HomePage() {
               <div className="flex items-center gap-2 lg:gap-4">
                 <div className="relative filters-dropdown">
                   <button
-                    className={`flex items-center gap-1 px-2 py-1.5 border rounded text-xs lg:text-sm transition-colors ${
+                    className={`p-1 transition-colors ${
                       isDarkMode 
-                        ? 'bg-black border-[#39FF14]/30 text-white hover:bg-[#39FF14]/10' 
-                        : 'bg-[#F5F3F0] border-gray-300 text-gray-900 hover:bg-gray-50'
+                        ? 'text-white/85 hover:text-white' 
+                        : 'text-gray-700 hover:text-gray-900'
                     }`}
                     onClick={() => setShowFilters(!showFilters)}
+                    aria-label="Toggle filters"
                   >
-                    <Filter size={14} className={isDarkMode ? 'text-white' : ''} />
-                    <span className="hidden sm:inline">Filters</span>
-                    <ChevronDown size={12} className={isDarkMode ? 'text-white' : ''} />
+                    <Filter size={17} />
                   </button>
                   
                   {showFilters && (
-                    <div className={`absolute top-full right-0 mt-1 w-48 rounded-lg border shadow-lg z-50 ${
-                      isDarkMode ? 'bg-black border-[#39FF14]/30' : 'bg-[#F5F3F0] border-gray-200'
+                    <div className={`absolute top-full right-0 mt-2 w-56 rounded-xl border shadow-lg z-50 ${
+                      isDarkMode ? 'bg-[#0f1115] border-white/15' : 'bg-white border-gray-200'
                     }`}>
                       <div className="p-3 space-y-3">
                         <div>
                           <label className={`block text-xs font-medium mb-1 ${
-                            isDarkMode ? 'text-[#39FF14]' : 'text-gray-700'
+                            isDarkMode ? 'text-white/90' : 'text-gray-700'
                           }`}>
                             Market Type
                           </label>
                           <select
                             value={filterMarketType}
                             onChange={(e) => setFilterMarketType(e.target.value)}
-                            className={`w-full px-2 py-1.5 border rounded text-xs ${
+                            className={`w-full px-2.5 py-2 border rounded-md text-xs focus:outline-none ${
                               isDarkMode 
-                                ? 'bg-black border-[#39FF14]/30 text-[#39FF14]' 
-                                : 'bg-[#F5F3F0] border-gray-300 text-gray-900'
+                                ? 'bg-[#161a22] border-white/20 text-white focus:ring-1 focus:ring-white/30' 
+                                : 'bg-[#F9FAFB] border-gray-300 text-gray-900 focus:ring-1 focus:ring-gray-300'
                             }`}
                           >
                             <option value="all">All Types</option>
@@ -796,17 +795,17 @@ export default function HomePage() {
                         
                         <div>
                           <label className={`block text-xs font-medium mb-1 ${
-                            isDarkMode ? 'text-[#39FF14]' : 'text-gray-700'
+                            isDarkMode ? 'text-white/90' : 'text-gray-700'
                           }`}>
                             Token
                           </label>
                           <select
                             value={filterToken}
                             onChange={(e) => setFilterToken(e.target.value)}
-                            className={`w-full px-2 py-1.5 border rounded text-xs ${
+                            className={`w-full px-2.5 py-2 border rounded-md text-xs focus:outline-none ${
                               isDarkMode 
-                                ? 'bg-black border-[#39FF14]/30 text-[#39FF14]' 
-                                : 'bg-[#F5F3F0] border-gray-300 text-gray-900'
+                                ? 'bg-[#161a22] border-white/20 text-white focus:ring-1 focus:ring-white/30' 
+                                : 'bg-[#F9FAFB] border-gray-300 text-gray-900 focus:ring-1 focus:ring-gray-300'
                             }`}
                           >
                             <option value="all">All Tokens</option>
@@ -819,17 +818,17 @@ export default function HomePage() {
                         
                         <div>
                           <label className={`block text-xs font-medium mb-1 ${
-                            isDarkMode ? 'text-[#39FF14]' : 'text-gray-700'
+                            isDarkMode ? 'text-white/90' : 'text-gray-700'
                           }`}>
                             Category
                           </label>
                           <select
                             value={filterCategory}
                             onChange={(e) => setFilterCategory(e.target.value)}
-                            className={`w-full px-2 py-1.5 border rounded text-xs ${
+                            className={`w-full px-2.5 py-2 border rounded-md text-xs focus:outline-none ${
                               isDarkMode 
-                                ? 'bg-black border-[#39FF14]/30 text-[#39FF14]' 
-                                : 'bg-[#F5F3F0] border-gray-300 text-gray-900'
+                                ? 'bg-[#161a22] border-white/20 text-white focus:ring-1 focus:ring-white/30' 
+                                : 'bg-[#F9FAFB] border-gray-300 text-gray-900 focus:ring-1 focus:ring-gray-300'
                             }`}
                           >
                             <option value="all">All Categories</option>
@@ -846,17 +845,17 @@ export default function HomePage() {
                         
                         <div>
                           <label className={`block text-xs font-medium mb-1 ${
-                            isDarkMode ? 'text-[#39FF14]' : 'text-gray-700'
+                            isDarkMode ? 'text-white/90' : 'text-gray-700'
                           }`}>
                             Sort By
                           </label>
                           <select
                             value={sortBy}
                             onChange={(e) => setSortBy(e.target.value as 'newest' | 'oldest' | 'ending_soon')}
-                            className={`w-full px-2 py-1.5 border rounded text-xs ${
+                            className={`w-full px-2.5 py-2 border rounded-md text-xs focus:outline-none ${
                               isDarkMode 
-                                ? 'bg-black border-[#39FF14]/30 text-[#39FF14]' 
-                                : 'bg-[#F5F3F0] border-gray-300 text-gray-900'
+                                ? 'bg-[#161a22] border-white/20 text-white focus:ring-1 focus:ring-white/30' 
+                                : 'bg-[#F9FAFB] border-gray-300 text-gray-900 focus:ring-1 focus:ring-gray-300'
                             }`}
                           >
                             <option value="newest">Newest</option>

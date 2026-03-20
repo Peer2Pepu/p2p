@@ -192,9 +192,38 @@ export function HeaderWallet({ isDarkMode }: HeaderWalletProps) {
 
   if (!isConnected) {
     return (
-      <div className="scale-90 lg:scale-100">
-        <ConnectButton />
-      </div>
+      <ConnectButton.Custom>
+        {({ mounted, openConnectModal }) => {
+          const ready = mounted;
+
+          return (
+            <div
+              className="scale-90 lg:scale-100"
+              {...(!ready && {
+                'aria-hidden': true,
+                style: {
+                  opacity: 0,
+                  pointerEvents: 'none',
+                  userSelect: 'none',
+                },
+              })}
+            >
+              <button
+                onClick={openConnectModal}
+                type="button"
+                className={`px-3 lg:px-4 py-2 rounded-lg text-xs lg:text-sm font-medium transition-colors ${
+                  isDarkMode
+                    ? 'bg-[#39FF14]/10 text-white border border-[#39FF14]/30 hover:bg-[#39FF14]/15'
+                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                }`}
+              >
+                <span className="sm:hidden">Connect</span>
+                <span className="hidden sm:inline">Connect Wallet</span>
+              </button>
+            </div>
+          );
+        }}
+      </ConnectButton.Custom>
     );
   }
 
@@ -211,8 +240,8 @@ export function HeaderWallet({ isDarkMode }: HeaderWalletProps) {
       >
         <div className={`flex items-center gap-1.5 lg:gap-2 px-2 lg:px-3 py-1.5 rounded text-xs lg:text-sm font-medium cursor-pointer transition-all ${
           isDarkMode 
-            ? 'bg-[#39FF14]/10 text-white border border-[#39FF14]/30 hover:bg-[#39FF14]/15' 
-            : 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+            ? 'text-white hover:bg-white/10' 
+            : 'text-gray-900 hover:bg-gray-100'
         }`}>
           {profile.image ? (
             <img 

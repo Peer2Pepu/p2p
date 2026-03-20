@@ -16,6 +16,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Peer2Pepu - Decentralized Prediction Markets",
   description: "Bet on What's Next. Peer-to-Peer. No Middleman. Stake on real-world events and earn from your predictions.",
+  icons: {
+    icon: "/lOGOgreen.svg",
+    shortcut: "/lOGOgreen.svg",
+    apple: "/lOGOgreen.svg",
+  },
 };
 
 export default function RootLayout({
