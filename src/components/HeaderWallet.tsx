@@ -5,26 +5,160 @@ import { useAccount } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { Wallet } from 'lucide-react';
 import { UserProfile } from '@/types/profile';
+import { SeedAvatar } from '@/components/SeedAvatar';
 
 interface HeaderWalletProps {
   isDarkMode: boolean;
 }
 
-// Generate initials from name
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) {
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+function hashStringToUint32(str: string): number {
+  // Simple deterministic hash -> uint32
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
   }
-  return name.substring(0, 2).toUpperCase();
+  return h >>> 0;
 }
 
-// Generate a gradient color based on address
-function getGradientFromAddress(address: string): string {
-  // Use last 6 chars of address to generate consistent color
-  const hash = address.slice(-6);
-  const hue = parseInt(hash, 16) % 360;
-  return `hsl(${hue}, 70%, 50%)`;
+function mulberry32(seed: number): () => number {
+  return function () {
+    let t = (seed += 0x6d2b79f5);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function DeterministicAvatar({
+  seed,
+  isDarkMode,
+}: {
+  seed: string;
+  isDarkMode: boolean;
+}) {
+  const safeSeed = seed.trim() || 'user';
+  const s = hashStringToUint32(safeSeed);
+  const rand = mulberry32(s);
+
+  const palettes = isDarkMode
+    ? [
+        ['#39FF14', '#0B3D12'],
+        ['#60A5FA', '#0B1B2E'],
+        ['#A78BFA', '#1B1236'],
+        ['#FCA5A5', '#3B1212'],
+        ['#FBBF24', '#3A2A00'],
+      ]
+    : [
+        ['#10B981', '#064E3B'],
+        ['#2563EB', '#1E3A8A'],
+        ['#7C3AED', '#3B0764'],
+        ['#F97316', '#7C2D12'],
+        ['#F59E0B', '#4B2A00'],
+      ];
+
+  const paletteIndex = Math.floor(rand() * palettes.length) % palettes.length;
+  const [bg, accent] = palettes[paletteIndex];
+
+  // Choose between a few shape variants (still text-free)
+  const variant = Math.floor(rand() * 5);
+
+  // Precompute some positions
+  const dots = Array.from({ length: 6 }).map((_, i) => {
+    const x = 8 + rand() * 24;
+    const y = 8 + rand() * 24;
+    const r = 1.2 + rand() * 2.2;
+    const t = i / 5;
+    return { x, y, r, t };
+  });
+
+  return (
+    <svg viewBox="0 0 40 40" className="w-full h-full" aria-hidden="true">
+      <defs>
+        <linearGradient id={`g-${s}`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor={bg} stopOpacity="1" />
+          <stop offset="100%" stopColor={accent} stopOpacity="0.95" />
+        </linearGradient>
+      </defs>
+
+      <circle cx="20" cy="20" r="18.5" fill={`url(#g-${s})`} />
+      <circle cx="20" cy="20" r="18.5" fill="none" stroke={isDarkMode ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)'} strokeWidth="1" />
+
+      {variant === 0 && (
+        <>
+          {dots.map((d, i) => (
+            <circle key={i} cx={d.x} cy={d.y} r={d.r} fill={isDarkMode ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.65)'} />
+          ))}
+        </>
+      )}
+
+      {variant === 1 && (
+        <>
+          {dots.map((d, i) => (
+            <rect
+              key={i}
+              x={d.x - d.r}
+              y={d.y - d.r}
+              width={d.r * 2}
+              height={d.r * 2}
+              rx={Math.max(1, d.r)}
+              fill={isDarkMode ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.65)'}
+              transform={`rotate(${(rand() * 60 - 30).toFixed(2)} ${d.x} ${d.y})`}
+            />
+          ))}
+        </>
+      )}
+
+      {variant === 2 && (
+        <>
+          <path
+            d={`M ${10 + rand() * 4} ${8 + rand() * 6} C ${18 + rand() * 8} ${4 + rand() * 10}, ${22 + rand() * 8} ${22 + rand() * 8}, ${30 - rand() * 4} ${30 - rand() * 6}`}
+            fill="none"
+            stroke={isDarkMode ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.65)'}
+            strokeWidth="3"
+            strokeLinecap="round"
+          />
+          {dots.slice(0, 4).map((d, i) => (
+            <circle key={i} cx={d.x} cy={d.y} r={d.r} fill={accent} opacity="0.35" />
+          ))}
+        </>
+      )}
+
+      {variant === 3 && (
+        <>
+          <polygon
+            points={`${12 + rand() * 5},${30 - rand() * 6} ${28 - rand() * 6},${26 - rand() * 6} ${18 + rand() * 6},${10 + rand() * 6}`}
+            fill={isDarkMode ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.65)'}
+            opacity="0.95"
+          />
+          {dots.slice(0, 5).map((d, i) => (
+            <circle key={i} cx={d.x} cy={d.y} r={d.r} fill={accent} opacity="0.4" />
+          ))}
+        </>
+      )}
+
+      {variant === 4 && (
+        <>
+          {Array.from({ length: 4 }).map((_, i) => {
+            const y = 12 + i * 5 + rand() * 1.5;
+            return (
+              <path
+                key={i}
+                d={`M ${6} ${y} C ${14} ${y - 3}, ${26} ${y + 3}, ${34} ${y}`}
+                fill="none"
+                stroke={isDarkMode ? 'rgba(0,0,0,0.22)' : 'rgba(255,255,255,0.65)'}
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            );
+          })}
+          {dots.slice(0, 3).map((d, i) => (
+            <circle key={i} cx={d.x} cy={d.y} r={d.r} fill={accent} opacity="0.45" />
+          ))}
+        </>
+      )}
+    </svg>
+  );
 }
 
 export function HeaderWallet({ isDarkMode }: HeaderWalletProps) {
@@ -67,8 +201,7 @@ export function HeaderWallet({ isDarkMode }: HeaderWalletProps) {
   // Show profile if available
   if (profile && !isLoading) {
     const displayName = profile.display_name || profile.username || 'User';
-    const initials = getInitials(displayName);
-    const gradientColor = address ? getGradientFromAddress(address) : '#39FF14';
+    const seed = displayName;
 
     return (
       <div 
@@ -89,10 +222,9 @@ export function HeaderWallet({ isDarkMode }: HeaderWalletProps) {
             />
           ) : (
             <div 
-              className="w-5 h-5 lg:w-6 lg:h-6 rounded-full flex items-center justify-center text-[10px] lg:text-xs font-bold text-white shadow-sm"
-              style={{ backgroundColor: gradientColor }}
+              className="w-5 h-5 lg:w-6 lg:h-6 rounded-full overflow-hidden shadow-sm border-2 border-current/10"
             >
-              {initials}
+              <SeedAvatar seed={seed} isDarkMode={isDarkMode} className="w-full h-full" />
             </div>
           )}
           <span className="font-medium">

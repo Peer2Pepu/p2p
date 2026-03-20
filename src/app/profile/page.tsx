@@ -34,6 +34,7 @@ import { useTheme } from '../context/ThemeContext';
 import { formatEther } from 'viem';
 import { UserProfile, UserAnalytics, UserMarketData } from '@/types/profile';
 import { getUserMarketsFromSupabase, getUserMarketsByCreator } from '@/lib/profile';
+import { SeedAvatar } from '@/components/SeedAvatar';
 
 // Client-only wrapper to prevent hydration issues
 function ClientOnly({ children }: { children: React.ReactNode }) {
@@ -665,15 +666,17 @@ export default function ProfilePage() {
                       <div className="relative flex-shrink-0 mx-auto sm:mx-0">
                         <div className={`w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
                           {profile?.image ? (
-                            <img 
-                              src={profile.image} 
-                              alt="Profile" 
+                            <img
+                              src={profile.image}
+                              alt="Profile"
                               className="w-full h-full object-cover"
                             />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <User className={`h-6 w-6 sm:h-8 sm:w-8 ${isDarkMode ? 'text-white/60' : 'text-gray-400'}`} />
-                            </div>
+                            <SeedAvatar
+                              seed={profile?.display_name || profile?.username || profile?.address || 'user'}
+                              isDarkMode={isDarkMode}
+                              className="w-full h-full"
+                            />
                           )}
                         </div>
                       </div>

@@ -28,6 +28,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { formatEther } from 'viem';
 import { UserProfile, UserAnalytics, UserMarketData } from '@/types/profile';
 import { getUserMarketsFromSupabase, getUserMarketsByCreator } from '@/lib/profile';
+import { SeedAvatar } from '@/components/SeedAvatar';
 
 // Client-only wrapper to prevent hydration issues
 function ClientOnly({ children }: { children: React.ReactNode }) {
@@ -526,9 +527,11 @@ export default function ProfileViewPage() {
                               className="w-full h-full object-cover"
                             />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <User className={`h-8 w-8 ${isDarkMode ? 'text-white/60' : 'text-gray-400'}`} />
-                            </div>
+                            <SeedAvatar
+                              seed={profile?.display_name || profile?.username || profile?.address || 'user'}
+                              isDarkMode={isDarkMode}
+                              className="w-full h-full"
+                            />
                           )}
                         </div>
                       </div>
