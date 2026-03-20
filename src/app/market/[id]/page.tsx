@@ -332,6 +332,8 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
           fetchedMarket = await contractLegacy.getMarket(BigInt(marketId));
         }
 
+        const hasV2ResolvedFields = fetchedMarket?.resolvedTimestamp !== undefined;
+
         const normalizedMarket = {
           // Ethers tuple results are not safe to spread; read by field/index.
           creator: fetchedMarket?.creator ?? fetchedMarket?.[0],
@@ -349,12 +351,22 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
           state: fetchedMarket?.state ?? fetchedMarket?.[12],
           winningOption: fetchedMarket?.winningOption ?? fetchedMarket?.[13],
           isResolved: fetchedMarket?.isResolved ?? fetchedMarket?.[14],
-          // v2 fields (fallback to sane defaults when legacy ABI is used)
-          resolvedTimestamp: fetchedMarket?.resolvedTimestamp ?? fetchedMarket?.[15] ?? BigInt(0),
-          marketType: fetchedMarket?.marketType ?? fetchedMarket?.[16] ?? BigInt(0),
-          priceFeed: fetchedMarket?.priceFeed ?? fetchedMarket?.[17] ?? ZERO_ADDRESS,
-          priceThreshold: fetchedMarket?.priceThreshold ?? fetchedMarket?.[18] ?? BigInt(0),
-          resolvedPrice: fetchedMarket?.resolvedPrice ?? fetchedMarket?.[19] ?? BigInt(0),
+          // v2 adds resolvedTimestamp + resolvedPrice; legacy does not.
+          resolvedTimestamp: hasV2ResolvedFields
+            ? (fetchedMarket?.resolvedTimestamp ?? fetchedMarket?.[15] ?? BigInt(0))
+            : BigInt(0),
+          marketType: hasV2ResolvedFields
+            ? (fetchedMarket?.marketType ?? fetchedMarket?.[16] ?? BigInt(0))
+            : (fetchedMarket?.marketType ?? fetchedMarket?.[15] ?? BigInt(0)),
+          priceFeed: hasV2ResolvedFields
+            ? (fetchedMarket?.priceFeed ?? fetchedMarket?.[17] ?? ZERO_ADDRESS)
+            : (fetchedMarket?.priceFeed ?? fetchedMarket?.[16] ?? ZERO_ADDRESS),
+          priceThreshold: hasV2ResolvedFields
+            ? (fetchedMarket?.priceThreshold ?? fetchedMarket?.[18] ?? BigInt(0))
+            : (fetchedMarket?.priceThreshold ?? fetchedMarket?.[17] ?? BigInt(0)),
+          resolvedPrice: hasV2ResolvedFields
+            ? (fetchedMarket?.resolvedPrice ?? fetchedMarket?.[19] ?? BigInt(0))
+            : BigInt(0),
         };
 
         if (!cancelled) {
@@ -673,21 +685,28 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
     }
   }, [market]);
 
-  // Fetch stakers from API
+  // Fetch stakers + activity chart together so one refresh drives both panels.
   useEffect(() => {
-    const fetchStakers = async () => {
+    const fetchMarketActivity = async () => {
       if (!marketId || !market) {
+        setChartData([]);
+        setStakers([]);
+        setLoadingChart(false);
         setLoadingStakers(false);
         return;
       }
 
       try {
         setLoadingStakers(true);
-        const response = await fetch(`/api/market/${marketId}/stakers`);
+        setLoadingChart(true);
+        const response = await fetch(`/api/market/${marketId}/activity`);
         if (!response.ok) {
-          throw new Error('Failed to fetch stakers');
+          throw new Error('Failed to fetch market activity');
         }
-        const { stakers: stakersData } = await response.json();
+        const payload = await response.json();
+        const stakersData = payload?.stakers || [];
+        const processedData = payload?.chartData || [];
+        setChartData(processedData);
 
         // Fetch profiles for all stakers and mark creator
         const stakerList: StakerInfo[] = [];
@@ -716,46 +735,20 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
 
         setStakers(stakerList);
       } catch (error) {
-        console.error('Error fetching stakers:', error);
+        console.error('Error fetching market activity:', error);
+        setChartData([]);
         setStakers([]);
       } finally {
         setLoadingStakers(false);
+        setLoadingChart(false);
       }
     };
 
     if (market && marketId) {
-      fetchStakers();
+      fetchMarketActivity();
     } else if (!market || !marketId) {
+      setLoadingChart(false);
       setLoadingStakers(false);
-    }
-  }, [marketId, market]);
-
-  // Fetch chart data from API
-  useEffect(() => {
-    const fetchChartData = async () => {
-      if (!marketId || !market) {
-        setLoadingChart(false);
-        return;
-      }
-
-      try {
-        setLoadingChart(true);
-        const response = await fetch(`/api/market/${marketId}/chart`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch chart data');
-        }
-        const { chartData: processedData } = await response.json();
-        setChartData(processedData);
-      } catch (error) {
-        console.error('Error fetching chart data:', error);
-        setChartData([]);
-      } finally {
-        setLoadingChart(false);
-      }
-    };
-
-    if (market && marketId) {
-      fetchChartData();
     }
   }, [marketId, market]);
 
