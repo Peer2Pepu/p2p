@@ -333,9 +333,28 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
         }
 
         const normalizedMarket = {
-          ...fetchedMarket,
-          resolvedTimestamp: fetchedMarket?.resolvedTimestamp ?? BigInt(0),
-          resolvedPrice: fetchedMarket?.resolvedPrice ?? BigInt(0),
+          // Ethers tuple results are not safe to spread; read by field/index.
+          creator: fetchedMarket?.creator ?? fetchedMarket?.[0],
+          ipfsHash: fetchedMarket?.ipfsHash ?? fetchedMarket?.[1],
+          isMultiOption: fetchedMarket?.isMultiOption ?? fetchedMarket?.[2],
+          maxOptions: fetchedMarket?.maxOptions ?? fetchedMarket?.[3],
+          paymentToken: fetchedMarket?.paymentToken ?? fetchedMarket?.[4],
+          minStake: fetchedMarket?.minStake ?? fetchedMarket?.[5],
+          creatorDeposit: fetchedMarket?.creatorDeposit ?? fetchedMarket?.[6],
+          creatorOutcome: fetchedMarket?.creatorOutcome ?? fetchedMarket?.[7],
+          startTime: fetchedMarket?.startTime ?? fetchedMarket?.[8],
+          stakeEndTime: fetchedMarket?.stakeEndTime ?? fetchedMarket?.[9],
+          endTime: fetchedMarket?.endTime ?? fetchedMarket?.[10],
+          resolutionEndTime: fetchedMarket?.resolutionEndTime ?? fetchedMarket?.[11],
+          state: fetchedMarket?.state ?? fetchedMarket?.[12],
+          winningOption: fetchedMarket?.winningOption ?? fetchedMarket?.[13],
+          isResolved: fetchedMarket?.isResolved ?? fetchedMarket?.[14],
+          // v2 fields (fallback to sane defaults when legacy ABI is used)
+          resolvedTimestamp: fetchedMarket?.resolvedTimestamp ?? fetchedMarket?.[15] ?? BigInt(0),
+          marketType: fetchedMarket?.marketType ?? fetchedMarket?.[16] ?? BigInt(0),
+          priceFeed: fetchedMarket?.priceFeed ?? fetchedMarket?.[17] ?? ZERO_ADDRESS,
+          priceThreshold: fetchedMarket?.priceThreshold ?? fetchedMarket?.[18] ?? BigInt(0),
+          resolvedPrice: fetchedMarket?.resolvedPrice ?? fetchedMarket?.[19] ?? BigInt(0),
         };
 
         if (!cancelled) {

@@ -97,7 +97,7 @@ export async function GET(
     }
 
     // Add creator's stake if they have a creatorDeposit
-    if (creatorDeposit > 0) {
+    if (creatorDeposit > BigInt(0)) {
       if (stakerMap.has(creator)) {
         const existing = stakerMap.get(creator)!;
         stakerMap.set(creator, {

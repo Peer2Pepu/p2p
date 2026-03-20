@@ -86,11 +86,11 @@ export async function GET(
       cumulative += amount;
       
       processedData.push({
-        time: new Date(Number(block.timestamp) * 1000).toLocaleTimeString('en-US', { 
-          hour: '2-digit', 
-          minute: '2-digit',
+        time: new Date(Number(block.timestamp) * 1000).toLocaleString('en-US', {
           month: 'short',
-          day: 'numeric'
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
         }),
         volume: amount,
         cumulative: cumulative
@@ -99,11 +99,11 @@ export async function GET(
 
     if (processedData.length === 0) {
       processedData.push({
-        time: new Date(startTime * 1000).toLocaleTimeString('en-US', { 
-          hour: '2-digit', 
-          minute: '2-digit',
+        time: new Date(startTime * 1000).toLocaleString('en-US', {
           month: 'short',
-          day: 'numeric'
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
         }),
         volume: 0,
         cumulative: 0
