@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { 
@@ -31,6 +31,7 @@ import { useTheme } from '../context/ThemeContext';
 import { parseEther, formatEther } from 'viem';
 import { ethers } from 'ethers';
 import lighthouse from '@lighthouse-web3/sdk';
+import { getUserProfile } from '@/lib/profile';
 
 // Client-only wrapper to prevent hydration issues
 function ClientOnly({ children }: { children: React.ReactNode }) {
@@ -401,6 +402,32 @@ export default function CreateMarketPage() {
   };
 
   const { address, isConnected } = useAccount();
+  const router = useRouter();
+
+  const [userProfile, setUserProfile] = useState<any | null>(null);
+  const [loadingUserProfile, setLoadingUserProfile] = useState(false);
+  const [showProfileSignupModal, setShowProfileSignupModal] = useState(false);
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!isConnected || !address) {
+        setUserProfile(null);
+        return;
+      }
+
+      setLoadingUserProfile(true);
+      try {
+        const profile = await getUserProfile(address);
+        setUserProfile(profile);
+      } catch {
+        setUserProfile(null);
+      } finally {
+        setLoadingUserProfile(false);
+      }
+    };
+
+    loadProfile();
+  }, [address, isConnected]);
   const chainId = useChainId();
   const { disconnect } = useDisconnect();
   const { data: balance } = useBalance({
@@ -763,6 +790,18 @@ export default function CreateMarketPage() {
 
   // Show confirmation modal
   const handleCreateClick = () => {
+    if (!isConnected || !address) {
+      setError('Please connect your wallet to create a market');
+      return;
+    }
+    if (loadingUserProfile) {
+      setError('Checking your profile...');
+      return;
+    }
+    if (!userProfile) {
+      setShowProfileSignupModal(true);
+      return;
+    }
     if (!validateForm()) {
       return;
     }
@@ -1158,6 +1197,65 @@ export default function CreateMarketPage() {
               </div>
             </div>
           </header>
+
+        {/* Profile Signup Modal */}
+        {showProfileSignupModal && (
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setShowProfileSignupModal(false);
+            }}
+          >
+            <div
+              className={`p-6 rounded-lg max-w-md w-full shadow-2xl transform transition-all duration-200 ${
+                isDarkMode ? 'bg-black border border-gray-300/30' : 'bg-[#F5F3F0] border border-gray-200'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+                  Create your profile
+                </h3>
+                <button
+                  onClick={() => setShowProfileSignupModal(false)}
+                  className={`p-1.5 rounded-lg transition-colors ${
+                    isDarkMode ? 'hover:bg-gray-800 text-white' : 'hover:bg-gray-200 text-gray-900'
+                  }`}
+                  aria-label="Close"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <p className={`text-sm mb-6 ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
+                You must have a registered profile to create markets. Create your profile, then come back.
+              </p>
+
+              <div className="flex gap-3">
+                <Link
+                  href="/profile"
+                  onClick={() => setShowProfileSignupModal(false)}
+                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                    isDarkMode
+                      ? 'bg-[#39FF14]/10 hover:bg-[#39FF14]/20 text-white border border-[#39FF14]/30'
+                      : 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black border border-black'
+                  }`}
+                >
+                  Go to Profile
+                </Link>
+                <button
+                  onClick={() => setShowProfileSignupModal(false)}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                    isDarkMode
+                      ? 'bg-gray-800 hover:bg-gray-700 text-white'
+                      : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
+                  }`}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Disconnect Modal */}
         {showDisconnectModal && (

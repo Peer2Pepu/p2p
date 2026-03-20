@@ -113,9 +113,10 @@ export async function GET(
     return NextResponse.json({ chartData: processedData });
   } catch (error: any) {
     console.error('Error fetching chart data:', error);
+    // Never hard-fail the market page; return empty chart data.
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch chart data' },
-      { status: 500 }
+      { chartData: [], error: error.message || 'Failed to fetch chart data' },
+      { status: 200 }
     );
   }
 }

@@ -108,17 +108,14 @@ export async function GET(
     const contractV2 = new ethers.Contract(MARKET_MANAGER_ADDRESS, [...MARKET_ABI_V2, STAKE_EVENT_ABI], provider);
     const contractLegacy = new ethers.Contract(MARKET_MANAGER_ADDRESS, [...MARKET_ABI_LEGACY, STAKE_EVENT_ABI], provider);
 
+    // Prefer v2 decoding; fall back to legacy.
+    // For the fields we use here (creator, creatorDeposit, creatorOutcome, startTime),
+    // the tuple layout is compatible across both ABI versions.
     let marketData: any;
-    let hasV2ResolvedFields = true;
     try {
       marketData = await contractV2.getMarket(marketId);
-      if (Number(marketData?.marketType) > 1) {
-        marketData = await contractLegacy.getMarket(marketId);
-        hasV2ResolvedFields = false;
-      }
     } catch {
       marketData = await contractLegacy.getMarket(marketId);
-      hasV2ResolvedFields = false;
     }
 
     const creatorRaw = (marketData?.creator ?? marketData?.[0] ?? ZERO_ADDRESS) as string;
@@ -127,13 +124,40 @@ export async function GET(
     const creatorOutcome = Number(marketData?.creatorOutcome ?? marketData?.[7] ?? BigInt(0));
     const startTime = Number(marketData?.startTime ?? marketData?.[8] ?? BigInt(0));
 
-    const contractForEvents = hasV2ResolvedFields ? contractV2 : contractLegacy;
-    const filter = contractForEvents.filters.StakePlaced(marketId);
-    const events = await contractForEvents.queryFilter(filter, 0, 'latest');
+    const filter = contractV2.filters.StakePlaced(marketId);
+
+    // Query events in smaller blocks to avoid RPC timeouts.
+    // Tune lookback if you need older activity; this is a UI endpoint.
+    const latestBlock = await provider.getBlockNumber();
+    const lookbackBlocks = 100000; // ~ a few days depending on chain conditions
+    const fromBlock = Math.max(0, latestBlock - lookbackBlocks);
+    const chunkSize = 5000;
+
+    const events: any[] = [];
+    for (let start = fromBlock; start <= latestBlock; start += chunkSize) {
+      const end = Math.min(latestBlock, start + chunkSize - 1);
+      try {
+        const chunk = await contractV2.queryFilter(filter, start, end);
+        events.push(...chunk);
+      } catch (e) {
+        console.error(`Error querying StakePlaced events [${start}-${end}]`, e);
+      }
+    }
 
     const stakerMap = new Map<string, { option: number; amount: bigint }>();
     const chartData: Array<{ time: string; volume: number; cumulative: number }> = [];
     let cumulative = 0;
+
+    const blockTimestampCache = new Map<number, number>();
+    const getBlockTimestamp = async (blockNumber: number) => {
+      const cached = blockTimestampCache.get(blockNumber);
+      if (cached !== undefined) return cached;
+      const block = await provider.getBlock(blockNumber);
+      if (!block) return null;
+      const ts = Number(block.timestamp);
+      blockTimestampCache.set(blockNumber, ts);
+      return ts;
+    };
 
     for (const event of events) {
       if (!('args' in event) || !event.args) continue;
@@ -158,9 +182,9 @@ export async function GET(
         minute: '2-digit'
       });
       try {
-        const block = await provider.getBlock(event.blockNumber);
-        if (block) {
-          labelTime = new Date(Number(block.timestamp) * 1000).toLocaleString('en-US', {
+        const ts = await getBlockTimestamp(event.blockNumber);
+        if (ts) {
+          labelTime = new Date(ts * 1000).toLocaleString('en-US', {
             month: 'short',
             day: 'numeric',
             hour: '2-digit',
@@ -215,9 +239,10 @@ export async function GET(
     return NextResponse.json({ stakers, chartData });
   } catch (error: any) {
     console.error('Error fetching market activity:', error);
+    // Never hard-fail the page; return empty data so UI can still render.
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch market activity' },
-      { status: 500 }
+      { stakers: [], chartData: [], error: error.message || 'Failed to fetch market activity' },
+      { status: 200 }
     );
   }
 }

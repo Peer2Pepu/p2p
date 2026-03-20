@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useReadContract, useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { Sidebar } from '../../components/Sidebar';
@@ -18,7 +18,8 @@ import {
   TrendingUp,
   ExternalLink,
   User,
-  Crown
+  Crown,
+  X
 } from 'lucide-react';
 import Link from 'next/link';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
@@ -269,6 +270,7 @@ interface StakerInfo {
 
 export default function MarketDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const [marketId, setMarketId] = useState<number | null>(null);
+  const hasLoadedMarketOnceRef = useRef(false);
   
   useEffect(() => {
     params.then(({ id }) => {
@@ -302,6 +304,11 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
   const [marketLoading, setMarketLoading] = useState(true);
   const [marketError, setMarketError] = useState<any>(null);
 
+  // Profile gating: only registered users can create/stake.
+  const [userProfile, setUserProfile] = useState<any | null>(null);
+  const [loadingUserProfile, setLoadingUserProfile] = useState(false);
+  const [showSignupModal, setShowSignupModal] = useState(false);
+
   const MARKET_MANAGER_ADDRESS = (process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS || process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS) as `0x${string}`;
 
   // Fetch market data with ABI fallback (v2 -> legacy), matching inspect script behavior.
@@ -319,7 +326,9 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
 
       try {
         if (!cancelled) {
-          setMarketLoading(true);
+          if (!hasLoadedMarketOnceRef.current) {
+            setMarketLoading(true);
+          }
           setMarketError(null);
         }
 
@@ -327,12 +336,26 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
         const contractV2 = new ethers.Contract(MARKET_MANAGER_ADDRESS, GET_MARKET_ABI_V2, provider);
         const contractLegacy = new ethers.Contract(MARKET_MANAGER_ADDRESS, GET_MARKET_ABI_LEGACY, provider);
 
-        let fetchedMarket = await contractV2.getMarket(BigInt(marketId));
-        if (Number(fetchedMarket?.marketType) > 1) {
+        let fetchedMarket: any;
+        try {
+          fetchedMarket = await contractV2.getMarket(BigInt(marketId));
+        } catch {
           fetchedMarket = await contractLegacy.getMarket(BigInt(marketId));
         }
 
-        const hasV2ResolvedFields = fetchedMarket?.resolvedTimestamp !== undefined;
+        // Decide whether the returned tuple matches the v2 layout.
+        // Heuristic:
+        // - If `priceFeed` (v2 index 17) is one of our known feed addresses, it's v2.
+        // - If `resolvedTimestamp` (v2 index 15) looks like a unix timestamp (> 1e9 seconds), it's v2.
+        const resolvedTimestampCandidate = (fetchedMarket?.[15] ?? BigInt(0)) as bigint;
+        const priceFeedIfV2 = fetchedMarket?.[17] as string | undefined;
+        const priceFeedIfLegacy = fetchedMarket?.[16] as string | undefined;
+        const isKnownV2PriceFeed =
+          typeof priceFeedIfV2 === 'string' &&
+          !!PRICE_FEED_TO_CHART_CONFIG[priceFeedIfV2.toLowerCase()];
+        const useV2Layout =
+          isKnownV2PriceFeed ||
+          (typeof resolvedTimestampCandidate === 'bigint' && resolvedTimestampCandidate > BigInt(1000000000));
 
         const normalizedMarket = {
           // Ethers tuple results are not safe to spread; read by field/index.
@@ -352,33 +375,33 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
           winningOption: fetchedMarket?.winningOption ?? fetchedMarket?.[13],
           isResolved: fetchedMarket?.isResolved ?? fetchedMarket?.[14],
           // v2 adds resolvedTimestamp + resolvedPrice; legacy does not.
-          resolvedTimestamp: hasV2ResolvedFields
-            ? (fetchedMarket?.resolvedTimestamp ?? fetchedMarket?.[15] ?? BigInt(0))
-            : BigInt(0),
-          marketType: hasV2ResolvedFields
-            ? (fetchedMarket?.marketType ?? fetchedMarket?.[16] ?? BigInt(0))
-            : (fetchedMarket?.marketType ?? fetchedMarket?.[15] ?? BigInt(0)),
-          priceFeed: hasV2ResolvedFields
-            ? (fetchedMarket?.priceFeed ?? fetchedMarket?.[17] ?? ZERO_ADDRESS)
-            : (fetchedMarket?.priceFeed ?? fetchedMarket?.[16] ?? ZERO_ADDRESS),
-          priceThreshold: hasV2ResolvedFields
-            ? (fetchedMarket?.priceThreshold ?? fetchedMarket?.[18] ?? BigInt(0))
-            : (fetchedMarket?.priceThreshold ?? fetchedMarket?.[17] ?? BigInt(0)),
-          resolvedPrice: hasV2ResolvedFields
-            ? (fetchedMarket?.resolvedPrice ?? fetchedMarket?.[19] ?? BigInt(0))
-            : BigInt(0),
+          resolvedTimestamp: useV2Layout ? (fetchedMarket?.[15] ?? BigInt(0)) : BigInt(0),
+          marketType: useV2Layout
+            ? (fetchedMarket?.[16] ?? BigInt(0))
+            : (fetchedMarket?.[15] ?? BigInt(0)),
+          priceFeed: useV2Layout ? (priceFeedIfV2 ?? ZERO_ADDRESS) : (priceFeedIfLegacy ?? ZERO_ADDRESS),
+          priceThreshold: useV2Layout
+            ? (fetchedMarket?.[18] ?? BigInt(0))
+            : (fetchedMarket?.[17] ?? BigInt(0)),
+          resolvedPrice: useV2Layout ? (fetchedMarket?.[19] ?? BigInt(0)) : BigInt(0),
         };
 
         if (!cancelled) {
           setMarket(normalizedMarket);
-          setMarketLoading(false);
+          if (!hasLoadedMarketOnceRef.current) {
+            setMarketLoading(false);
+            hasLoadedMarketOnceRef.current = true;
+          }
         }
       } catch (error) {
         console.error('Error fetching market from contract:', error);
         if (!cancelled) {
           setMarket(null);
           setMarketError(error);
-          setMarketLoading(false);
+          if (!hasLoadedMarketOnceRef.current) {
+            setMarketLoading(false);
+            hasLoadedMarketOnceRef.current = true;
+          }
         }
       }
     };
@@ -398,12 +421,13 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
   const SENTINEL_NON_FEED_ADDRESS = "0x0000000000000000000000000000000000000001";
   const marketTypeValue = market?.marketType !== undefined ? Number(market.marketType) : null;
   const priceFeedAddress = market?.priceFeed?.toLowerCase();
+  const chartConfig = priceFeedAddress ? PRICE_FEED_TO_CHART_CONFIG[priceFeedAddress] : null;
   const isPriceFeedMarket =
     !!market &&
     !!priceFeedAddress &&
     priceFeedAddress !== ZERO_ADDRESS &&
-    priceFeedAddress !== SENTINEL_NON_FEED_ADDRESS;
-  const chartConfig = priceFeedAddress ? PRICE_FEED_TO_CHART_CONFIG[priceFeedAddress] : null;
+    priceFeedAddress !== SENTINEL_NON_FEED_ADDRESS &&
+    !!chartConfig;
   const chartUrl = getChartUrl(chartConfig, isDarkMode);
 
   // Fetch decimals from price feed contract for all price feed markets
@@ -669,7 +693,7 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
     if (market) {
       fetchMetadata();
     }
-  }, [market]);
+  }, [market?.ipfsHash]);
 
   // Fetch creator profile
   useEffect(() => {
@@ -685,12 +709,12 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
     if (market) {
       fetchCreatorProfile();
     }
-  }, [market]);
+  }, [market?.creator]);
 
   // Fetch stakers + activity chart together so one refresh drives both panels.
   useEffect(() => {
     const fetchMarketActivity = async () => {
-      if (!marketId || !market) {
+      if (!marketId) {
         setChartData([]);
         setStakers([]);
         setLoadingChart(false);
@@ -701,39 +725,40 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
       try {
         setLoadingStakers(true);
         setLoadingChart(true);
-        const response = await fetch(`/api/market/${marketId}/activity`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch market activity');
-        }
-        const payload = await response.json();
-        const stakersData = payload?.stakers || [];
-        const processedData = payload?.chartData || [];
+        const [stakersResp, chartResp] = await Promise.allSettled([
+          fetch(`/api/market/${marketId}/stakers`),
+          fetch(`/api/market/${marketId}/chart`),
+        ]);
+
+        const stakersData =
+          stakersResp.status === 'fulfilled'
+            ? await stakersResp.value.json().catch(() => ({ stakers: [] })).then((r) => r?.stakers || [])
+            : [];
+
+        const processedData =
+          chartResp.status === 'fulfilled'
+            ? await chartResp.value.json().catch(() => ({ chartData: [] })).then((r) => r?.chartData || [])
+            : [];
+
         setChartData(processedData);
 
-        // Fetch profiles for all stakers and mark creator
-        const stakerList: StakerInfo[] = [];
-        const creatorAddress = market.creator?.toLowerCase();
-        
-        for (const staker of stakersData) {
-          try {
-            const profile = await getUserProfile(staker.address);
-            stakerList.push({
-              address: staker.address,
-              option: staker.option,
-              amount: BigInt(staker.amount),
-              username: profile?.username,
-              displayName: profile?.display_name,
-              isCreator: staker.isCreator || staker.address === creatorAddress
-            });
-          } catch {
-            stakerList.push({
-              address: staker.address,
-              option: staker.option,
-              amount: BigInt(staker.amount),
-              isCreator: staker.isCreator || staker.address === creatorAddress
-            });
-          }
-        }
+        // Fetch creator profiles in parallel to reduce latency.
+        const creatorAddress = market?.creator?.toLowerCase();
+        const profileResults = await Promise.allSettled(
+          stakersData.map((s: any) => getUserProfile(s.address))
+        );
+
+        const stakerList: StakerInfo[] = stakersData.map((staker: any, idx: number) => {
+          const profile = profileResults[idx].status === 'fulfilled' ? profileResults[idx].value : null;
+          return {
+            address: staker.address,
+            option: staker.option,
+            amount: BigInt(staker.amount),
+            username: profile?.username,
+            displayName: profile?.display_name,
+            isCreator: staker.isCreator || (creatorAddress ? staker.address === creatorAddress : false)
+          };
+        });
 
         setStakers(stakerList);
       } catch (error) {
@@ -746,17 +771,37 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
       }
     };
 
-    if (market && marketId) {
-      fetchMarketActivity();
-    } else if (!market || !marketId) {
-      setLoadingChart(false);
-      setLoadingStakers(false);
-    }
-  }, [marketId, market]);
+    fetchMarketActivity();
+  }, [marketId]);
+
+  // Load current user's profile (used for create/stake gating)
+  useEffect(() => {
+    const load = async () => {
+      if (!isConnected || !address) {
+        setUserProfile(null);
+        return;
+      }
+      setLoadingUserProfile(true);
+      try {
+        const profile = await getUserProfile(address);
+        setUserProfile(profile);
+      } catch {
+        setUserProfile(null);
+      } finally {
+        setLoadingUserProfile(false);
+      }
+    };
+
+    load();
+  }, [address, isConnected]);
 
   // Handle stake placement
   const handleStake = async () => {
     if (!betAmount || !selectedOption || !isConnected || !marketId || !market) return;
+    if (!loadingUserProfile && !userProfile) {
+      setShowSignupModal(true);
+      return;
+    }
 
     const amount = parseEther(betAmount);
     const needsApproval = isERC20Market && tokenAllowance !== undefined && tokenAllowance < amount;
@@ -1252,7 +1297,7 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
                       </p>
                     </div>
                   )}
-                  {isPriceFeedMarket && market && Number(market.state) === 2 && market?.resolvedTimestamp && Number(market.resolvedTimestamp) > 0 && (
+                  {market && Number(market.state) === 2 && market?.resolvedTimestamp && Number(market.resolvedTimestamp) > 0 && (
                     <div>
                       <span className={`text-xs sm:text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>Resolved Timestamp</span>
                       <p className={`text-sm sm:text-base font-medium mt-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
@@ -1379,6 +1424,24 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
                       <ConnectButton />
                     </div>
                   </div>
+                ) : loadingUserProfile ? (
+                  <div className={`text-center py-6 ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
+                    <p>Checking your profile...</p>
+                  </div>
+                ) : !userProfile ? (
+                  <div className={`text-center py-6 ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
+                    <p className="mb-4">You need a profile to stake on this market.</p>
+                    <button
+                      onClick={() => setShowSignupModal(true)}
+                      className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                        isDarkMode
+                          ? 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black'
+                          : 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black border border-black'
+                      }`}
+                    >
+                      Sign up to stake
+                    </button>
+                  </div>
                 ) : userHasStaked ? (
                   <div className={`text-center py-6 ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                     <p>You have already staked on this market</p>
@@ -1473,6 +1536,66 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
           </div>
         </div>
       </div>
+
+    {showSignupModal && (
+      <div
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) setShowSignupModal(false);
+        }}
+      >
+        <div
+          className={`rounded-xl border shadow-2xl max-w-lg w-full overflow-y-auto ${
+            isDarkMode ? 'bg-black border-gray-800' : 'bg-[#F5F3F0] border-gray-300'
+          }`}
+        >
+          <div className="p-4 lg:p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                Sign up to stake
+              </h2>
+              <button
+                onClick={() => setShowSignupModal(false)}
+                className={`p-1.5 rounded-lg transition-colors ${
+                  isDarkMode ? 'hover:bg-gray-800 text-white' : 'hover:bg-gray-200 text-gray-900'
+                }`}
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <p className={`text-sm mb-5 ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
+              You can only stake if you have a registered profile. Create your profile now, then come back and stake.
+            </p>
+
+            <div className="flex gap-3">
+              <Link
+                href="/profile"
+                onClick={() => setShowSignupModal(false)}
+                className={`flex-1 px-4 py-2 rounded-lg text-sm font-semibold text-center transition-colors ${
+                  isDarkMode
+                    ? 'bg-[#39FF14]/10 hover:bg-[#39FF14]/20 text-white border border-[#39FF14]/30'
+                    : 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black border border-black'
+                }`}
+              >
+                Go to Profile
+              </Link>
+              <button
+                onClick={() => setShowSignupModal(false)}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                  isDarkMode
+                    ? 'bg-gray-800 hover:bg-gray-700 text-white'
+                    : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
+                }`}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
     </div>
   );
 }
