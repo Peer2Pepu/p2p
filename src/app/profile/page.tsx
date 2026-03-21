@@ -6,7 +6,6 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { 
   User, 
-  Edit3, 
   Save, 
   X, 
   TrendingUp,
@@ -24,7 +23,10 @@ import {
   Wallet,
   Loader2,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  Pencil,
+  Link as LinkIcon,
+  Check
 } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
 import { HeaderWallet } from '@/components/HeaderWallet';
@@ -254,18 +256,18 @@ function ProfileMarketCard({ marketId, marketData, isDarkMode }: {
   };
 
   return (
-    <div className={`block p-3 sm:p-4 border rounded-lg transition-all hover:shadow-md ${
-      isDarkMode 
-        ? 'bg-gray-900 border-gray-700 hover:border-gray-600' 
-        : 'bg-gray-50 border-gray-200 hover:border-gray-300'
-    }`}>
+    <div
+      className={`block py-4 sm:py-5 border-b last:border-b-0 transition-colors ${
+        isDarkMode ? 'border-white/10' : 'border-gray-300'
+      }`}
+    >
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
         {getMarketImage() && (
           <img 
             src={getMarketImage()!} 
             alt="Market" 
-            className={`w-full sm:w-20 sm:h-20 h-40 sm:h-20 rounded-lg object-cover border flex-shrink-0 ${
-              isDarkMode ? 'border-gray-700' : 'border-gray-200'
+            className={`w-full sm:w-20 sm:h-20 h-40 sm:h-20 rounded-lg object-cover flex-shrink-0 ${
+              isDarkMode ? 'ring-1 ring-white/10' : 'ring-1 ring-gray-200'
             }`}
             onError={(e) => {
               e.currentTarget.style.display = 'none';
@@ -335,6 +337,7 @@ export default function ProfilePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -473,6 +476,20 @@ export default function ProfilePage() {
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   };
 
+  const copyProfileLink = async () => {
+    const username = profile?.username?.trim();
+    if (!username || typeof window === 'undefined') return;
+    const url = `${window.location.origin}/profile/${encodeURIComponent(username)}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      setError('Could not copy link');
+      setTimeout(() => setError(null), 2500);
+    }
+  };
+
   const calculateWinRate = () => {
     if (!analytics || analytics.totalStakesPlaced === BigInt(0)) return 0;
     return Number((analytics.totalStakesWon * BigInt(100)) / analytics.totalStakesPlaced);
@@ -598,17 +615,18 @@ export default function ProfilePage() {
             <div className="px-4 py-3">
               <div className="flex items-center justify-between">
                 {/* Left: Menu + Title */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
                   <button
                     onClick={onMenuClick}
-                    className={`lg:hidden p-2 rounded-lg transition-colors ${
+                    className={`lg:hidden p-2 rounded-lg transition-colors shrink-0 ${
                       isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'
                     }`}
+                    aria-label="Open menu"
                   >
                     <Menu size={20} />
                   </button>
-                  <div className="flex flex-col">
-                    <h1 className="text-sm lg:text-xl font-semibold">Profile</h1>
+                  <div className="flex flex-col min-w-0">
+                    <h1 className="text-sm lg:text-xl font-semibold truncate">Profile</h1>
                   </div>
                 </div>
 
@@ -633,6 +651,41 @@ export default function ProfilePage() {
           {/* Content */}
           <div className="p-3 sm:p-4 lg:p-6">
             <div className="max-w-4xl mx-auto">
+              {/* Mobile: lone icons under header — no bar / box */}
+              {isConnected && !isLoading && (
+                <div className="lg:hidden flex items-center justify-between mb-2 -mt-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditing((e) => !e)}
+                    className={`touch-manipulation inline-flex items-center justify-center min-h-9 min-w-9 -ml-1 border-0 bg-transparent cursor-pointer ${
+                      isDarkMode ? 'text-white/55 hover:text-white/90' : 'text-gray-500 hover:text-gray-800'
+                    } active:scale-95 transition-[color,transform]`}
+                    aria-label={isEditing ? 'Cancel editing profile' : 'Edit profile'}
+                  >
+                    {isEditing ? (
+                      <X size={14} strokeWidth={1.25} className="shrink-0" />
+                    ) : (
+                      <Pencil size={14} strokeWidth={1.25} className="shrink-0" />
+                    )}
+                  </button>
+                  {profile?.username ? (
+                    <button
+                      type="button"
+                      onClick={copyProfileLink}
+                      className={`touch-manipulation inline-flex items-center justify-center min-h-9 min-w-9 -mr-1 border-0 bg-transparent cursor-pointer ${
+                        isDarkMode ? 'text-white/55 hover:text-white/90' : 'text-gray-500 hover:text-gray-800'
+                      } active:scale-95 transition-[color,transform]`}
+                      aria-label="Copy profile link"
+                    >
+                      {linkCopied ? (
+                        <Check size={14} strokeWidth={1.25} className="shrink-0 text-[#39FF14]" />
+                      ) : (
+                        <LinkIcon size={14} strokeWidth={1.25} className="shrink-0" />
+                      )}
+                    </button>
+                  ) : null}
+                </div>
+              )}
               {/* Error/Success Messages */}
               {error && (
                 <div className={`mb-4 sm:mb-6 p-3 sm:p-4 rounded-lg flex items-center gap-2 text-sm sm:text-base ${
@@ -659,8 +712,8 @@ export default function ProfilePage() {
                 </div>
               ) : (
                 <div className="space-y-4 sm:space-y-6">
-                  {/* Profile Header */}
-                  <div className={`p-3 sm:p-4 lg:p-6 rounded-xl border ${isDarkMode ? 'bg-black border-gray-800' : 'bg-white border-gray-200'} shadow-sm`}>
+                  {/* Profile header — flush to page background */}
+                  <div className="pb-6 sm:pb-8">
                     <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
                       {/* Profile Image */}
                       <div className="relative flex-shrink-0 mx-auto sm:mx-0">
@@ -696,28 +749,34 @@ export default function ProfilePage() {
                             </p>
                           </div>
                           
-                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                          <div className="hidden lg:flex flex-row items-center gap-3">
                             {profile?.username && (
-                              <Link
-                                href={`/profile/${profile.username}`}
-                                className={`flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm sm:text-base ${
-                                  isDarkMode 
-                                    ? 'bg-gray-800 text-white hover:bg-gray-700 border border-gray-700' 
-                                    : 'bg-gray-200 text-gray-900 hover:bg-gray-300 border border-gray-300'
-                                }`}
+                              <button
+                                type="button"
+                                onClick={copyProfileLink}
+                                title="Copy profile link"
+                                className={`inline-flex items-center justify-center p-1 border-0 bg-transparent cursor-pointer ${
+                                  isDarkMode ? 'text-white/55 hover:text-white/90' : 'text-gray-500 hover:text-gray-800'
+                                } transition-colors`}
+                                aria-label="Copy profile link"
                               >
-                                View Profile
-                              </Link>
+                                {linkCopied ? (
+                                  <Check size={14} strokeWidth={1.25} className="shrink-0 text-[#39FF14]" />
+                                ) : (
+                                  <LinkIcon size={14} strokeWidth={1.25} className="shrink-0" />
+                                )}
+                              </button>
                             )}
                             <button
+                              type="button"
                               onClick={() => setIsEditing(!isEditing)}
-                              className={`flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm sm:text-base ${
+                              className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-sm ${
                                 isDarkMode 
                                   ? 'bg-[#39FF14] text-black hover:bg-[#39FF14]/80' 
                                   : 'bg-[#39FF14] text-black border border-black hover:bg-[#39FF14]/80'
                               }`}
                             >
-                              <Edit3 className="h-3 w-3 sm:h-4 sm:w-4" />
+                              <Pencil size={13} strokeWidth={1.25} className="shrink-0" />
                               {isEditing ? 'Cancel' : 'Edit Profile'}
                             </button>
                           </div>
@@ -733,7 +792,7 @@ export default function ProfilePage() {
 
                     {/* Edit Form */}
                     {isEditing && (
-                      <div className={`mt-4 sm:mt-6 pt-4 sm:pt-6 border-t ${isDarkMode ? 'border-[#39FF14]' : 'border-[#39FF14]'}`}>
+                      <div className={`mt-4 sm:mt-6 pt-4 sm:pt-6 border-t ${isDarkMode ? 'border-white/15' : 'border-gray-300'}`}>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                           <div>
                             <label className={`block text-xs sm:text-sm font-medium mb-1.5 sm:mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
@@ -823,14 +882,14 @@ export default function ProfilePage() {
 
                   {/* Analytics Section */}
                   {analytics && (
-                    <div className={`p-3 sm:p-4 lg:p-6 rounded-xl border ${isDarkMode ? 'bg-black border-gray-800' : 'bg-white border-gray-200'} shadow-sm`}>
+                    <div className={`py-6 sm:py-8 border-t ${isDarkMode ? 'border-white/10' : 'border-gray-300'}`}>
                       <h2 className={`text-lg sm:text-xl font-bold mb-4 sm:mb-6 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                         <BarChart3 className={`h-4 w-4 sm:h-5 sm:w-5 ${isDarkMode ? 'text-[#39FF14]' : 'text-gray-900'}`} />
                         Trading Analytics
                       </h2>
                       
-                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
-                        <div className={`text-center p-2.5 sm:p-3 lg:p-4 rounded-lg border ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
+                        <div className="text-center py-1">
                           <Trophy className={`h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 mx-auto mb-1.5 sm:mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-yellow-500'}`} />
                           <div className={`text-lg sm:text-xl lg:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             {calculateWinRate()}%
@@ -840,7 +899,7 @@ export default function ProfilePage() {
                           </div>
                         </div>
                         
-                        <div className={`text-center p-2.5 sm:p-3 lg:p-4 rounded-lg border ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                        <div className="text-center py-1">
                           <Target className={`h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 mx-auto mb-1.5 sm:mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-blue-500'}`} />
                           <div className={`text-lg sm:text-xl lg:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             {analytics.totalStakesPlaced.toString()}
@@ -850,7 +909,7 @@ export default function ProfilePage() {
                           </div>
                         </div>
                         
-                        <div className={`text-center p-2.5 sm:p-3 lg:p-4 rounded-lg border ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                        <div className="text-center py-1">
                           <DollarSign className={`h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 mx-auto mb-1.5 sm:mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-green-500'}`} />
                           <div className={`text-sm sm:text-lg lg:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             {formatEther(analytics.totalWinnings)} ETH
@@ -860,7 +919,7 @@ export default function ProfilePage() {
                           </div>
                         </div>
                         
-                        <div className={`text-center p-2.5 sm:p-3 lg:p-4 rounded-lg border ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                        <div className="text-center py-1">
                           <Users className={`h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 mx-auto mb-1.5 sm:mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-purple-500'}`} />
                           <div className={`text-lg sm:text-xl lg:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             {analytics.marketsCreated.toString()}
@@ -873,8 +932,8 @@ export default function ProfilePage() {
                     </div>
                   )}
 
-                  {/* User Markets Section */}
-                  <div className={`p-3 sm:p-4 lg:p-6 rounded-xl border ${isDarkMode ? 'bg-black border-gray-800' : 'bg-white border-gray-200'} shadow-sm`}>
+                  {/* User markets — flush to background */}
+                  <div className={`py-6 sm:py-8 border-t ${isDarkMode ? 'border-white/10' : 'border-gray-300'}`}>
                     <h2 className={`text-lg sm:text-xl font-bold mb-4 sm:mb-6 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                       <TrendingUp className={`h-4 w-4 sm:h-5 sm:w-5 ${isDarkMode ? 'text-[#39FF14]' : 'text-gray-900'}`} />
                       Your Markets

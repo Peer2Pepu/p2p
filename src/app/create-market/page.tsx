@@ -48,6 +48,25 @@ function ClientOnly({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+/** Long helper copy — hidden on small screens to reduce clutter */
+function FormHint({
+  children,
+  isDarkMode,
+  className = '',
+}: {
+  children: React.ReactNode;
+  isDarkMode: boolean;
+  className?: string;
+}) {
+  return (
+    <p
+      className={`hidden md:block text-xs mt-1 ${isDarkMode ? 'text-white/55' : 'text-gray-500'} ${className}`}
+    >
+      {children}
+    </p>
+  );
+}
+
 export default function CreateMarketPage() {
   const { isDarkMode, toggleTheme } = useTheme();
   const pathname = usePathname();
@@ -1161,7 +1180,7 @@ export default function CreateMarketPage() {
                     <Menu size={20} className={isDarkMode ? 'text-white' : 'text-gray-900'} />
                   </button>
                   
-                  <Link href="/" className="lg:hidden transition-opacity hover:opacity-80 cursor-pointer">
+                  <Link href="/" className="lg:hidden transition-opacity hover:opacity-80 cursor-pointer shrink-0">
                     <Image
                       src="/mobile.png"
                       alt="P2P"
@@ -1171,6 +1190,14 @@ export default function CreateMarketPage() {
                       priority
                     />
                   </Link>
+                  <div className="lg:hidden min-w-0 flex-1">
+                    <h1 className={`text-sm font-bold leading-tight truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                      Create market
+                    </h1>
+                    <p className={`text-[11px] truncate ${isDarkMode ? 'text-white/55' : 'text-gray-500'}`}>
+                      New prediction market
+                    </p>
+                  </div>
                   
                   <div className="hidden lg:block">
                     <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
@@ -1306,47 +1333,46 @@ export default function CreateMarketPage() {
         )}
 
           {/* Page Content */}
-          <div className="p-4 lg:p-6">
+          <div className="px-3 py-4 sm:px-4 sm:py-5 lg:p-6">
             <div className="max-w-4xl mx-auto">
               {/* P2P Balance Display */}
               {isConnected && p2pBalance && (
-                <div className={`mb-6 p-4 rounded-lg border ${
+                <div className={`mb-4 sm:mb-6 p-3 sm:p-4 rounded-lg border ${
                   isDarkMode 
                     ? 'bg-gray-800/50 border-gray-300 text-gray-300' 
                     : 'bg-gray-50 border-gray-200 text-gray-700'
                 }`}>
                   <div className="flex items-center gap-2">
-                    <Coins size={20} />
-                    <span className="font-medium">
-                      P2P Token Balance: {formatNumber(formatEther(p2pBalance.value))} P2P
+                    <Coins className="shrink-0" size={18} />
+                    <span className="font-medium text-sm sm:text-base">
+                      <span className="sm:hidden">P2P: {formatNumber(formatEther(p2pBalance.value))}</span>
+                      <span className="hidden sm:inline">P2P Token Balance: {formatNumber(formatEther(p2pBalance.value))} P2P</span>
                     </span>
                   </div>
                 </div>
               )}
 
 
-              {/* Form */}
-            <div className={`rounded-xl border shadow-sm ${
-              isDarkMode 
-                ? 'bg-black border-gray-800' 
-                : 'bg-[#F5F3F0] border-gray-300'
-            }`}>
-                <div className="p-4 lg:p-6 space-y-5 lg:space-y-6">
+              {/* Form — directly on page background (no outer card) */}
+                <div className="space-y-8 sm:space-y-7 lg:space-y-6">
                   {/* Basic Info */}
-                  <div className="space-y-4">
-                  <h2 className={`text-base lg:text-lg font-semibold ${
+                  <div className="space-y-3 sm:space-y-4">
+                  <h2 className={`text-sm sm:text-base lg:text-lg font-semibold tracking-tight ${
                     isDarkMode ? 'text-[#39FF14]' : 'text-[#39FF14]'
-                  }`}>Basic Information</h2>
+                  }`}>
+                    <span className="md:hidden">Basics</span>
+                    <span className="hidden md:inline">Basic Information</span>
+                  </h2>
                     
-                    <div className="grid grid-cols-1 gap-4">
+                    <div className="grid grid-cols-1 gap-3 sm:gap-4">
                       <div>
-                        <label className="block text-sm font-medium mb-2">Market Title</label>
+                        <label className="block text-xs sm:text-sm font-medium mb-1.5 sm:mb-2">Title</label>
                         <input
                           type="text"
                           value={title}
                           onChange={(e) => setTitle(e.target.value)}
-                          placeholder="e.g., Will Bitcoin reach $200k by end of 2025?"
-                        className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${
+                          placeholder="Market question…"
+                        className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-base sm:text-sm ${
                           isDarkMode 
                             ? 'bg-black border-gray-700 text-white placeholder-gray-500' 
                             : 'bg-[#F5F3F0] border-gray-300 text-gray-900 placeholder-gray-500'
@@ -1355,13 +1381,13 @@ export default function CreateMarketPage() {
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium mb-2">Description</label>
+                        <label className="block text-xs sm:text-sm font-medium mb-1.5 sm:mb-2">Description</label>
                         <textarea
                           value={description}
                           onChange={(e) => setDescription(e.target.value)}
-                          placeholder="Provide a detailed description of the market..."
-                          rows={4}
-                        className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm resize-y ${
+                          placeholder="What is this market about?"
+                          rows={3}
+                        className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-base sm:text-sm resize-y md:min-h-[7rem] ${
                           isDarkMode 
                             ? 'bg-black border-gray-700 text-white placeholder-gray-500' 
                             : 'bg-[#F5F3F0] border-gray-300 text-gray-900 placeholder-gray-500'
@@ -1370,25 +1396,28 @@ export default function CreateMarketPage() {
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium mb-2">Vanity Info (Links & Resources)</label>
+                        <label className="block text-xs sm:text-sm font-medium mb-1.5 sm:mb-2">
+                          <span className="md:hidden">Links for verifiers</span>
+                          <span className="hidden md:inline">Vanity Info (Links & Resources)</span>
+                        </label>
                         <textarea
                           value={vanityInfo}
                           onChange={(e) => setVanityInfo(e.target.value)}
-                          placeholder="Add links or information to help verifiers determine the correct result (e.g., official sources, news articles, data URLs)"
-                          rows={3}
-                        className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm resize-y ${
+                          placeholder="URLs, sources…"
+                          rows={2}
+                        className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-base sm:text-sm resize-y md:min-h-[5rem] ${
                           isDarkMode 
                             ? 'bg-black border-gray-700 text-white placeholder-gray-500' 
                             : 'bg-[#F5F3F0] border-gray-300 text-gray-900 placeholder-gray-500'
                         }`}
                         />
-                        <p className="text-xs text-gray-500 mt-1">
+                        <FormHint isDarkMode={isDarkMode}>
                           This information will be visible to verifiers to help them make accurate decisions
-                        </p>
+                        </FormHint>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium mb-2">Market Type</label>
+                        <label className="block text-xs sm:text-sm font-medium mb-1.5 sm:mb-2">Market Type</label>
                         <select
                           value={marketType}
                           onChange={(e) => {
@@ -1399,30 +1428,30 @@ export default function CreateMarketPage() {
                               setOutcomeType('yesno');
                             }
                           }}
-                          className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm appearance-none ${
+                          className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-base sm:text-sm appearance-none ${
                             isDarkMode 
                               ? 'bg-black border-gray-700 text-white' 
                               : 'bg-[#F5F3F0] border-gray-300 text-gray-900'
                           }`}
                         >
-                          <option value="UMA_MANUAL">Optimistic Oracle (Sports, Politics, etc.)</option>
-                          <option value="PRICE_FEED">Price Feed (Auto-resolve from price)</option>
+                          <option value="UMA_MANUAL">Oracle · manual resolve</option>
+                          <option value="PRICE_FEED">Price feed · auto</option>
                         </select>
-                        <p className="text-xs text-gray-500 mt-1">
+                        <FormHint isDarkMode={isDarkMode}>
                           {marketType === 'PRICE_FEED' 
                             ? 'Market will auto-resolve based on price feed threshold (Yes/No only)' 
                             : 'Market requires Optimistic Oracle assertion for resolution'}
-                        </p>
+                        </FormHint>
                       </div>
 
                       {marketType === 'PRICE_FEED' && (
                         <>
                           <div>
-                            <label className="block text-sm font-medium mb-2">Price Feed</label>
+                            <label className="block text-xs sm:text-sm font-medium mb-1.5 sm:mb-2">Price Feed</label>
                             <select
                               value={selectedPriceFeed}
                               onChange={(e) => setSelectedPriceFeed(e.target.value)}
-                              className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm appearance-none ${
+                              className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-base sm:text-sm appearance-none ${
                                 isDarkMode 
                                   ? 'bg-black border-gray-700 text-white' 
                                   : 'bg-[#F5F3F0] border-gray-300 text-gray-900'
@@ -1437,14 +1466,14 @@ export default function CreateMarketPage() {
                           </div>
 
                           <div>
-                            <label className="block text-sm font-medium mb-2">
-                              Market Direction
+                            <label className="block text-xs sm:text-sm font-medium mb-1.5 sm:mb-2">
+                              Direction
                             </label>
-                            <div className="flex gap-2 mb-4">
+                            <div className="flex gap-2 mb-2 sm:mb-4">
                               <button
                                 type="button"
                                 onClick={() => setPriceDirection('over')}
-                                className={`flex-1 px-3 py-2 rounded text-sm font-medium transition-colors ${
+                                className={`flex-1 px-2 sm:px-3 py-2.5 sm:py-2 rounded-lg text-sm font-medium transition-colors ${
                                   priceDirection === 'over'
                                     ? isDarkMode 
                                       ? 'bg-[#39FF14] text-black' 
@@ -1454,12 +1483,13 @@ export default function CreateMarketPage() {
                                       : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
                                 }`}
                               >
-                                Over (Yes if price ≥ threshold)
+                                <span className="md:hidden">Over</span>
+                                <span className="hidden md:inline">Over (Yes if price ≥ threshold)</span>
                               </button>
                               <button
                                 type="button"
                                 onClick={() => setPriceDirection('under')}
-                                className={`flex-1 px-3 py-2 rounded text-sm font-medium transition-colors ${
+                                className={`flex-1 px-2 sm:px-3 py-2.5 sm:py-2 rounded-lg text-sm font-medium transition-colors ${
                                   priceDirection === 'under'
                                     ? isDarkMode 
                                       ? 'bg-[#39FF14] text-black' 
@@ -1469,28 +1499,29 @@ export default function CreateMarketPage() {
                                       : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
                                 }`}
                               >
-                                Under (Yes if price &lt; threshold)
+                                <span className="md:hidden">Under</span>
+                                <span className="hidden md:inline">Under (Yes if price &lt; threshold)</span>
                               </button>
                             </div>
                           </div>
 
                           <div>
-                            <label className="block text-sm font-medium mb-2">
-                              Price Threshold
+                            <label className="block text-xs sm:text-sm font-medium mb-1.5 sm:mb-2">
+                              Threshold ($)
                             </label>
                             {isLoadingPrice && (
-                              <p className={`text-xs mb-2 ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
-                                Loading current price...
+                              <p className={`text-xs mb-1 sm:mb-2 ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
+                                Loading price…
                               </p>
                             )}
                             {priceError && (
-                              <p className={`text-xs mb-2 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>
+                              <p className={`text-xs mb-1 sm:mb-2 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>
                                 ⚠️ {priceError}
                               </p>
                             )}
                             {currentPrice && !priceError && (
-                              <p className={`text-xs mb-2 ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
-                                Current price: <span className="text-[#39FF14]">${currentPrice}</span>
+                              <p className={`text-xs mb-1 sm:mb-2 ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
+                                Now: <span className="text-[#39FF14] font-medium">${currentPrice}</span>
                               </p>
                             )}
                             <input
@@ -1518,7 +1549,7 @@ export default function CreateMarketPage() {
                                 }
                               }}
                               placeholder={currentPrice ? `e.g., ${currentPrice}` : "e.g., 2000.00"}
-                              className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${
+                              className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-base sm:text-sm ${
                                 isDarkMode 
                                   ? 'bg-black border-gray-700 text-white placeholder-gray-500' 
                                   : 'bg-[#F5F3F0] border-gray-300 text-gray-900 placeholder-gray-500'
@@ -1526,7 +1557,9 @@ export default function CreateMarketPage() {
                             />
                             {priceThreshold && (
                               <p className={`text-xs mt-1 ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
-                                Threshold: ${(() => {
+                                <span className="hidden sm:inline">Threshold: </span>
+                                <span className="sm:hidden">$</span>
+                                {(() => {
                                   try {
                                     const thresholdBigInt = BigInt(priceThreshold);
                                     const divisor = BigInt(10 ** priceDecimals);
@@ -1538,29 +1571,29 @@ export default function CreateMarketPage() {
                                     return 'Invalid';
                                   }
                                 })()}
-                                {priceDirection === 'over' ? (
-                                  <span className="text-green-500"> - Yes wins if price ≥ threshold</span>
-                                ) : (
-                                  <span className="text-green-500"> - Yes wins if price &lt; threshold</span>
-                                )}
+                                <span className="hidden md:inline text-green-500">
+                                  {priceDirection === 'over'
+                                    ? ' — Yes if ≥ threshold'
+                                    : ' — Yes if &lt; threshold'}
+                                </span>
                               </p>
                             )}
-                            <p className="text-xs text-gray-500 mt-1">
+                            <FormHint isDarkMode={isDarkMode}>
                               {priceDirection === 'over' 
                                 ? 'Yes wins if final price is greater than or equal to threshold'
                                 : 'Yes wins if final price is less than threshold'}
-                            </p>
+                            </FormHint>
                           </div>
                         </>
                       )}
 
                       <div>
-                        <label className="block text-sm font-medium mb-2">Payment Token</label>
+                        <label className="block text-xs sm:text-sm font-medium mb-1.5 sm:mb-2">Token</label>
                         <select
                           value={selectedToken}
                           onChange={(e) => setSelectedToken(e.target.value)}
                           disabled={outcomeType === 'multiple'} // Multi-option markets must use P2P token
-                        className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm appearance-none ${
+                        className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-base sm:text-sm appearance-none ${
                           isDarkMode 
                             ? 'bg-black border-gray-700 text-white' 
                             : 'bg-[#F5F3F0] border-gray-300 text-gray-900'
@@ -1573,13 +1606,13 @@ export default function CreateMarketPage() {
                           ))}
                         </select>
                         {outcomeType === 'multiple' && (
-                          <p className="text-xs text-gray-500 mt-1">Multi Option Markets Use P2P</p>
+                          <FormHint isDarkMode={isDarkMode}>Multi-option markets use P2P token.</FormHint>
                         )}
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium mb-2">
-                          Minimum Stake ({tokens.find(t => t.address === selectedToken)?.symbol || 'PEPU'})
+                        <label className="block text-xs sm:text-sm font-medium mb-1.5 sm:mb-2">
+                          Min stake ({tokens.find(t => t.address === selectedToken)?.symbol || 'PEPU'})
                         </label>
                         <input
                           type="number"
@@ -1588,21 +1621,23 @@ export default function CreateMarketPage() {
                           placeholder="0.01"
                           min="0"
                           step="0.01"
-                        className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${
+                        className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-base sm:text-sm ${
                           isDarkMode 
                             ? 'bg-black border-gray-700 text-white placeholder-gray-500' 
                             : 'bg-[#F5F3F0] border-gray-300 text-gray-900 placeholder-gray-500'
                         }`}
                         />
-                        <p className="text-xs text-gray-500 mt-1">
-                          Balance: {getUserTokenBalance(selectedToken) ? formatNumber(formatEther(getUserTokenBalance(selectedToken)!.value)) : '0'} {tokens.find(t => t.address === selectedToken)?.symbol || 'PEPU'}
+                        <p className={`text-[11px] sm:text-xs mt-1 ${isDarkMode ? 'text-white/50' : 'text-gray-500'}`}>
+                          <span className="sm:hidden">Bal </span>
+                          <span className="hidden sm:inline">Balance: </span>
+                          {getUserTokenBalance(selectedToken) ? formatNumber(formatEther(getUserTokenBalance(selectedToken)!.value)) : '0'} {tokens.find(t => t.address === selectedToken)?.symbol || 'PEPU'}
                         </p>
                       </div>
 
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium mb-2">Market Image</label>
+                      <label className="block text-xs sm:text-sm font-medium mb-1.5 sm:mb-2">Image</label>
                       <div className="space-y-3">
                         {!imagePreview ? (
                           <div className="relative">
@@ -1615,14 +1650,15 @@ export default function CreateMarketPage() {
                             />
                             <label
                               htmlFor="image-upload"
-                              className={`w-full px-3 py-2.5 border-2 border-dashed rounded-lg cursor-pointer transition-colors flex items-center justify-center gap-2 ${
+                              className={`w-full px-3 py-3 sm:py-2.5 border-2 border-dashed rounded-lg cursor-pointer transition-colors flex items-center justify-center gap-2 text-sm ${
                                 isDarkMode 
                                   ? 'border-gray-600 hover:border-gray-500 text-gray-400 hover:text-gray-300' 
                                   : 'border-gray-300 hover:border-gray-400 text-gray-500 hover:text-gray-600'
                               }`}
                             >
-                              <Plus size={20} />
-                              <span>Click to upload image</span>
+                              <Plus size={20} className="shrink-0" />
+                              <span className="sm:hidden">Tap to add image</span>
+                              <span className="hidden sm:inline">Click to upload image</span>
                             </label>
                           </div>
                         ) : (
@@ -1641,26 +1677,29 @@ export default function CreateMarketPage() {
                             </button>
                           </div>
                         )}
-                        <p className="text-xs text-gray-500">
+                        <FormHint isDarkMode={isDarkMode}>
                           Upload an image to represent your market (max 10MB, JPG/PNG/GIF)
-                        </p>
+                        </FormHint>
                       </div>
                     </div>
                   </div>
 
                   {/* Duration */}
-                  <div className="space-y-4">
-                  <h2 className={`text-base lg:text-lg font-semibold ${
+                  <div className="space-y-3 sm:space-y-4">
+                  <h2 className={`text-sm sm:text-base lg:text-lg font-semibold tracking-tight ${
                     isDarkMode ? 'text-[#39FF14]' : 'text-[#39FF14]'
-                  }`}>Market Timing</h2>
+                  }`}>
+                    <span className="md:hidden">Timing</span>
+                    <span className="hidden md:inline">Market Timing</span>
+                  </h2>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-4">
                       <div>
-                        <label className="block text-sm font-medium mb-2">Staking Duration</label>
-                        <p className="text-xs text-gray-500 mb-2">How long users can place stakes</p>
-                        <div className="space-y-2">
+                        <label className="block text-xs sm:text-sm font-medium mb-1 sm:mb-2">Staking window</label>
+                        <FormHint isDarkMode={isDarkMode} className="!mb-2">How long users can place stakes</FormHint>
+                        <div className="grid grid-cols-3 gap-2 md:grid-cols-1 md:gap-2">
                           <div className="relative">
-                            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+                            <Calendar className="hidden md:block absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                             <input
                               type="number"
                               value={stakingDays}
@@ -1668,16 +1707,19 @@ export default function CreateMarketPage() {
                               placeholder="0"
                               min="0"
                               step="1"
-                              className={`w-full pl-8 pr-16 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${
+                              className={`w-full pl-2 pr-7 md:pl-8 md:pr-16 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-base md:text-sm ${
                                 isDarkMode 
                                   ? 'bg-black border-gray-300 text-white placeholder-gray-500' 
                                   : 'bg-[#F5F3F0] border-gray-300 text-gray-900 placeholder-gray-500'
                               }`}
                             />
-                            <span className={`absolute right-4 top-1/2 transform -translate-y-1/2 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>days</span>
+                            <span className={`absolute right-2 md:right-4 top-1/2 -translate-y-1/2 text-[10px] md:text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                              <span className="md:hidden">d</span>
+                              <span className="hidden md:inline">days</span>
+                            </span>
                           </div>
                           <div className="relative">
-                            <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+                            <Clock className="hidden md:block absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                             <input
                               type="number"
                               value={stakingHours}
@@ -1686,16 +1728,19 @@ export default function CreateMarketPage() {
                               min="0"
                               max="23"
                               step="1"
-                              className={`w-full pl-8 pr-16 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${
+                              className={`w-full pl-2 pr-7 md:pl-8 md:pr-16 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-base md:text-sm ${
                                 isDarkMode 
                                   ? 'bg-black border-gray-300 text-white placeholder-gray-500' 
                                   : 'bg-[#F5F3F0] border-gray-300 text-gray-900 placeholder-gray-500'
                               }`}
                             />
-                            <span className={`absolute right-4 top-1/2 transform -translate-y-1/2 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>hours</span>
+                            <span className={`absolute right-2 md:right-4 top-1/2 -translate-y-1/2 text-[10px] md:text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                              <span className="md:hidden">h</span>
+                              <span className="hidden md:inline">hours</span>
+                            </span>
                           </div>
                           <div className="relative">
-                            <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+                            <Clock className="hidden md:block absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                             <input
                               type="number"
                               value={stakingMinutes}
@@ -1704,30 +1749,32 @@ export default function CreateMarketPage() {
                               min="0"
                               max="59"
                               step="1"
-                              className={`w-full pl-8 pr-16 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${
+                              className={`w-full pl-2 pr-7 md:pl-8 md:pr-16 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-base md:text-sm ${
                                 isDarkMode 
                                   ? 'bg-black border-gray-300 text-white placeholder-gray-500' 
                                   : 'bg-[#F5F3F0] border-gray-300 text-gray-900 placeholder-gray-500'
                               }`}
                             />
-                            <span className={`absolute right-4 top-1/2 transform -translate-y-1/2 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>minutes</span>
+                            <span className={`absolute right-2 md:right-4 top-1/2 -translate-y-1/2 text-[10px] md:text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                              <span className="md:hidden">m</span>
+                              <span className="hidden md:inline">minutes</span>
+                            </span>
                           </div>
                         </div>
-                        <p className={`text-xs mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                          Total: {getStakingDurationMinutes()} minutes
-                          <br />
+                        <p className={`text-[11px] sm:text-xs mt-2 leading-relaxed ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                          <span className="hidden sm:inline">Total {getStakingDurationMinutes()} min · </span>
                           <span className={`font-medium ${isDarkMode ? 'text-blue-300' : 'text-blue-600'}`}>
-                            Ends: <ClientOnly>{getStakingEndDate()}</ClientOnly>
+                            Staking ends <ClientOnly>{getStakingEndDate()}</ClientOnly>
                           </span>
                         </p>
                       </div>
                       
                       <div>
-                        <label className="block text-sm font-medium mb-2">Resolution Duration</label>
-                        <p className="text-xs text-gray-500 mb-2">Total time until market can be resolved</p>
-                        <div className="space-y-2">
+                        <label className="block text-xs sm:text-sm font-medium mb-1 sm:mb-2">Resolution window</label>
+                        <FormHint isDarkMode={isDarkMode} className="!mb-2">Total time until the market can be resolved</FormHint>
+                        <div className="grid grid-cols-3 gap-2 md:grid-cols-1 md:gap-2">
                           <div className="relative">
-                            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+                            <Calendar className="hidden md:block absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                             <input
                               type="number"
                               value={resolutionDays}
@@ -1735,16 +1782,19 @@ export default function CreateMarketPage() {
                               placeholder="0"
                               min="0"
                               step="1"
-                              className={`w-full pl-8 pr-12 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${
+                              className={`w-full pl-2 pr-7 md:pl-8 md:pr-12 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-base md:text-sm ${
                                 isDarkMode 
                                   ? 'bg-black border-gray-300 text-white placeholder-gray-500' 
                                   : 'bg-[#F5F3F0] border-gray-300 text-gray-900 placeholder-gray-500'
                               }`}
                             />
-                            <span className={`absolute right-4 top-1/2 transform -translate-y-1/2 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>days</span>
+                            <span className={`absolute right-2 md:right-4 top-1/2 -translate-y-1/2 text-[10px] md:text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                              <span className="md:hidden">d</span>
+                              <span className="hidden md:inline">days</span>
+                            </span>
                           </div>
                           <div className="relative">
-                            <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+                            <Clock className="hidden md:block absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                             <input
                               type="number"
                               value={resolutionHours}
@@ -1753,16 +1803,19 @@ export default function CreateMarketPage() {
                               min="0"
                               max="23"
                               step="1"
-                              className={`w-full pl-8 pr-16 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${
+                              className={`w-full pl-2 pr-7 md:pl-8 md:pr-16 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-base md:text-sm ${
                                 isDarkMode 
                                   ? 'bg-black border-gray-300 text-white placeholder-gray-500' 
                                   : 'bg-[#F5F3F0] border-gray-300 text-gray-900 placeholder-gray-500'
                               }`}
                             />
-                            <span className={`absolute right-4 top-1/2 transform -translate-y-1/2 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>hours</span>
+                            <span className={`absolute right-2 md:right-4 top-1/2 -translate-y-1/2 text-[10px] md:text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                              <span className="md:hidden">h</span>
+                              <span className="hidden md:inline">hours</span>
+                            </span>
                           </div>
                           <div className="relative">
-                            <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+                            <Clock className="hidden md:block absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                             <input
                               type="number"
                               value={resolutionMinutes}
@@ -1771,20 +1824,22 @@ export default function CreateMarketPage() {
                               min="0"
                               max="59"
                               step="1"
-                              className={`w-full pl-8 pr-12 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${
+                              className={`w-full pl-2 pr-7 md:pl-8 md:pr-12 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-base md:text-sm ${
                                 isDarkMode 
                                   ? 'bg-black border-gray-300 text-white placeholder-gray-500' 
                                   : 'bg-[#F5F3F0] border-gray-300 text-gray-900 placeholder-gray-500'
                               }`}
                             />
-                            <span className={`absolute right-4 top-1/2 transform -translate-y-1/2 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>minutes</span>
+                            <span className={`absolute right-2 md:right-4 top-1/2 -translate-y-1/2 text-[10px] md:text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                              <span className="md:hidden">m</span>
+                              <span className="hidden md:inline">minutes</span>
+                            </span>
                           </div>
                         </div>
-                        <p className={`text-xs mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                          Total: {getResolutionDurationMinutes()} minutes
-                          <br />
+                        <p className={`text-[11px] sm:text-xs mt-2 leading-relaxed ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                          <span className="hidden sm:inline">Total {getResolutionDurationMinutes()} min · </span>
                           <span className={`font-medium ${isDarkMode ? 'text-green-300' : 'text-green-600'}`}>
-                            Resolves: <ClientOnly>{getResolutionEndDate()}</ClientOnly>
+                            Resolves <ClientOnly>{getResolutionEndDate()}</ClientOnly>
                           </span>
                         </p>
                       </div>
@@ -1792,14 +1847,14 @@ export default function CreateMarketPage() {
                   </div>
 
                   {/* Categories & Tokens Row */}
-                  <div className="grid grid-cols-1 gap-6">
+                  <div className="grid grid-cols-1 gap-5 sm:gap-6">
                     {/* Categories */}
-                    <div className="space-y-3">
-                    <h2 className={`text-base lg:text-lg font-semibold ${
+                    <div className="space-y-2 sm:space-y-3">
+                    <h2 className={`text-sm sm:text-base lg:text-lg font-semibold tracking-tight ${
                       isDarkMode ? 'text-[#39FF14]' : 'text-[#39FF14]'
                     }`}>Categories</h2>
                       
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-1.5 sm:gap-2">
                         {availableCategories.map((category) => (
                           <button
                             key={category}
@@ -1832,16 +1887,19 @@ export default function CreateMarketPage() {
                   </div>
 
                   {/* Outcome Type */}
-                  <div className="space-y-4">
-                  <h2 className={`text-base lg:text-lg font-semibold ${
+                  <div className="space-y-3 sm:space-y-4">
+                  <h2 className={`text-sm sm:text-base lg:text-lg font-semibold tracking-tight ${
                     isDarkMode ? 'text-[#39FF14]' : 'text-[#39FF14]'
-                  }`}>Outcome Type</h2>
+                  }`}>
+                    <span className="md:hidden">Outcome</span>
+                    <span className="hidden md:inline">Outcome Type</span>
+                  </h2>
                     
-                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
                       <button
                         onClick={() => setOutcomeType('yesno')}
                         className={`
-                          flex-1 px-4 py-3 rounded-lg border-2 transition-colors flex items-center justify-center gap-2 text-sm font-medium
+                          flex-1 px-4 py-3.5 sm:py-3 rounded-lg border-2 transition-colors flex items-center justify-center gap-2 text-sm font-medium
                           ${outcomeType === 'yesno'
                           ? isDarkMode
                             ? 'border-[#39FF14] bg-black text-[#39FF14]'
@@ -1863,7 +1921,7 @@ export default function CreateMarketPage() {
                         }}
                         disabled={marketType === 'PRICE_FEED'}
                         className={`
-                          flex-1 px-4 py-3 rounded-lg border-2 transition-colors flex items-center justify-center gap-2 text-sm font-medium
+                          flex-1 px-4 py-3.5 sm:py-3 rounded-lg border-2 transition-colors flex items-center justify-center gap-2 text-sm font-medium
                           ${marketType === 'PRICE_FEED'
                             ? isDarkMode
                               ? 'border-gray-800 bg-gray-900 text-gray-600 cursor-not-allowed opacity-50'
@@ -1878,8 +1936,11 @@ export default function CreateMarketPage() {
                           }
                         `}
                       >
-                        Multiple Options
-                        {marketType === 'PRICE_FEED' && ' (Not available)'}
+                        <span className="md:hidden">Multi</span>
+                        <span className="hidden md:inline">Multiple Options</span>
+                        {marketType === 'PRICE_FEED' && (
+                          <span className="text-xs opacity-80 md:text-sm"> (n/a)</span>
+                        )}
                       </button>
                     </div>
                   </div>
@@ -1887,20 +1948,21 @@ export default function CreateMarketPage() {
 
                   {/* Multiple Options */}
                   {outcomeType === 'multiple' && (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-sm lg:text-md font-medium">Options (2-10)</h3>
+                    <div className="space-y-3 sm:space-y-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <h3 className="text-xs sm:text-sm font-medium">Options (2–10)</h3>
                         {multipleOptions.length < 10 && (
                           <button
                             onClick={addMultipleOption}
-                            className={`px-3 py-1.5 rounded-lg text-sm transition-colors flex items-center gap-2 ${
+                            className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm transition-colors flex items-center gap-1.5 sm:gap-2 shrink-0 ${
                               isDarkMode 
                                 ? 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black' 
                                 : 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black border border-black'
                             }`}
                           >
                             <Plus size={16} />
-                            Add Option
+                            <span className="sm:hidden">Add</span>
+                            <span className="hidden sm:inline">Add Option</span>
                           </button>
                         )}
                       </div>
@@ -1913,7 +1975,7 @@ export default function CreateMarketPage() {
                               value={option}
                               onChange={(e) => handleMultipleOptionChange(index, e.target.value)}
                               placeholder={`Option ${index + 1}`}
-                            className={`flex-1 px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${
+                            className={`flex-1 px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-base sm:text-sm ${
                               isDarkMode 
                                 ? 'bg-black border-gray-700 text-white placeholder-gray-400' 
                                 : 'bg-[#F5F3F0] border-gray-300 text-gray-900 placeholder-gray-500'
@@ -1938,14 +2000,20 @@ export default function CreateMarketPage() {
                   )}
 
                   {/* Creator Deposit & Outcome */}
-                  <div className="space-y-4">
-                    <h2 className={`text-base lg:text-lg font-semibold ${
+                  <div className="space-y-3 sm:space-y-4">
+                    <h2 className={`text-sm sm:text-base lg:text-lg font-semibold tracking-tight ${
                       isDarkMode ? 'text-[#39FF14]' : 'text-[#39FF14]'
-                    }`}>Creator Requirements</h2>
+                    }`}>
+                      <span className="md:hidden">Your stake</span>
+                      <span className="hidden md:inline">Creator Requirements</span>
+                    </h2>
                     
                     <div>
-                      <label className="block text-sm font-medium mb-2">
-                        Creator Deposit ({tokens.find(t => t.address === selectedToken)?.symbol || 'PEPU'}) - Must be ≥ Minimum Stake
+                      <label className="block text-xs sm:text-sm font-medium mb-1.5 sm:mb-2">
+                        <span className="md:hidden">Deposit (≥ min stake)</span>
+                        <span className="hidden md:inline">
+                          Creator Deposit ({tokens.find(t => t.address === selectedToken)?.symbol || 'PEPU'}) — must be ≥ minimum stake
+                        </span>
                       </label>
                       <input
                         type="number"
@@ -1954,32 +2022,35 @@ export default function CreateMarketPage() {
                         placeholder={minimumStake || "0.1"}
                         min={minimumStake || "0"}
                         step="0.01"
-                      className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm ${
+                      className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-base sm:text-sm ${
                         isDarkMode 
                           ? 'bg-black border-gray-700 text-white placeholder-gray-400' 
                           : 'bg-[#F5F3F0] border-gray-300 text-gray-900 placeholder-gray-500'
                       }`}
                       />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Balance: {getUserTokenBalance(selectedToken) ? formatNumber(formatEther(getUserTokenBalance(selectedToken)!.value)) : '0'} {tokens.find(t => t.address === selectedToken)?.symbol || 'PEPU'}
+                      <p className={`text-[11px] sm:text-xs mt-1 ${isDarkMode ? 'text-white/50' : 'text-gray-500'}`}>
+                        <span className="sm:hidden">Bal </span>
+                        <span className="hidden sm:inline">Balance: </span>
+                        {getUserTokenBalance(selectedToken) ? formatNumber(formatEther(getUserTokenBalance(selectedToken)!.value)) : '0'} {tokens.find(t => t.address === selectedToken)?.symbol || 'PEPU'}
                       </p>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium mb-2">
-                        Creator Outcome Prediction
+                      <label className="block text-xs sm:text-sm font-medium mb-1.5 sm:mb-2">
+                        <span className="md:hidden">Your pick</span>
+                        <span className="hidden md:inline">Creator Outcome Prediction</span>
                       </label>
                       {outcomeType === 'yesno' ? (
                         <select
                           value={creatorOutcome}
                           onChange={(e) => setCreatorOutcome(e.target.value)}
-                        className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm appearance-none ${
+                        className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-base sm:text-sm appearance-none ${
                           isDarkMode 
                             ? 'bg-black border-gray-700 text-white' 
                             : 'bg-[#F5F3F0] border-gray-300 text-gray-900'
                         }`}
                         >
-                          <option value="">Select your prediction</option>
+                          <option value="">Select…</option>
                           <option value="1">Yes</option>
                           <option value="2">No</option>
                         </select>
@@ -1987,13 +2058,13 @@ export default function CreateMarketPage() {
                         <select
                           value={creatorOutcome}
                           onChange={(e) => setCreatorOutcome(e.target.value)}
-                        className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-sm appearance-none ${
+                        className={`w-full px-3 py-2.5 border rounded-lg focus:border-[#39FF14] focus:outline-none text-base sm:text-sm appearance-none ${
                           isDarkMode 
                             ? 'bg-black border-gray-700 text-white' 
                             : 'bg-[#F5F3F0] border-gray-300 text-gray-900'
                         }`}
                         >
-                          <option value="">Select your prediction</option>
+                          <option value="">Select…</option>
                           {multipleOptions.map((option, index) => (
                             <option key={index} value={index + 1}>
                               {option || `Option ${index + 1}`}
@@ -2005,7 +2076,7 @@ export default function CreateMarketPage() {
                   </div>
 
                   {/* Submit Button */}
-                  <div className="pt-4">
+                  <div className="pt-6 sm:pt-4 border-t border-dashed border-gray-600/40 sm:border-0 mt-2 sm:mt-0">
 
                     {/* Single button that switches between Approve and Create Market */}
                     <button 
@@ -2080,7 +2151,7 @@ export default function CreateMarketPage() {
                         }
                         return isDisabled;
                       })()}
-                      className={`w-full px-6 py-3 font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 ${
+                      className={`w-full px-6 py-3.5 sm:py-3 text-base sm:text-sm font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 ${
                         !isConnected || 
                         !creatorDeposit ||
                         (((outcomeType === 'multiple' && !hasSufficientAllowance) || 
@@ -2111,14 +2182,16 @@ export default function CreateMarketPage() {
                        'Create Market'}
                     </button>
                     {!isConnected && (
-                      <p className="text-sm text-gray-500 mt-2 text-center">Please connect your wallet to create a market</p>
+                      <p className={`text-xs sm:text-sm mt-2 text-center ${isDarkMode ? 'text-white/50' : 'text-gray-500'}`}>
+                        Connect wallet to create
+                      </p>
                     )}
-                    <p className="text-xs text-gray-500 mt-2 text-center">
-                      Market creation fee: 1 PEPU (always paid in PEPU)
+                    <p className={`text-[11px] sm:text-xs mt-2 text-center ${isDarkMode ? 'text-white/45' : 'text-gray-500'}`}>
+                      <span className="sm:hidden">Fee: 1 PEPU</span>
+                      <span className="hidden sm:inline">Creation fee: 1 PEPU (native)</span>
                     </p>
                   </div>
                 </div>
-              </div>
             </div>
           </div>
         </div>

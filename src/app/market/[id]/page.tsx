@@ -22,6 +22,7 @@ import {
   X
 } from 'lucide-react';
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
 import { formatEther, parseEther } from 'viem';
 import { ethers } from 'ethers';
@@ -33,9 +34,6 @@ const supabase = createClient(
   `https://${process.env.NEXT_PUBLIC_SUPABASE_PROJECT_ID}.supabase.co`,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
-
-// Explorer URL
-const EXPLORER_URL = 'https://explorer-pepu-v2-mainnet-0.t.conduit.xyz';
 
 // Price feed to chart URL mapping
 // TradingView widgets for major coins, Gecko Terminal for PEPU
@@ -80,6 +78,30 @@ const getChartUrl = (config: { symbol: string; type: 'tradingview' | 'gecko'; ge
   
   return null;
 };
+
+/** Contract `address` fields may not be plain strings (tuple decode / empty market); never call .toLowerCase() blindly. */
+function safeAddressLower(value: unknown): string | undefined {
+  if (value === null || value === undefined) return undefined;
+  if (typeof value === 'string') return value.toLowerCase();
+  if (typeof value === 'object') {
+    const o = value as { hex?: unknown; toString?: () => string };
+    if (typeof o.hex === 'string') return o.hex.toLowerCase();
+    if (typeof o.toString === 'function') {
+      try {
+        const s = o.toString();
+        if (typeof s === 'string' && s.startsWith('0x')) return s.toLowerCase();
+      } catch {
+        /* ignore */
+      }
+    }
+    return undefined;
+  }
+  const s = String(value);
+  if (s.startsWith('0x') && s.length >= 42) return s.toLowerCase();
+  return undefined;
+}
+
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 // Contract ABI
 const MARKET_MANAGER_ABI = [
@@ -274,7 +296,17 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
   
   useEffect(() => {
     params.then(({ id }) => {
-      setMarketId(parseInt(id));
+      const raw = String(id ?? '').trim();
+      if (!/^\d+$/.test(raw)) {
+        notFound();
+        return;
+      }
+      const n = parseInt(raw, 10);
+      if (!Number.isFinite(n) || n < 0) {
+        notFound();
+        return;
+      }
+      setMarketId(n);
     });
   }, [params]);
   
@@ -348,11 +380,11 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
         // - If `priceFeed` (v2 index 17) is one of our known feed addresses, it's v2.
         // - If `resolvedTimestamp` (v2 index 15) looks like a unix timestamp (> 1e9 seconds), it's v2.
         const resolvedTimestampCandidate = (fetchedMarket?.[15] ?? BigInt(0)) as bigint;
-        const priceFeedIfV2 = fetchedMarket?.[17] as string | undefined;
-        const priceFeedIfLegacy = fetchedMarket?.[16] as string | undefined;
+        const priceFeedIfV2 = fetchedMarket?.[17];
+        const priceFeedIfLegacy = fetchedMarket?.[16];
+        const priceFeedV2Key = safeAddressLower(priceFeedIfV2);
         const isKnownV2PriceFeed =
-          typeof priceFeedIfV2 === 'string' &&
-          !!PRICE_FEED_TO_CHART_CONFIG[priceFeedIfV2.toLowerCase()];
+          !!priceFeedV2Key && !!PRICE_FEED_TO_CHART_CONFIG[priceFeedV2Key];
         const useV2Layout =
           isKnownV2PriceFeed ||
           (typeof resolvedTimestampCandidate === 'bigint' && resolvedTimestampCandidate > BigInt(1000000000));
@@ -379,7 +411,9 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
           marketType: useV2Layout
             ? (fetchedMarket?.[16] ?? BigInt(0))
             : (fetchedMarket?.[15] ?? BigInt(0)),
-          priceFeed: useV2Layout ? (priceFeedIfV2 ?? ZERO_ADDRESS) : (priceFeedIfLegacy ?? ZERO_ADDRESS),
+          priceFeed:
+            (useV2Layout ? safeAddressLower(priceFeedIfV2) : safeAddressLower(priceFeedIfLegacy)) ??
+            ZERO_ADDRESS,
           priceThreshold: useV2Layout
             ? (fetchedMarket?.[18] ?? BigInt(0))
             : (fetchedMarket?.[17] ?? BigInt(0)),
@@ -417,10 +451,10 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
   // Determine if this is a price-feed market.
   // We primarily rely on `priceFeed` being non-zero, because some markets may have
   // `marketType` values that are inconsistent with the UI mapping.
-  const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
   const SENTINEL_NON_FEED_ADDRESS = "0x0000000000000000000000000000000000000001";
   const marketTypeValue = market?.marketType !== undefined ? Number(market.marketType) : null;
-  const priceFeedAddress = market?.priceFeed?.toLowerCase();
+  const priceFeedAddress = safeAddressLower(market?.priceFeed);
+  const paymentTokenAddr = safeAddressLower(market?.paymentToken) as `0x${string}` | undefined;
   const chartConfig = priceFeedAddress ? PRICE_FEED_TO_CHART_CONFIG[priceFeedAddress] : null;
   const isPriceFeedMarket =
     !!market &&
@@ -578,9 +612,9 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
     address: MARKET_MANAGER_ADDRESS,
     abi: MARKET_MANAGER_ABI,
     functionName: 'getTotalPool',
-    args: marketId !== null && market?.paymentToken ? [BigInt(marketId), market.paymentToken] : undefined,
+    args: marketId !== null && paymentTokenAddr ? [BigInt(marketId), paymentTokenAddr] : undefined,
     query: {
-      enabled: !!marketId && !!market?.paymentToken && !!MARKET_MANAGER_ADDRESS,
+      enabled: !!marketId && !!paymentTokenAddr && !!MARKET_MANAGER_ADDRESS,
       refetchInterval: 10000,
     }
   }) as { data: bigint | undefined };
@@ -601,9 +635,9 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
     address: MARKET_MANAGER_ADDRESS,
     abi: MARKET_MANAGER_ABI,
     functionName: 'getOptionPool',
-    args: marketId !== null && market?.paymentToken ? [BigInt(marketId), BigInt(1), market.paymentToken] : undefined,
+    args: marketId !== null && paymentTokenAddr ? [BigInt(marketId), BigInt(1), paymentTokenAddr] : undefined,
     query: {
-      enabled: !!marketId && !!market?.paymentToken && !!MARKET_MANAGER_ADDRESS,
+      enabled: !!marketId && !!paymentTokenAddr && !!MARKET_MANAGER_ADDRESS,
       refetchInterval: 10000,
     }
   }) as { data: bigint | undefined };
@@ -612,9 +646,9 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
     address: MARKET_MANAGER_ADDRESS,
     abi: MARKET_MANAGER_ABI,
     functionName: 'getOptionPool',
-    args: marketId !== null && market?.paymentToken ? [BigInt(marketId), BigInt(2), market.paymentToken] : undefined,
+    args: marketId !== null && paymentTokenAddr ? [BigInt(marketId), BigInt(2), paymentTokenAddr] : undefined,
     query: {
-      enabled: !!marketId && !!market?.paymentToken && !!MARKET_MANAGER_ADDRESS,
+      enabled: !!marketId && !!paymentTokenAddr && !!MARKET_MANAGER_ADDRESS,
       refetchInterval: 10000,
     }
   }) as { data: bigint | undefined };
@@ -632,9 +666,9 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
   }) as { data: boolean | undefined };
 
   // Check token allowance for ERC20 markets
-  const isERC20Market = market?.paymentToken && market.paymentToken !== '0x0000000000000000000000000000000000000000';
+  const isERC20Market = !!paymentTokenAddr && paymentTokenAddr !== ZERO_ADDRESS;
   const { data: tokenAllowance, refetch: refetchAllowance } = useReadContract({
-    address: isERC20Market ? market.paymentToken : undefined,
+    address: isERC20Market ? paymentTokenAddr : undefined,
     abi: ERC20_ABI,
     functionName: 'allowance',
     args: address && isERC20Market ? [address, MARKET_MANAGER_ADDRESS] : undefined,
@@ -743,7 +777,7 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
         setChartData(processedData);
 
         // Fetch creator profiles in parallel to reduce latency.
-        const creatorAddress = market?.creator?.toLowerCase();
+        const creatorAddress = safeAddressLower(market?.creator);
         const profileResults = await Promise.allSettled(
           stakersData.map((s: any) => getUserProfile(s.address))
         );
@@ -807,13 +841,14 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
     const needsApproval = isERC20Market && tokenAllowance !== undefined && tokenAllowance < amount;
 
     if (needsApproval) {
+      if (!paymentTokenAddr) return;
       // Approve first - approve 50 million tokens
       try {
         setIsApproving(true);
         setPendingTxType('approval');
         const approvalAmount = parseEther('50000000'); // 50 million
         await writeContract({
-          address: market.paymentToken,
+          address: paymentTokenAddr,
           abi: ERC20_ABI,
           functionName: 'approve',
           args: [MARKET_MANAGER_ADDRESS, approvalAmount],
@@ -882,8 +917,11 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
-  const getExplorerLink = (address: string) => {
-    return `${EXPLORER_URL}/address/${address}`;
+  /** In-app profile URL: prefer username slug; otherwise wallet address (API resolves both). */
+  const getProfileHref = (addr: string, username?: string | null) => {
+    const u = username?.trim();
+    if (u) return `/profile/${encodeURIComponent(u.toLowerCase())}`;
+    return `/profile/${addr.toLowerCase()}`;
   };
 
   // Show loading state
@@ -898,26 +936,9 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
     );
   }
 
-  // Show error if market doesn't exist
+  // Missing / failed market → custom 404 (not-found.tsx)
   if (marketError || !market) {
-    return (
-      <div className={`min-h-screen ${isDarkMode ? 'bg-black' : 'bg-[#F5F3F0]'} flex items-center justify-center`}>
-        <div className="text-center">
-          <h1 className={`text-2xl font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Market Not Found</h1>
-          <p className={isDarkMode ? 'text-white/70' : 'text-gray-600'}>Market #{marketId} does not exist.</p>
-          <Link 
-            href="/"
-            className={`mt-4 inline-block px-4 py-2 rounded-lg transition-colors ${
-              isDarkMode 
-                ? 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black' 
-                : 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black border border-black'
-            }`}
-          >
-            Back to Markets
-          </Link>
-        </div>
-      </div>
-    );
+    notFound();
   }
 
   const isMarketEnded = Number(market.state) === 1;
@@ -1036,17 +1057,14 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
                         Market ID: #{marketId}
                       </p>
                       <span className={`text-xs ${isDarkMode ? 'text-white/40' : 'text-gray-400'}`}>•</span>
-                      <a
-                        href={getExplorerLink(market.creator)}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <Link
+                        href={getProfileHref(market.creator, creatorProfile?.username)}
                         className={`text-xs sm:text-sm hover:underline inline-flex items-center gap-1 ${
                           isDarkMode ? 'text-blue-400' : 'text-blue-600'
                         }`}
                       >
                         Creator: {getDisplayName(market.creator, creatorProfile?.username, creatorProfile?.display_name)}
-                        <ExternalLink size={12} />
-                      </a>
+                      </Link>
                     </div>
                   </div>
                 </div>
@@ -1365,17 +1383,14 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
                       >
                         <div className="flex items-center gap-3">
                           <User size={16} className={isDarkMode ? 'text-white/60' : 'text-gray-400'} />
-                          <a
-                            href={getExplorerLink(staker.address)}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <Link
+                            href={getProfileHref(staker.address, staker.username)}
                             className={`hover:underline inline-flex items-center gap-1 ${
                               isDarkMode ? 'text-blue-400' : 'text-blue-600'
                             }`}
                           >
                             {getDisplayName(staker.address, staker.username, staker.displayName)}
-                            <ExternalLink size={12} />
-                          </a>
+                          </Link>
                           {staker.isCreator && (
                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
                               isDarkMode 

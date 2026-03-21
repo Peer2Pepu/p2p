@@ -22,12 +22,18 @@ export async function GET(
       );
     }
 
+    const normalized = username.trim().toLowerCase();
+    const isEthAddress = /^0x[a-f0-9]{40}$/.test(normalized);
+
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('username', username.toLowerCase())
-        .single();
+      let query = supabase.from('users').select('*');
+      if (isEthAddress) {
+        query = query.eq('address', normalized);
+      } else {
+        query = query.eq('username', normalized);
+      }
+
+      const { data, error } = await query.single();
 
       if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
         if (error.message?.includes('fetch failed') || error.message?.includes('ENOTFOUND')) {

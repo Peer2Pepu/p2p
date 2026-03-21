@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, notFound } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { 
@@ -248,18 +248,18 @@ function ProfileMarketCard({ marketId, marketData, isDarkMode }: {
   };
 
   return (
-    <div className={`block p-3 sm:p-4 border rounded-lg transition-all hover:shadow-md ${
-      isDarkMode 
-        ? 'bg-gray-900 border-gray-700 hover:border-gray-600' 
-        : 'bg-gray-50 border-gray-200 hover:border-gray-300'
-    }`}>
+    <div
+      className={`block py-4 sm:py-5 border-b last:border-b-0 transition-colors ${
+        isDarkMode ? 'border-white/10' : 'border-gray-300'
+      }`}
+    >
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
         {getMarketImage() && (
           <img 
             src={getMarketImage()!} 
             alt="Market" 
-            className={`w-full sm:w-20 sm:h-20 h-40 sm:h-20 rounded-lg object-cover border flex-shrink-0 ${
-              isDarkMode ? 'border-gray-700' : 'border-gray-200'
+            className={`w-full sm:w-20 sm:h-20 h-40 sm:h-20 rounded-lg object-cover flex-shrink-0 ${
+              isDarkMode ? 'ring-1 ring-white/10' : 'ring-1 ring-gray-200'
             }`}
             onError={(e) => {
               e.currentTarget.style.display = 'none';
@@ -357,9 +357,11 @@ export default function ProfileViewPage() {
 
   // Load profile data
   useEffect(() => {
-    if (username) {
-      loadProfile();
+    if (!username || typeof username !== 'string' || !username.trim()) {
+      notFound();
+      return;
     }
+    loadProfile();
   }, [username]);
 
   // Update analytics when contract data changes
@@ -398,6 +400,8 @@ export default function ProfileViewPage() {
 
       if (response.ok) {
         setProfile(data.profile);
+      } else if (response.status === 404) {
+        notFound();
       } else {
         setError(data.error || 'Profile not found');
       }
@@ -495,7 +499,7 @@ export default function ProfileViewPage() {
           </header>
 
           {/* Content */}
-          <div className="p-6">
+          <div className="p-3 sm:p-4 lg:p-6">
             <div className="max-w-4xl mx-auto">
               {/* Error Message */}
               {error && (
@@ -513,12 +517,12 @@ export default function ProfileViewPage() {
                   <p className={isDarkMode ? 'text-white' : 'text-gray-900'}>Loading profile...</p>
                 </div>
               ) : profile ? (
-                <div className="space-y-6">
-                  {/* Profile Header */}
-                  <div className={`p-3 sm:p-4 lg:p-6 rounded-xl border ${isDarkMode ? 'bg-black border-gray-800' : 'bg-white border-gray-200'} shadow-sm`}>
-                    <div className="flex items-start gap-6">
+                <div className="space-y-0">
+                  {/* Profile header — flush to page background */}
+                  <div className="pb-6 sm:pb-8">
+                    <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
                       {/* Profile Image */}
-                      <div className="relative">
+                      <div className="relative mx-auto sm:mx-0 shrink-0">
                         <div className={`w-24 h-24 rounded-full overflow-hidden border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
                           {profile?.image ? (
                             <img 
@@ -537,8 +541,8 @@ export default function ProfileViewPage() {
                       </div>
 
                       {/* Profile Info */}
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-4">
+                      <div className="flex-1 w-full text-center sm:text-left">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                           <div>
                             <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                               {profile?.display_name || 'Anonymous User'}
@@ -577,14 +581,14 @@ export default function ProfileViewPage() {
 
                   {/* Analytics Section */}
                   {analytics && (
-                    <div className={`p-3 sm:p-4 lg:p-6 rounded-xl border ${isDarkMode ? 'bg-black border-gray-800' : 'bg-white border-gray-200'} shadow-sm`}>
-                      <h2 className={`text-xl font-bold mb-6 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                    <div className={`py-6 sm:py-8 border-t ${isDarkMode ? 'border-white/10' : 'border-gray-300'}`}>
+                      <h2 className={`text-lg sm:text-xl font-bold mb-4 sm:mb-6 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                         <BarChart3 className={`h-5 w-5 ${isDarkMode ? 'text-[#39FF14]' : 'text-gray-900'}`} />
                         Trading Analytics
                       </h2>
                       
-                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
-                        <div className={`text-center p-2.5 sm:p-3 lg:p-4 rounded-lg border ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
+                        <div className="text-center py-1">
                           <Trophy className={`h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 mx-auto mb-1.5 sm:mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-yellow-500'}`} />
                           <div className={`text-lg sm:text-xl lg:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             {calculateWinRate()}%
@@ -594,7 +598,7 @@ export default function ProfileViewPage() {
                           </div>
                         </div>
                         
-                        <div className={`text-center p-2.5 sm:p-3 lg:p-4 rounded-lg border ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                        <div className="text-center py-1">
                           <Target className={`h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 mx-auto mb-1.5 sm:mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-blue-500'}`} />
                           <div className={`text-lg sm:text-xl lg:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             {analytics.totalStakesPlaced.toString()}
@@ -604,7 +608,7 @@ export default function ProfileViewPage() {
                           </div>
                         </div>
                         
-                        <div className={`text-center p-2.5 sm:p-3 lg:p-4 rounded-lg border ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                        <div className="text-center py-1">
                           <DollarSign className={`h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 mx-auto mb-1.5 sm:mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-green-500'}`} />
                           <div className={`text-sm sm:text-lg lg:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             {formatEther(analytics.totalWinnings)} ETH
@@ -614,7 +618,7 @@ export default function ProfileViewPage() {
                           </div>
                         </div>
                         
-                        <div className={`text-center p-2.5 sm:p-3 lg:p-4 rounded-lg border ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                        <div className="text-center py-1">
                           <Users className={`h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 mx-auto mb-1.5 sm:mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-purple-500'}`} />
                           <div className={`text-lg sm:text-xl lg:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             {analytics.marketsCreated.toString()}
@@ -627,8 +631,8 @@ export default function ProfileViewPage() {
                     </div>
                   )}
 
-                  {/* User Markets Section */}
-                  <div className={`p-3 sm:p-4 lg:p-6 rounded-xl border ${isDarkMode ? 'bg-black border-gray-800' : 'bg-white border-gray-200'} shadow-sm`}>
+                  {/* User markets — flush to background */}
+                  <div className={`py-6 sm:py-8 border-t ${isDarkMode ? 'border-white/10' : 'border-gray-300'}`}>
                     <h2 className={`text-lg sm:text-xl font-bold mb-4 sm:mb-6 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                       <TrendingUp className={`h-4 w-4 sm:h-5 sm:w-5 ${isDarkMode ? 'text-[#39FF14]' : 'text-gray-900'}`} />
                       Markets

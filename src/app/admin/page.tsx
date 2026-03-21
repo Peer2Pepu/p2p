@@ -1688,7 +1688,6 @@ export default function AdminPage() {
   const [isRemoving, setIsRemoving] = useState(false);
   const [userManagementSuccess, setUserManagementSuccess] = useState('');
   const { hasAccess, isLoading, isConnected } = useAdminAccess();
-  const { address } = useAccount();
 
   if (isLoading) {
     return (
@@ -1778,14 +1777,10 @@ export default function AdminPage() {
                 <div className="flex justify-center"><div className="scale-90 sm:scale-100"><ConnectButton /></div></div>
             </div>
           ) : !hasAccess ? (
-            <div className={`p-4 sm:p-8 rounded-xl border ${isDarkMode ? 'bg-black border-[#39FF14]' : 'bg-[#F5F3F0] border-[#39FF14]'}`}>
-                <h2 className={`text-lg sm:text-2xl font-bold mb-3 sm:mb-4 text-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Access Denied</h2>
-                <p className={`text-center mb-3 sm:mb-4 text-sm sm:text-base ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>You don't have permission to access the admin panel.</p>
-              <div className={`text-center text-xs sm:text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-500'}`}>
-                <p>Owner: {process.env.NEXT_PUBLIC_OWNER_ADDRESS?.slice(0, 6)}...{process.env.NEXT_PUBLIC_OWNER_ADDRESS?.slice(-4)}</p>
-                <p>Partner: {process.env.NEXT_PUBLIC_PARTNER_ADDRESS?.slice(0, 6)}...{process.env.NEXT_PUBLIC_PARTNER_ADDRESS?.slice(-4)}</p>
-                <p>Your Address: {address?.slice(0, 6)}...{address?.slice(-4)}</p>
-              </div>
+            <div className="flex min-h-[calc(100vh-12rem)] items-center justify-center">
+              <p className={`text-center text-sm sm:text-base ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                Access denied
+              </p>
             </div>
           ) : (
             <>
