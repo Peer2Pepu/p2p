@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useAccount } from 'wagmi';
+import { useAccount, useEnsName } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { Wallet } from 'lucide-react';
+import { Wallet, Loader2 } from 'lucide-react';
 import { UserProfile } from '@/types/profile';
 import { SeedAvatar } from '@/components/SeedAvatar';
 
@@ -161,33 +161,50 @@ function DeterministicAvatar({
   );
 }
 
+function profileLabel(profile: UserProfile | null): string | null {
+  if (!profile) return null;
+  const dn = typeof profile.display_name === 'string' ? profile.display_name.trim() : '';
+  if (dn) return dn;
+  const un = typeof profile.username === 'string' ? profile.username.trim() : '';
+  if (un) return un;
+  return null;
+}
+
 export function HeaderWallet({ isDarkMode }: HeaderWalletProps) {
   const { address, isConnected } = useAccount();
+  const { data: ensName } = useEnsName({ address });
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
 
   useEffect(() => {
-    if (address && isConnected) {
-      setIsLoading(true);
-      fetch(`/api/profile?address=${address}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.profile) {
-            setProfile(data.profile);
-          } else {
-            setProfile(null);
-          }
-        })
-        .catch(() => {
-          setProfile(null);
-        })
-        .finally(() => {
-          setIsLoading(false);
-        });
-    } else {
+    if (!address || !isConnected) {
       setProfile(null);
+      setIsLoading(false);
+      return;
     }
+
+    const ac = new AbortController();
+    setIsLoading(true);
+    const q = address.toLowerCase();
+
+    fetch(`/api/profile?address=${encodeURIComponent(q)}`, { signal: ac.signal })
+      .then(async (res) => {
+        const data = (await res.json().catch(() => ({}))) as { profile?: UserProfile | null };
+        if (!res.ok) {
+          setProfile(null);
+          return;
+        }
+        setProfile(data.profile ?? null);
+      })
+      .catch(() => {
+        if (!ac.signal.aborted) setProfile(null);
+      })
+      .finally(() => {
+        if (!ac.signal.aborted) setIsLoading(false);
+      });
+
+    return () => ac.abort();
   }, [address, isConnected]);
 
   if (!isConnected) {
@@ -227,9 +244,29 @@ export function HeaderWallet({ isDarkMode }: HeaderWalletProps) {
     );
   }
 
+  // While profile is loading, show ENS or address (avoid looking "stuck" on 0x… when a display name exists)
+  if (isLoading) {
+    const interim =
+      ensName?.trim() ||
+      (address ? `${address.slice(0, 6)}...${address.slice(-4)}` : '…');
+    return (
+      <div
+        className={`flex items-center gap-1.5 lg:gap-2 px-2 lg:px-3 py-1.5 rounded text-xs lg:text-sm font-medium ${
+          isDarkMode
+            ? 'text-white/90 border border-white/10'
+            : 'text-gray-800 border border-gray-200'
+        }`}
+      >
+        <Loader2 className="w-3.5 h-3.5 lg:w-4 lg:h-4 animate-spin shrink-0 opacity-80" aria-hidden />
+        <span className="truncate max-w-[140px] lg:max-w-[200px] font-medium">{interim}</span>
+      </div>
+    );
+  }
+
   // Show profile if available
-  if (profile && !isLoading) {
-    const displayName = profile.display_name || profile.username || 'User';
+  const label = profileLabel(profile);
+  if (profile && label) {
+    const displayName = label;
     const seed = displayName;
 
     return (
@@ -278,15 +315,20 @@ export function HeaderWallet({ isDarkMode }: HeaderWalletProps) {
     );
   }
 
-  // Fallback to wallet address
+  // No saved profile row (or empty display fields): ENS or truncated address
+  const fallback =
+    ensName?.trim() ||
+    (address ? `${address.slice(0, 6)}...${address.slice(-4)}` : '');
   return (
     <div className={`flex items-center gap-1 lg:gap-2 px-2 lg:px-3 py-1.5 rounded text-xs lg:text-sm font-medium ${
       isDarkMode 
         ? 'bg-[#39FF14]/10 text-white border border-[#39FF14]/30' 
         : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
     }`}>
-      <Wallet size={12} className="lg:w-3.5 lg:h-3.5" />
-      <span className="font-mono text-xs lg:text-sm">{address?.slice(0, 6)}...{address?.slice(-4)}</span>
+      <Wallet size={12} className="lg:w-3.5 lg:h-3.5 shrink-0" />
+      <span className={`text-xs lg:text-sm truncate max-w-[140px] lg:max-w-[200px] ${ensName ? 'font-medium' : 'font-mono'}`}>
+        {fallback}
+      </span>
     </div>
   );
 }
