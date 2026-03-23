@@ -169,11 +169,13 @@ function MultiSegmentCircle({ segments, size = 60, isDarkMode }: {
             );
           }
           
-          let cumulative = 0;
+          let cumulativeLength = 0;
           return normalizedSegments.map((segment, index) => {
             const segmentLength = (segment.percentage / 100) * circumference;
-            const offset = circumference - (cumulative / 100) * circumference;
-            cumulative += segment.percentage;
+            // Use negative accumulated length so each segment starts exactly
+            // where the previous one ended on the same path direction.
+            const offset = -cumulativeLength;
+            cumulativeLength += segmentLength;
             
             return (
               <circle
