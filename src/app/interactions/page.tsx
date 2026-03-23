@@ -140,7 +140,7 @@ export default function InteractionsPage() {
   const [success, setSuccess] = useState("");
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
 
-  const [activeTab, setActiveTab] = useState<"stake" | "approvals">("stake");
+  const [activeTab, setActiveTab] = useState<"stake" | "approvals">("approvals");
   const [activeApprovalTab, setActiveApprovalTab] = useState<"market" | "voting">("market");
 
   const MARKET_MANAGER_ADDRESS = (process.env
@@ -507,6 +507,16 @@ export default function InteractionsPage() {
                   <p className={cls("text-sm", dark("text-white/70", "text-gray-600"))}>
                     Manage voting stake + contract approvals
                   </p>
+                  <Link
+                    href="/docs#optimistic-oracle"
+                    title="Docs: Optimistic Oracle"
+                    className={cls(
+                      "inline-block mt-1 text-xs font-medium underline underline-offset-2 hover:opacity-90",
+                      dark("text-[#39FF14]", "text-emerald-700")
+                    )}
+                  >
+                    Learn more
+                  </Link>
                 </div>
               </div>
 
@@ -524,6 +534,23 @@ export default function InteractionsPage() {
         </header>
 
         <main className="p-4 lg:p-6">
+          <div className="lg:hidden mb-4">
+            <h1 className={cls("text-xl font-bold mb-0.5", dark("text-white", "text-gray-900"))}>Interactions</h1>
+            <p className={cls("text-sm", dark("text-white/70", "text-gray-600"))}>
+              Manage voting stake + contract approvals
+            </p>
+            <Link
+              href="/docs#optimistic-oracle"
+              title="Docs: Optimistic Oracle"
+              className={cls(
+                "inline-block mt-1 text-xs font-medium underline underline-offset-2 hover:opacity-90",
+                dark("text-[#39FF14]", "text-emerald-700")
+              )}
+            >
+              Learn more
+            </Link>
+          </div>
+
           {error && (
             <div className={cls("mb-4 p-4 rounded-lg border flex items-center gap-3", dark("bg-red-900/20 border-red-800 text-red-300", "bg-red-50 border-red-200 text-red-800"))}>
               <AlertTriangle size={20} className="flex-shrink-0" />
@@ -558,18 +585,6 @@ export default function InteractionsPage() {
               >
                 <button
                   type="button"
-                  onClick={() => setActiveTab("stake")}
-                  className={cls(
-                    "flex-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap",
-                    activeTab === "stake"
-                      ? dark("bg-[#39FF14]/10 border border-[#39FF14]/30 text-[#39FF14]", "bg-[#39FF14]/10 border border-[#39FF14]/30 text-green-900")
-                      : dark("bg-transparent border border-transparent text-white/70 hover:bg-gray-800/50 hover:border-gray-700", "bg-transparent border border-transparent text-gray-600 hover:bg-gray-100/70 hover:border-gray-300")
-                  )}
-                >
-                  Voting Stake
-                </button>
-                <button
-                  type="button"
                   onClick={() => setActiveTab("approvals")}
                   className={cls(
                     "flex-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap",
@@ -579,6 +594,18 @@ export default function InteractionsPage() {
                   )}
                 >
                   Approvals
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("stake")}
+                  className={cls(
+                    "flex-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap",
+                    activeTab === "stake"
+                      ? dark("bg-[#39FF14]/10 border border-[#39FF14]/30 text-[#39FF14]", "bg-[#39FF14]/10 border border-[#39FF14]/30 text-green-900")
+                      : dark("bg-transparent border border-transparent text-white/70 hover:bg-gray-800/50 hover:border-gray-700", "bg-transparent border border-transparent text-gray-600 hover:bg-gray-100/70 hover:border-gray-300")
+                  )}
+                >
+                  Voting Stake
                 </button>
               </div>
 
@@ -625,6 +652,19 @@ export default function InteractionsPage() {
                         </span>
                       </div>
                     </div>
+
+                    <p className={cls("text-[11px] sm:text-xs mb-3 rounded-lg px-3 py-2 border leading-snug", dark("bg-[#39FF14]/5 border-[#39FF14]/20 text-white/80", "bg-emerald-50 border-emerald-200 text-gray-700"))}>
+                      To stake, you must{" "}
+                      <span className="font-semibold">approve P2P for the voting contract</span> first — use the{" "}
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab("approvals")}
+                        className={cls("font-semibold underline underline-offset-2 hover:opacity-90", dark("text-[#39FF14]", "text-emerald-700"))}
+                      >
+                        Approvals
+                      </button>{" "}
+                      tab so your allowance covers the amount you stake.
+                    </p>
 
                     <div className="space-y-3">
                       {/* Stake */}
@@ -906,7 +946,14 @@ export default function InteractionsPage() {
                     </div>
 
                     <div className={cls("mt-4 text-[11px] leading-relaxed", dark("text-white/60", "text-gray-500"))}>
-                      Tip: if staking fails, approve the voting contract first. If asserting/disputing fails, approve OptimisticOracle via the Market Manager first.
+                      Tip: if staking fails, approve the voting contract first. If asserting/disputing fails, approve OptimisticOracle via the Market Manager first.{" "}
+                      <Link
+                        href="/docs#optimistic-oracle"
+                        title="Docs: Optimistic Oracle"
+                        className={cls("font-medium underline underline-offset-2 hover:opacity-90", dark("text-[#39FF14]/90", "text-emerald-700"))}
+                      >
+                        Learn more
+                      </Link>
                     </div>
                   </>
                 )}

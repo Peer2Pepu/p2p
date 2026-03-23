@@ -1211,6 +1211,13 @@ export default function AssertPage() {
                   <p className={`text-sm ${dark("text-white/70", "text-gray-600")}`}>
                     Assert, dispute, vote, settle, and resolve ended P2P markets
                   </p>
+                  <Link
+                    href="/docs#optimistic-oracle"
+                    title="Docs: Optimistic Oracle"
+                    className={`inline-block mt-1 text-xs font-medium underline underline-offset-2 hover:opacity-90 ${dark("text-[#39FF14]", "text-emerald-700")}`}
+                  >
+                    Learn more
+                  </Link>
                 </div>
               </div>
               <div className="flex items-center gap-2 lg:gap-4">
@@ -1240,6 +1247,13 @@ export default function AssertPage() {
             <p className={`text-sm ${dark("text-white/70", "text-gray-600")}`}>
               Assert, dispute, vote, settle, and resolve ended P2P markets
             </p>
+            <Link
+              href="/docs#optimistic-oracle"
+              title="Docs: Optimistic Oracle"
+              className={`inline-block mt-1 text-xs font-medium underline underline-offset-2 hover:opacity-90 ${dark("text-[#39FF14]", "text-emerald-700")}`}
+            >
+              Learn more
+            </Link>
           </div>
 
           {/* Oracle not configured warning - only show if actually not configured (not loading) */}
@@ -1539,15 +1553,20 @@ export default function AssertPage() {
                       {/* ── PHASE: DISPUTE WINDOW ── */}
                       {phase.phase === "dispute-window" && market.assertion && (
                         <div className="space-y-2 flex-1 min-h-0 flex flex-col">
-                          <div className={`text-xs px-3 py-2 rounded flex-shrink-0 ${dark("bg-gray-900/50 text-gray-300 border border-gray-700", "bg-gray-100 text-gray-700 border border-gray-300")}`}>
-                            <div className="font-medium mb-0.5">
-                              Dispute window open
-                            </div>
-                            <div>Asserted option: <span className="font-medium">{options[market.assertion.assertedOptionId - 1] || `Option ${market.assertion.assertedOptionId}`}</span></div>
-                            <div className="flex items-center gap-1 mt-1">
-                              <Clock size={12} />
-                              {formatCountdown((phase as any).remaining)} remaining
-                            </div>
+                          <div
+                            className={`text-[10px] sm:text-xs px-2 py-1 rounded flex-shrink-0 flex flex-wrap items-center gap-x-2 gap-y-0.5 leading-tight ${dark("bg-gray-900/50 text-gray-300 border border-gray-700", "bg-gray-100 text-gray-700 border border-gray-300")}`}
+                            title="You can dispute the asserted outcome before time runs out."
+                          >
+                            <span className="font-medium whitespace-nowrap">Dispute open</span>
+                            <span className="opacity-80 hidden sm:inline">·</span>
+                            <span className="whitespace-nowrap">
+                              Asserted: <span className="font-medium">{options[market.assertion.assertedOptionId - 1] || `Option ${market.assertion.assertedOptionId}`}</span>
+                            </span>
+                            <span className="opacity-80 hidden sm:inline">·</span>
+                            <span className="inline-flex items-center gap-0.5 whitespace-nowrap tabular-nums">
+                              <Clock size={10} className="shrink-0 opacity-80" aria-hidden />
+                              {formatCountdown((phase as any).remaining)} left
+                            </span>
                           </div>
 
                           {/* Dispute with option selection */}
