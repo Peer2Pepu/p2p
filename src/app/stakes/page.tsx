@@ -29,6 +29,9 @@ import { Sidebar } from '../components/Sidebar';
 import { HeaderWallet } from '@/components/HeaderWallet';
 import { useTheme } from '../context/ThemeContext';
 
+/** Avoid double page reload (e.g. React Strict Mode) for the same claim tx hash */
+const claimReloadGuard = new Set<string>();
+
 // Contract ABIs
 const MARKET_MANAGER_ABI = [
   {
@@ -339,13 +342,19 @@ function RefundCard({ marketId, userAddress, isDarkMode, onStatusUpdate }: {
   }, [market, marketMetadata, loadingMetadata]);
 
   useEffect(() => {
-    if (isConfirmed) {
+    if (isConfirmed && hash) {
+      const key = String(hash);
+      if (claimReloadGuard.has(key)) return;
+      claimReloadGuard.add(key);
       setClaimError(null);
       setClaimSuccess(true);
       setTimeout(() => setClaimSuccess(false), 3000);
-      // After claiming, the refund amount will become 0, but we keep showing the card
+      // No cleanup on reload timeout — Strict Mode would cancel it before remount
+      setTimeout(() => {
+        window.location.reload();
+      }, 400);
     }
-  }, [isConfirmed]);
+  }, [isConfirmed, hash]);
 
   // Update status to ensure cancelled markets stay in refunds category
   useEffect(() => {
@@ -758,15 +767,20 @@ function StakesCard({ marketId, userAddress, isDarkMode, onClaimableUpdate, onSt
     }
   }, [market, marketMetadata, loadingMetadata]);
 
-  // Handle successful claim
+  // Handle successful claim — refresh page so balances/UI update
   useEffect(() => {
-    if (isConfirmed) {
+    if (isConfirmed && hash) {
+      const key = String(hash);
+      if (claimReloadGuard.has(key)) return;
+      claimReloadGuard.add(key);
       setClaimError(null);
       setClaimSuccess(true);
-      // Hide success message after 3 seconds
       setTimeout(() => setClaimSuccess(false), 3000);
+      setTimeout(() => {
+        window.location.reload();
+      }, 400);
     }
-  }, [isConfirmed]);
+  }, [isConfirmed, hash]);
 
   const isWinningStake = userStakeOption && marketData?.winningOption ? Number(userStakeOption) === Number(marketData.winningOption) : false;
   const canClaim = isWinningStake && !hasClaimed;

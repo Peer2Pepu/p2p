@@ -487,8 +487,11 @@ export default function AssertPage() {
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  /** Bumps every 1s so countdown UIs re-render. Use wall-clock `Date.now()` for phase math (avoids block-timestamp snap-back on refresh). */
+  /** Bumps every 1s so countdown UIs re-render. */
   const [, setClockTick] = useState(0);
+  // Estimate on-chain time (`block.timestamp`) for stable countdowns.
+  const [chainBaseTimestamp, setChainBaseTimestamp] = useState<number | null>(null);
+  const [wallBaseMs, setWallBaseMs] = useState<number | null>(null);
   const [isApproving, setIsApproving] = useState(false);
   const [pendingTxType, setPendingTxType] = useState<'approval' | 'assert' | 'dispute' | 'settle' | 'resolve' | 'stake-voting' | 'vote' | null>(null);
   const [selectedOptions, setSelectedOptions] = useState<Record<number, number>>({});
@@ -834,7 +837,31 @@ export default function AssertPage() {
     if (publicClient && oracleAddress !== undefined) fetchMarkets();
   }, [fetchMarkets, publicClient, oracleAddress]);
 
-  // Stable wall-clock tick for countdowns (block.timestamp lags wall time and caused remaining time to "reset" on every refresh)
+  // Sync an initial chain timestamp so "now" ~= block.timestamp across refreshes.
+  useEffect(() => {
+    if (!publicClient) return;
+    let cancelled = false;
+
+    const sync = async () => {
+      try {
+        const block = await publicClient.getBlock({ blockTag: "latest" });
+        if (cancelled) return;
+        setChainBaseTimestamp(Number(block.timestamp));
+        setWallBaseMs(Date.now());
+      } catch {
+        if (cancelled) return;
+        setChainBaseTimestamp(Math.floor(Date.now() / 1000));
+        setWallBaseMs(Date.now());
+      }
+    };
+
+    sync();
+    return () => {
+      cancelled = true;
+    };
+  }, [publicClient]);
+
+  // Tick for re-rendering countdowns.
   useEffect(() => {
     const id = setInterval(() => setClockTick((n) => n + 1), 1000);
     return () => clearInterval(id);
@@ -1111,7 +1138,10 @@ export default function AssertPage() {
   // ─── Derived per-market state ─────────────────────────────────────────────
 
   const getMarketPhase = (market: MarketWithMetadata) => {
-    const now = Math.floor(Date.now() / 1000);
+    const now =
+      chainBaseTimestamp !== null && wallBaseMs !== null
+        ? Math.floor(chainBaseTimestamp + (Date.now() - wallBaseMs) / 1000)
+        : Math.floor(Date.now() / 1000);
     const { assertion, voting: voteData } = market;
 
     if (!market.p2pAssertionMade) {
@@ -1145,7 +1175,12 @@ export default function AssertPage() {
     // UI will show voting options once voteData loads (see voting UI condition)
     if (isDisputed && !voteData) return { phase: "disputed" as const };
     if (inDisputeWindow && !isDisputed) return { phase: "dispute-window" as const, remaining: Number(assertion.expirationTime) - now };
-    if (assertion.canSettleNow) return { phase: "ready-to-settle" as const };
+    // Avoid "unknown" due to minor wall-vs-block timestamp drift:
+    // if time is clearly past the relevant deadline, show ready-to-settle.
+    const shouldBeReadyToSettle = isDisputed
+      ? now >= Number(assertion.expirationTime)
+      : now >= Number(assertion.assertionDeadline);
+    if (assertion.canSettleNow || shouldBeReadyToSettle) return { phase: "ready-to-settle" as const };
 
     return { phase: "unknown" as const };
   };
