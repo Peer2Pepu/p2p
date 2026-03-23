@@ -254,6 +254,18 @@ export default function ProfilePage() {
     }
   };
 
+  const copyProfileAddress = async () => {
+    if (!address) return;
+    try {
+      await navigator.clipboard.writeText(address);
+      setSuccess('Address copied');
+      setTimeout(() => setSuccess(null), 2000);
+    } catch {
+      setError('Could not copy address');
+      setTimeout(() => setError(null), 2500);
+    }
+  };
+
   const calculateWinRate = () => {
     if (!analytics) return 0;
     const placed = toBigIntSafe(analytics.totalStakesPlaced);
@@ -498,7 +510,11 @@ export default function ProfilePage() {
                             <p className={`text-sm sm:text-base mb-1 ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
                               @{profile?.username || 'no-username'}
                             </p>
-                            <p className={`text-xs sm:text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-500'}`}>
+                            <p
+                              onClick={copyProfileAddress}
+                              title="Click to copy address"
+                              className={`text-xs sm:text-sm cursor-pointer hover:underline ${isDarkMode ? 'text-white/60 hover:text-white/90' : 'text-gray-500 hover:text-gray-800'}`}
+                            >
                               {formatAddress(address || '')}
                             </p>
                           </div>

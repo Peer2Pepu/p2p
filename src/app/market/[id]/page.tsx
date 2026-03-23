@@ -38,21 +38,24 @@ const supabase = createClient(
 // Price feed to chart URL mapping
 // TradingView widgets for major coins, Gecko Terminal for PEPU
 // Keys are lowercase to match the converted priceFeed address
-const PRICE_FEED_TO_CHART_CONFIG: Record<string, { label: string; symbol: string; type: 'tradingview' | 'gecko'; geckoUrl?: string }> = {
+const PRICE_FEED_TO_CHART_CONFIG: Record<string, { label: string; symbol: string; type: 'tradingview' | 'gecko'; geckoUrl?: string; coinGeckoId?: string }> = {
   '0x20d9bbeae75d9e17176520ad473234be293e4c5d': {
     label: 'ETH/USD',
     symbol: 'CRYPTOCAP:ETH',
-    type: 'tradingview'
+    type: 'tradingview',
+    coinGeckoId: 'ethereum'
   }, // ETH/USD
   '0xa74ccee7759c7bb2ce3f0b1599428fed08fab8ce': {
     label: 'BTC/USD',
     symbol: 'CRYPTOCAP:BTC',
-    type: 'tradingview'
+    type: 'tradingview',
+    coinGeckoId: 'bitcoin'
   }, // BTC/USD
   '0x786be298cfff15c49727c0998392ff38e45f99b3': {
     label: 'SOL/USD',
     symbol: 'CRYPTOCAP:SOL',
-    type: 'tradingview'
+    type: 'tradingview',
+    coinGeckoId: 'solana'
   }, // SOL/USD
   '0x51c17e20994c6c0ee787fe1604ef14ebafdb7ce9': {
     label: 'PEPU/USD',
@@ -63,7 +66,7 @@ const PRICE_FEED_TO_CHART_CONFIG: Record<string, { label: string; symbol: string
 };
 
 // Helper function to get chart URL based on config and theme
-const getChartUrl = (config: { symbol: string; type: 'tradingview' | 'gecko'; geckoUrl?: string } | null, isDarkMode: boolean): string | null => {
+const getChartUrl = (config: { symbol: string; type: 'tradingview' | 'gecko'; geckoUrl?: string; coinGeckoId?: string } | null, isDarkMode: boolean): string | null => {
   if (!config) return null;
   
   if (config.type === 'gecko' && config.geckoUrl) {
@@ -352,6 +355,8 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
   const [isStaking, setIsStaking] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
   const [chartType, setChartType] = useState<'activity' | 'price'>('activity');
+  const [externalPriceData, setExternalPriceData] = useState<Array<{time: string; price: number}>>([]);
+  const [loadingExternalPrice, setLoadingExternalPrice] = useState(false);
   const [resolvedPrice, setResolvedPrice] = useState<string | null>(null);
   const [priceDecimals, setPriceDecimals] = useState<number>(8);
   const [pendingTxType, setPendingTxType] = useState<'approval' | 'stake' | null>(null);
@@ -494,6 +499,47 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
       setChartType((prev) => (prev === 'activity' ? 'price' : prev));
     }
   }, [isPriceFeedMarket]);
+
+  // Free fallback chart data (CoinGecko) for major feeds.
+  useEffect(() => {
+    const fetchExternalPrice = async () => {
+      if (!isPriceFeedMarket || chartConfig?.type !== 'tradingview' || !chartConfig?.coinGeckoId) {
+        setExternalPriceData([]);
+        setLoadingExternalPrice(false);
+        return;
+      }
+      try {
+        setLoadingExternalPrice(true);
+        const resp = await fetch(
+          `https://api.coingecko.com/api/v3/coins/${chartConfig.coinGeckoId}/market_chart?vs_currency=usd&days=7&interval=hourly`
+        );
+        if (!resp.ok) {
+          setExternalPriceData([]);
+          return;
+        }
+        const data = await resp.json();
+        const points = Array.isArray(data?.prices) ? data.prices : [];
+        const mapped = points
+          .map((p: [number, number]) => ({
+            time: new Date(p[0]).toLocaleString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            }),
+            price: Number(p[1]),
+          }))
+          .filter((p: { time: string; price: number }) => Number.isFinite(p.price));
+        setExternalPriceData(mapped);
+      } catch {
+        setExternalPriceData([]);
+      } finally {
+        setLoadingExternalPrice(false);
+      }
+    };
+
+    fetchExternalPrice();
+  }, [isPriceFeedMarket, chartConfig?.type, chartConfig?.coinGeckoId]);
 
   // Fetch decimals from price feed contract for all price feed markets
   useEffect(() => {
@@ -1153,7 +1199,47 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
                     </div>
                   )}
                 </div>
-                {chartType === 'price' && isPriceFeedMarket && chartUrl ? (
+                {chartType === 'price' && isPriceFeedMarket && externalPriceData.length > 0 ? (
+                  <div className="h-64 sm:h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={externalPriceData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#374151' : '#D1D5DB'} />
+                        <XAxis
+                          dataKey="time"
+                          stroke={isDarkMode ? '#9CA3AF' : '#6B7280'}
+                          fontSize={12}
+                          tick={{ fill: isDarkMode ? '#9CA3AF' : '#6B7280' }}
+                        />
+                        <YAxis
+                          stroke={isDarkMode ? '#9CA3AF' : '#6B7280'}
+                          fontSize={12}
+                          tick={{ fill: isDarkMode ? '#9CA3AF' : '#6B7280' }}
+                          tickFormatter={(v) => `$${Number(v).toFixed(2)}`}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: isDarkMode ? '#111827' : '#F9FAFB',
+                            border: isDarkMode ? '1px solid #374151' : '1px solid #E5E7EB',
+                            borderRadius: '8px',
+                            color: isDarkMode ? '#F9FAFB' : '#111827'
+                          }}
+                          formatter={(value: number) => [`$${Number(value).toFixed(4)}`, `${chartConfig?.label || 'Price'}`]}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="price"
+                          stroke={isDarkMode ? '#39FF14' : '#10B981'}
+                          strokeWidth={2}
+                          dot={false}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : chartType === 'price' && isPriceFeedMarket && loadingExternalPrice ? (
+                  <div className="h-64 flex items-center justify-center">
+                    <div className={`animate-spin rounded-full h-8 w-8 border-b-2 ${isDarkMode ? 'border-[#39FF14]' : 'border-[#39FF14]'}`}></div>
+                  </div>
+                ) : chartType === 'price' && isPriceFeedMarket && chartUrl ? (
                   chartConfig?.type === 'gecko' ? (
                     // Gecko Terminal - show as a card with link since iframe embedding isn't supported
                     <div className={`h-64 sm:h-80 w-full rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-4 p-6 ${
