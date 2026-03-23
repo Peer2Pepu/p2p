@@ -236,7 +236,10 @@ export function MarketCard({
   isApprovalPending,
   isStakePending,
   isApprovalConfirming,
-  isStakeConfirming
+  isStakeConfirming,
+  stakingProfileLoading = false,
+  stakingProfileRegistered = true,
+  onRequireSignup,
 }: {
   marketId: number;
   isDarkMode: boolean;
@@ -247,6 +250,12 @@ export function MarketCard({
   isStakePending?: boolean;
   isApprovalConfirming?: boolean;
   isStakeConfirming?: boolean;
+  /** When wallet connected: true while fetching /api/profile */
+  stakingProfileLoading?: boolean;
+  /** When wallet connected: must be true to stake (registered profile) */
+  stakingProfileRegistered?: boolean;
+  /** Open parent signup modal when connected user has no profile */
+  onRequireSignup?: () => void;
 }) {
   const MARKET_MANAGER_ADDRESS = (process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS || process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS) as `0x${string}`;
 
@@ -750,6 +759,10 @@ export function MarketCard({
   const canStake = marketData && marketData.state === 0 && stakeTimeLeft > 0 && !userHasStaked;
   // Stake period is open if time hasn't ended (regardless of whether user has staked)
   const isStakePeriodOpen = marketData && marketData.state === 0 && stakeTimeLeft > 0;
+  /** Wallet connected but profile not loaded or not registered → block staking UX */
+  const stakeBlockedByProfile =
+    !!userAddress && (stakingProfileLoading || !stakingProfileRegistered);
+  const canStakeWithRegistration = canStake && !stakeBlockedByProfile;
 
   const getMarketTitle = () => {
     if (loadingSupabase) return 'Loading...';
@@ -968,10 +981,14 @@ export function MarketCard({
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    if (canStake && !isUserStake && !canEndMarket) {
-                      setModalSelectedOption(index + 1);
-                      setIsModalOpen(true);
+                    if (!canStake || isUserStake || canEndMarket) return;
+                    if (userAddress && stakingProfileLoading) return;
+                    if (userAddress && !stakingProfileRegistered) {
+                      onRequireSignup?.();
+                      return;
                     }
+                    setModalSelectedOption(index + 1);
+                    setIsModalOpen(true);
                   }}
                   onMouseDown={(e) => {
                     e.preventDefault();
@@ -980,8 +997,10 @@ export function MarketCard({
                   className={`flex items-center gap-3 p-2.5 rounded-lg transition-all ${
                     isUserStake
                       ? (isDarkMode ? 'border border-[#39FF14] bg-[#39FF14]/10' : 'border-2 border-black bg-[#39FF14]/10')
-                      : canStake && !canEndMarket
+                      : canStake && !canEndMarket && !stakeBlockedByProfile
                         ? (isDarkMode ? 'border border-gray-700 hover:bg-gray-800/50 cursor-pointer' : 'border border-gray-300 hover:bg-gray-200/50 cursor-pointer')
+                        : canStake && !canEndMarket && stakeBlockedByProfile
+                          ? (isDarkMode ? 'border border-amber-700/50 hover:bg-amber-950/20 cursor-pointer' : 'border border-amber-300 hover:bg-amber-50 cursor-pointer')
                         : (isDarkMode ? 'border border-gray-700 opacity-50' : 'border border-gray-300 opacity-50')
                   }`}
                 >
@@ -1186,9 +1205,9 @@ export function MarketCard({
                         onBet(marketId, modalSelectedOption, betAmount, true);
                       }
                   }}
-                    disabled={!betAmount || !canStake || isApprovalPending || isApprovalConfirming || isTransactionPending || !!validationError}
+                    disabled={!betAmount || !canStakeWithRegistration || isApprovalPending || isApprovalConfirming || isTransactionPending || !!validationError}
                     className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
-                    !betAmount || !canStake || isApprovalPending || isApprovalConfirming
+                    !betAmount || !canStakeWithRegistration || isApprovalPending || isApprovalConfirming
                         ? isDarkMode
                           ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
                           : 'bg-gray-300 text-gray-500 cursor-not-allowed'
@@ -1210,9 +1229,9 @@ export function MarketCard({
                         onBet(marketId, modalSelectedOption, betAmount);
                       }
                   }}
-                    disabled={!betAmount || !canStake || isStakePending || isStakeConfirming || isTransactionPending || !!validationError}
+                    disabled={!betAmount || !canStakeWithRegistration || isStakePending || isStakeConfirming || isTransactionPending || !!validationError}
                     className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
-                    !betAmount || !canStake || isStakePending || isStakeConfirming
+                    !betAmount || !canStakeWithRegistration || isStakePending || isStakeConfirming
                         ? isDarkMode
                           ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
                           : 'bg-gray-300 text-gray-500 cursor-not-allowed'

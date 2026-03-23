@@ -23,9 +23,10 @@ pragma solidity ^0.8.20;
  *  • If nobody asserts within ASSERTION_GRACE_PERIOD after endTime
  *    → cancelMarketNoAssertion(id) cancels the market and allows refunds.
  *
- *  • If oracle settles with result=false (disputer won / assertion was wrong)
- *    → resolveP2PMarket() cancels the market and allows refunds.
- *      (The asserter lied; we don't know the real outcome, so refund everyone.)
+ *  • If oracle settles with result=false (disputer won / assertion rejected):
+ *    → **P2PMarketManager** resolves the market to the option the disputer supplied
+ *      in disputeOracle(marketId, optionId). The legacy EventPool.sol in this tree
+ *      still cancels on result=false; the live app should use P2PMarketManager.
  *
  *  • If oracle vote had no consensus, the oracle automatically accepts the
  *    assertion as true and returns both bonds. Market resolves normally.

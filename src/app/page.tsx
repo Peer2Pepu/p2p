@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
+import { getUserProfile } from '@/lib/profile';
 import Image from 'next/image';
 import { 
   Search,
@@ -279,6 +280,29 @@ export default function HomePage() {
 
   const { address, isConnected } = useAccount();
 
+  const [userProfile, setUserProfile] = useState<any | null>(null);
+  const [loadingUserProfile, setLoadingUserProfile] = useState(false);
+  const [showSignupModal, setShowSignupModal] = useState(false);
+
+  useEffect(() => {
+    const load = async () => {
+      if (!isConnected || !address) {
+        setUserProfile(null);
+        return;
+      }
+      setLoadingUserProfile(true);
+      try {
+        const profile = await getUserProfile(address);
+        setUserProfile(profile);
+      } catch {
+        setUserProfile(null);
+      } finally {
+        setLoadingUserProfile(false);
+      }
+    };
+    load();
+  }, [address, isConnected]);
+
   // Contract addresses - check both environment variable naming conventions
   const MARKET_MANAGER_ADDRESS = (process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS || process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS) as `0x${string}` | undefined;
   const ANALYTICS_ADDRESS = process.env.NEXT_PUBLIC_P2P_ANALYTICS_ADDRESS as `0x${string}` | undefined;
@@ -550,6 +574,14 @@ export default function HomePage() {
 
     if (!MARKET_MANAGER_ADDRESS) {
       setError('Market manager address not configured');
+      return;
+    }
+
+    if (loadingUserProfile) {
+      return;
+    }
+    if (!userProfile) {
+      setShowSignupModal(true);
       return;
     }
 
@@ -953,6 +985,9 @@ export default function HomePage() {
                     isStakePending={isStakePending}
                     isApprovalConfirming={isConfirming && isApprovalPending}
                     isStakeConfirming={isConfirming && isStakePending}
+                    stakingProfileLoading={!!address && loadingUserProfile}
+                    stakingProfileRegistered={!!userProfile}
+                    onRequireSignup={() => setShowSignupModal(true)}
                   />
                 ))}
               </div>
@@ -989,6 +1024,68 @@ export default function HomePage() {
             )}
         </main>
       </div>
+
+      {showSignupModal && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowSignupModal(false);
+          }}
+        >
+          <div
+            className={`rounded-xl border shadow-2xl max-w-lg w-full overflow-y-auto ${
+              isDarkMode ? 'bg-black border-gray-800' : 'bg-[#F5F3F0] border-gray-300'
+            }`}
+          >
+            <div className="p-4 lg:p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  Sign up to stake
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setShowSignupModal(false)}
+                  className={`p-1.5 rounded-lg transition-colors ${
+                    isDarkMode ? 'hover:bg-gray-800 text-white' : 'hover:bg-gray-200 text-gray-900'
+                  }`}
+                  aria-label="Close"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <p className={`text-sm mb-5 ${isDarkMode ? 'text-white/70' : 'text-gray-600'}`}>
+                You can only stake if you have a registered profile. Create your profile first, then return and stake.
+              </p>
+
+              <div className="flex gap-3">
+                <Link
+                  href="/profile"
+                  onClick={() => setShowSignupModal(false)}
+                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-semibold text-center transition-colors ${
+                    isDarkMode
+                      ? 'bg-[#39FF14]/10 hover:bg-[#39FF14]/20 text-white border border-[#39FF14]/30'
+                      : 'bg-[#39FF14] hover:bg-[#39FF14]/80 text-black border border-black'
+                  }`}
+                >
+                  Go to Profile
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setShowSignupModal(false)}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                    isDarkMode
+                      ? 'bg-gray-800 hover:bg-gray-700 text-white'
+                      : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
+                  }`}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

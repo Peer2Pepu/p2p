@@ -487,7 +487,8 @@ export default function AssertPage() {
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [currentTime, setCurrentTime] = useState<bigint>(BigInt(0));
+  /** Bumps every 1s so countdown UIs re-render. Use wall-clock `Date.now()` for phase math (avoids block-timestamp snap-back on refresh). */
+  const [, setClockTick] = useState(0);
   const [isApproving, setIsApproving] = useState(false);
   const [pendingTxType, setPendingTxType] = useState<'approval' | 'assert' | 'dispute' | 'settle' | 'resolve' | 'stake-voting' | 'vote' | null>(null);
   const [selectedOptions, setSelectedOptions] = useState<Record<number, number>>({});
@@ -833,28 +834,11 @@ export default function AssertPage() {
     if (publicClient && oracleAddress !== undefined) fetchMarkets();
   }, [fetchMarkets, publicClient, oracleAddress]);
 
-  // Block-synced clock
+  // Stable wall-clock tick for countdowns (block.timestamp lags wall time and caused remaining time to "reset" on every refresh)
   useEffect(() => {
-    if (!publicClient) return;
-    const syncBlock = async () => {
-      try {
-        const block = await publicClient.getBlock({ blockTag: "latest" });
-        setCurrentTime(BigInt(block.timestamp));
-      } catch {
-        setCurrentTime(BigInt(Math.floor(Date.now() / 1000)));
-      }
-    };
-    syncBlock();
-    const blockInterval = setInterval(syncBlock, 30_000);
-    const tickInterval = setInterval(
-      () => setCurrentTime((p) => (p > BigInt(0) ? p + BigInt(1) : BigInt(Math.floor(Date.now() / 1000)))),
-      1000
-    );
-    return () => {
-      clearInterval(blockInterval);
-      clearInterval(tickInterval);
-    };
-  }, [publicClient]);
+    const id = setInterval(() => setClockTick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   // Handle transaction success and refresh
   useEffect(() => {
@@ -1127,7 +1111,7 @@ export default function AssertPage() {
   // ─── Derived per-market state ─────────────────────────────────────────────
 
   const getMarketPhase = (market: MarketWithMetadata) => {
-    const now = Number(currentTime) || Math.floor(Date.now() / 1000);
+    const now = Math.floor(Date.now() / 1000);
     const { assertion, voting: voteData } = market;
 
     if (!market.p2pAssertionMade) {
@@ -1316,7 +1300,6 @@ export default function AssertPage() {
                 const options: string[] =
                   market.metadata?.options || (market.isMultiOption ? [] : ["Yes", "No"]);
                 const phase = getMarketPhase(market);
-                const now = Number(currentTime) || Math.floor(Date.now() / 1000);
                 const isCreator =
                   address &&
                   market.creator &&

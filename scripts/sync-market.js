@@ -52,6 +52,7 @@ if (isNaN(marketIdNum)) {
 }
 
 // Contract ABIs
+// Must match P2PMarketManager.Market struct field order exactly
 const MARKET_MANAGER_ABI = [
     {
         "inputs": [{"name": "marketId", "type": "uint256"}],
@@ -74,11 +75,14 @@ const MARKET_MANAGER_ABI = [
                     {"name": "state", "type": "uint8"},
                     {"name": "winningOption", "type": "uint256"},
                     {"name": "isResolved", "type": "bool"},
+                    {"name": "resolvedTimestamp", "type": "uint256"},
+                    {"name": "resolvedPrice", "type": "uint256"},
                     {"name": "marketType", "type": "uint8"},
                     {"name": "priceFeed", "type": "address"},
                     {"name": "priceThreshold", "type": "uint256"},
                     {"name": "p2pAssertionId", "type": "bytes32"},
-                    {"name": "p2pAssertionMade", "type": "bool"}
+                    {"name": "p2pAssertionMade", "type": "bool"},
+                    {"name": "p2pDisputedOptionId", "type": "uint256"}
                 ],
                 "name": "",
                 "type": "tuple"

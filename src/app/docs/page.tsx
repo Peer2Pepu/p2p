@@ -472,10 +472,10 @@ export default function DocsPage() {
                 Resolution is the process of determining the winning outcome. For Price Feed markets, resolution is automatic. When the resolution end time is reached, the system queries the on-chain price feed and compares it to the threshold. If the price is greater than or equal to the threshold, Option 1 (Yes) wins. Otherwise, Option 2 (No) wins.
               </p>
               <p className={`mb-4 leading-relaxed ${proseMuted}`}>
-                For Optimistic Oracle markets, resolution is more complex. Any user can make an assertion about which outcome should win. This assertion includes a bond (stake) that can be challenged during the liveness period. If no one disputes the assertion within the liveness period, the market can be settled with the asserted outcome. If disputed, the matter goes to the Decentralized Voting Mechanism (DVM) for final resolution.
+                For Optimistic Oracle markets, resolution is more complex. A user posts an assertion (claim + bond). There is a short <strong>assertion-only phase</strong> (defaults vary by deployment; often ~2 hours) where disputes cannot be filed yet. After that, a <strong>12-hour dispute window</strong> opens: anyone can dispute by posting a bond and choosing the option they believe won. If a dispute is filed, stakers vote for <strong>24 hours</strong> (token-weighted). If nobody disputes in time, anyone can settle after the assertion-only phase and the asserted outcome wins. If disputed, <strong>P2PVoting</strong> tallies the vote, then the oracle settles and the market resolves to either the <strong>asserted option</strong> or the <strong>disputed option</strong> — not a blanket cancel.
               </p>
               <p className={`mb-6 leading-relaxed ${proseMuted}`}>
-                The liveness period is a configurable time window (default 2 hours) during which assertions can be challenged. This provides security and ensures that incorrect assertions can be disputed before final settlement.
+                Exact timestamps come from on-chain parameters (<code className={`px-1.5 py-0.5 rounded text-sm ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>assertionWindow</code>, <code className={`px-1.5 py-0.5 rounded text-sm ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>defaultLiveness</code>, <code className={`px-1.5 py-0.5 rounded text-sm ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>votingWindow</code>); P2P is tuned so you effectively get a <strong>12h</strong> dispute window and <strong>24h</strong> vote as described above.
               </p>
 
               <h2 id="payouts" className={`font-inter text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
@@ -528,10 +528,10 @@ export default function DocsPage() {
                 Optimistic Oracle markets support both binary and multi-option outcomes. These markets are designed for subjective events or complex questions that require human judgment to resolve. Examples include sports outcomes, election results, product launches, or any event where the outcome cannot be determined purely from on-chain data.
               </p>
               <p className={`mb-4 leading-relaxed ${proseMuted}`}>
-                Resolution for Optimistic Oracle markets follows a specific process. After the market ends, any user can make an assertion about which outcome should win. This assertion includes posting a bond (stake) that can be challenged. During the liveness period (typically 2 hours), anyone can dispute the assertion by posting their own bond. If disputed, the matter goes to the Decentralized Voting Mechanism for token-holder voting.
+                Resolution for Optimistic Oracle markets follows a specific process. After the market ends, a qualified user posts an assertion (bond + claim + winning option in callback data). Disputes are <strong>not</strong> allowed during the short assertion-only phase; then a <strong>12-hour dispute window</strong> opens where anyone can dispute with a matching bond and pick the option they say actually won. If disputed, a <strong>24-hour</strong> <strong>P2PVoting</strong> round opens: in the app you choose the <strong>asserted option</strong> or the <strong>disputed option</strong>; on-chain that is vote values <strong>1</strong> or <strong>2</strong>. Whichever side wins sets the market’s <strong>winning option</strong> (asserted or disputed) for payouts.
               </p>
               <p className={`mb-6 leading-relaxed ${proseMuted}`}>
-                If no dispute occurs during the liveness period, the market can be settled with the asserted outcome. This optimistic approach allows for fast resolution when assertions are correct, while the dispute mechanism provides security against incorrect assertions.
+                If no dispute is filed, anyone can settle after the assertion window ends and the asserted outcome wins. This optimistic path is fast; disputes fall back to weighted voting, then oracle settlement.
               </p>
 
               {renderSectionNavigation('market-types')}
@@ -569,22 +569,22 @@ export default function DocsPage() {
                   <li>Encode the winning option ID in callback data</li>
                 </ul>
                 <p className={`mb-4 leading-relaxed ${proseMuted}`}>
-                  Once asserted, a 48-hour dispute window begins. If no one disputes during this period, the assertion is automatically accepted.
+                  Once asserted, disputes are only allowed <strong>after</strong> the assertion-only phase, then within the <strong>12-hour dispute window</strong>. If nobody disputes in time, anyone can settle and the assertion is accepted. If someone disputes, a <strong>24-hour</strong> vote runs in P2PVoting; after that and once the oracle assertion reaches <code className={`px-1.5 py-0.5 rounded text-sm ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>expirationTime</code>, anyone can call <code className={`px-1.5 py-0.5 rounded text-sm ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>settleOracle</code>.
                 </p>
               </div>
 
               <div className={`mb-6 sm:mb-8 p-4 sm:p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
                 <h3 className={`text-xl font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Step 2: Dispute (Optional)</h3>
                 <p className={`mb-4 leading-relaxed ${proseMuted}`}>
-                  Anyone who disagrees with the assertion can dispute it within the dispute window by:
+                  Anyone who disagrees can dispute during the <strong>12-hour dispute window</strong> (after the assertion-only phase) by:
                 </p>
                 <ul className={`list-disc list-outside pl-5 space-y-2 mb-4 ${proseMuted}`}>
-                  <li>Posting an equal bond to challenge the assertion</li>
-                  <li>Specifying which option they believe is correct</li>
-                  <li>Triggering a vote in the P2PVoting contract</li>
+                  <li>Posting an equal bond</li>
+                  <li>Selecting the option they believe actually won (stored on-chain as the <strong>disputed option</strong>)</li>
+                  <li>That action opens a <strong>24-hour</strong> vote in <strong>P2PVoting</strong></li>
                 </ul>
                 <p className={`mb-4 leading-relaxed ${proseMuted}`}>
-                  When disputed, the matter goes to token-weighted voting where P2P token holders vote on which option should win: the asserted option or the disputed option.
+                  Voters then choose <strong>asserted option</strong> vs <strong>disputed option</strong>. If the disputed side wins the vote, the market <strong>resolves to that option</strong> for payouts — the same resolve flow as when the assertion wins, just a different winning option id.
                 </p>
               </div>
 
@@ -592,8 +592,32 @@ export default function DocsPage() {
                 <HeadingLink headingId="voting-mechanism">How Voting Works</HeadingLink>
               </h2>
               <p className={`mb-4 leading-relaxed ${proseMuted}`}>
-                When an assertion is disputed, the P2POptimisticOracle creates a vote request in the P2PVoting contract. P2P token holders who have staked tokens can vote on which outcome they believe is correct: the option that was asserted, or the option that was disputed.
+                Below is the flow as <strong>you see it in P2P</strong> (Resolve / Assert page), then how the contracts implement it.
               </p>
+
+              <div className={`mb-6 sm:mb-8 p-4 sm:p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
+                <h3 className={`text-xl font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Example: simple “Team A vs Team B” market</h3>
+                <p className={`mb-4 leading-relaxed ${proseMuted}`}>
+                  Imagine a binary market: <strong>Option 1 — Team A wins</strong>, <strong>Option 2 — Team B wins</strong>.
+                </p>
+                <ol className={`list-decimal list-outside pl-5 space-y-3 mb-4 ${proseMuted}`}>
+                  <li>
+                    <strong>Assert:</strong> After the market ends, someone who staked on the market opens <strong>Resolve Markets</strong>, selects <strong>Team A wins</strong>, and submits an <strong>assertion</strong>. They post the required <strong>P2P bond</strong> and a short claim. In the UI you see their choice as the outcome they are standing behind.
+                  </li>
+                  <li>
+                    <strong>Wait, then dispute (optional):</strong> After the assertion-only phase, a <strong>12-hour dispute window</strong> runs. Anyone can <strong>dispute</strong> in that window: they pick <strong>Team B wins</strong> (the outcome they believe is correct), post the <strong>same-size bond</strong>, and confirm. That option is stored as the <strong>disputed option</strong> for this fight.
+                  </li>
+                  <li>
+                    <strong>Vote (24 hours):</strong> P2P holders who have staked in <strong>Interactions → Voting Stake</strong> have <strong>24 hours</strong> to vote once per dispute. The choices are <strong>asserted option</strong> vs <strong>disputed option</strong> — here <strong>Team A</strong> vs <strong>Team B</strong> (with claim text in the UI). You are choosing which side of <em>this</em> dispute you support.
+                  </li>
+                  <li>
+                    <strong>Outcome you see:</strong> If the asserted side wins, the market <strong>resolves to Team A</strong> and normal winner payouts apply. If the disputed side wins, the market <strong>resolves to Team B</strong> (the disputer’s option) — same resolved market, same payout flow for whoever staked on the winning option. The assertion is rejected on-chain, but the product still picks a <strong>definite winning option</strong> for the market.
+                  </li>
+                </ol>
+                <p className={`mb-0 leading-relaxed ${proseMuted}`}>
+                  Multi-option markets work the same way: the asserter picks one outcome ID, the disputer picks another when they dispute, and voters see those two outcomes as the asserted vs disputed side.
+                </p>
+              </div>
 
               <div className={`mb-6 sm:mb-8 p-4 sm:p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
                 <h3 className={`text-xl font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Token-Weighted Voting</h3>
@@ -601,9 +625,10 @@ export default function DocsPage() {
                   Voting is token-weighted, meaning your voting power is proportional to the amount of P2P tokens you have staked in the P2PVoting contract. To participate in voting:
                 </p>
                 <ul className={`list-disc list-outside pl-5 space-y-2 mb-4 ${proseMuted}`}>
-                  <li><strong>Stake P2P tokens:</strong> You must stake P2P tokens in the P2PVoting contract before a vote request is created</li>
-                  <li><strong>Voting weight:</strong> Your voting weight equals your staked balance at the time you cast your vote</li>
-                  <li><strong>One vote per dispute:</strong> Each voter can only vote once per dispute, but can vote on multiple disputes</li>
+                  <li><strong>Stake P2P tokens:</strong> You must have a non-zero <code className={`px-1.5 py-0.5 rounded text-sm ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>stakedBalance</code> in P2PVoting when you call <code className={`px-1.5 py-0.5 rounded text-sm ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>vote</code> (stake can be added any time before you vote)</li>
+                  <li><strong>Voting weight:</strong> Your weight is your full staked balance at the moment you vote; that amount is also used to compute how much can be slashed or rewarded for this round</li>
+                  <li><strong>One vote per request:</strong> Each address votes at most once per vote request, but can vote on other disputes separately</li>
+                  <li><strong>Locked stake:</strong> While a vote is pending, a portion of your stake (<code className={`px-1.5 py-0.5 rounded text-sm ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>slashBps</code>) is locked and cannot be unstaked until the request is resolved</li>
                 </ul>
                 <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                   This system ensures that stakeholders with more tokens have proportionally more influence, aligning voting power with economic interest in the platform.
@@ -611,16 +636,20 @@ export default function DocsPage() {
               </div>
 
               <div className={`mb-6 sm:mb-8 p-4 sm:p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
-                <h3 className={`text-xl font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Vote Options</h3>
+                <h3 className={`text-xl font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>What you vote on in the app</h3>
                 <p className={`mb-4 leading-relaxed ${proseMuted}`}>
-                  When voting on a disputed assertion, you choose between two options:
+                  The UI is built around the <strong>two sides of the dispute</strong>:
                 </p>
                 <ul className={`list-disc list-outside pl-5 space-y-2 mb-4 ${proseMuted}`}>
-                  <li><strong>Vote for the asserted option:</strong> You believe the asserter is correct. If this wins, the market resolves with the asserted option and winners can claim payouts.</li>
-                  <li><strong>Vote for the disputed option:</strong> You believe the disputer is correct. If this wins, the market cancels and all stakers can claim refunds.</li>
+                  <li><strong>Asserted option</strong> — the outcome the asserter committed to when they posted their bond and claim (shown as the current assertion).</li>
+                  <li><strong>Disputed option</strong> — the outcome the disputer chose when they posted their bond to challenge (the opposing side in the same dispute).</li>
                 </ul>
                 <p className={`mb-4 leading-relaxed ${proseMuted}`}>
-                  The outcome is determined by the majority of voting weight, not the number of voters. Whichever option receives more total staked tokens wins.
+                  Your vote adds weight to one of those two sides. Whichever side has more <strong>total staked P2P voting weight</strong> wins the dispute (not “who clicked first” or raw voter count).
+                </p>
+                <h4 className={`text-sm font-semibold mb-2 mt-6 ${isDarkMode ? 'text-white/90' : 'text-gray-800'}`}>Behind the hood (P2PVoting + oracle + market manager)</h4>
+                <p className={`mb-3 leading-relaxed ${proseMuted}`}>
+                  <strong>P2PVoting</strong> stores votes as <code className={`px-1.5 py-0.5 rounded text-sm ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>1</code> or <code className={`px-1.5 py-0.5 rounded text-sm ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>2</code>: <strong>1</strong> = uphold the assertion, <strong>2</strong> = reject it. The oracle turns that into <code className={`px-1.5 py-0.5 rounded text-sm ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>result = true</code> or <code className={`px-1.5 py-0.5 rounded text-sm ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>false</code>. <strong>P2PMarketManager</strong> then sets the market winner: if <code className={`px-1.5 py-0.5 rounded text-sm ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>true</code>, it uses the option id from the assertion callback data; if <code className={`px-1.5 py-0.5 rounded text-sm ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>false</code>, it uses the <strong>disputer’s option id</strong> saved when they called <code className={`px-1.5 py-0.5 rounded text-sm ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>disputeOracle(marketId, optionId)</code>. <strong>Ties</strong> at the oracle favor the assertion (<code className={`px-1.5 py-0.5 rounded text-sm ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>acceptWeight &gt;= rejectWeight</code>).
                 </p>
               </div>
 
@@ -630,9 +659,11 @@ export default function DocsPage() {
                   The voting process follows a specific timeline:
                 </p>
                 <ol className={`list-decimal list-outside pl-5 space-y-2 mb-4 ${proseMuted}`}>
-                  <li><strong>Vote Request Created:</strong> When a dispute is filed, the oracle automatically creates a vote request with a 24-hour voting window (default)</li>
-                  <li><strong>Voting Period:</strong> P2P token holders have 24 hours to cast their votes. Votes can be cast at any time during this window</li>
-                  <li><strong>Resolution:</strong> After the deadline, anyone can call <code className={`px-2 py-1 rounded ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>settleOracle()</code> to finalize the outcome</li>
+                  <li><strong>Dispute window:</strong> After the assertion-only phase, disputers have <strong>12 hours</strong> to call <code className={`px-2 py-1 rounded ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>disputeOracle(marketId, optionId)</code> and lock in the <strong>disputed option</strong>.</li>
+                  <li><strong>Vote request created:</strong> When a dispute is filed, the oracle calls <code className={`px-1.5 py-0.5 rounded text-sm ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>requestVote</code>. The vote deadline is <strong>24 hours</strong> from that moment (<code className={`px-1.5 py-0.5 rounded text-sm ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>votingWindow</code>).</li>
+                  <li><strong>Voting period:</strong> In the app you pick the <strong>asserted</strong> or <strong>disputed</strong> side; under the hood that is <code className={`px-1.5 py-0.5 rounded text-sm ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>vote(requestId, 1 | 2)</code> before the deadline.</li>
+                  <li><strong>Resolving the vote:</strong> <code className={`px-2 py-1 rounded ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>resolveVote</code> may run inside <code className={`px-2 py-1 rounded ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>settleOracle()</code> once the <strong>24h</strong> vote has ended and the oracle assertion has reached <code className={`px-1.5 py-0.5 rounded text-sm ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>expirationTime</code>.</li>
+                  <li><strong>Settle oracle:</strong> <code className={`px-2 py-1 rounded ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>settleOracle()</code> finalizes bonds and the boolean result passed into <code className={`px-2 py-1 rounded ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>resolveP2PMarket</code>.</li>
                 </ol>
               </div>
 
@@ -642,12 +673,12 @@ export default function DocsPage() {
                   To ensure meaningful participation, the voting system requires a minimum threshold:
                 </p>
                 <ul className={`list-disc list-outside pl-5 space-y-2 mb-4 ${proseMuted}`}>
-                  <li><strong>Minimum Participation:</strong> At least 1,000 P2P tokens (default) must be staked and voted for the result to be considered valid</li>
-                  <li><strong>Consensus Reached:</strong> If minimum participation is met, the majority vote determines the outcome</li>
-                  <li><strong>No Consensus:</strong> If participation is below the threshold, the vote resolves as "NO_CONSENSUS" and the oracle automatically accepts the assertion (fallback mechanism)</li>
+                  <li><strong>Minimum participation:</strong> The <strong>sum of vote weights</strong> cast on the request must be at least <strong>1,000 P2P</strong> (default <code className={`px-1.5 py-0.5 rounded text-sm ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>minParticipation = 1000e18</code>). If total weight is below that, the request ends in <strong>NoConsensus</strong>.</li>
+                  <li><strong>Resolved:</strong> If the threshold is met, the side with greater weight wins — in the app that is either the <strong>asserted option</strong> or the <strong>disputed option</strong>. Ties count as the asserted side winning at the oracle.</li>
+                  <li><strong>No consensus:</strong> No slashing occurs; locked amounts are released; the oracle treats the assertion as <strong>accepted</strong> and <strong>returns both bonds</strong> (asserter and disputer). EventPool then resolves the market as if the assertion succeeded.</li>
                 </ul>
                 <p className={`mb-4 leading-relaxed ${proseMuted}`}>
-                  This fallback ensures that markets can still resolve even if voter turnout is low, preventing permanent fund lock.
+                  Defaults can be changed by the contract owner; check on-chain <code className={`px-1.5 py-0.5 rounded text-sm ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>minParticipation</code> for your deployment.
                 </p>
               </div>
 
@@ -657,12 +688,13 @@ export default function DocsPage() {
                   The voting system includes economic incentives to encourage accurate voting:
                 </p>
                 <ul className={`list-disc list-outside pl-5 space-y-2 mb-4 ${proseMuted}`}>
-                  <li><strong>Wrong Voters:</strong> Voters who vote for the losing option lose 20% of their staked balance</li>
-                  <li><strong>Correct Voters:</strong> Voters who vote for the winning option can claim a pro-rata share of the slashed tokens as a reward</li>
-                  <li><strong>Reward Calculation:</strong> Rewards are distributed proportionally based on each correct voter's stake weight relative to the total correct stake weight</li>
+                  <li><strong>When it applies:</strong> Slashing and rewards run only inside <code className={`px-1.5 py-0.5 rounded text-sm ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>resolveVote</code> when the request is <strong>Resolved</strong> (not NoConsensus).</li>
+                  <li><strong>Wrong voters:</strong> Lose <strong>15%</strong> of the stake they had <strong>at vote time</strong> (<code className={`px-1.5 py-0.5 rounded text-sm ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>slashBps = 1500</code>), capped by their current staked balance.</li>
+                  <li><strong>Correct voters:</strong> Receive a pro-rata share of the round’s slash pool, credited automatically to their <strong>P2PVoting staked balance</strong> (no separate “claim reward” transaction).</li>
+                  <li><strong>Locks:</strong> After resolution, this round’s locked amounts are cleared as part of the same transaction.</li>
                 </ul>
                 <p className={`mb-4 leading-relaxed ${proseMuted}`}>
-                  This mechanism aligns incentives: voters are financially motivated to vote correctly, and incorrect voters face penalties. The slashing percentage and minimum participation thresholds are configurable by the contract owner.
+                  <code className={`px-1.5 py-0.5 rounded text-sm ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>slashBps</code> and other parameters are owner-configurable; verify live values on-chain.
                 </p>
               </div>
 
@@ -672,9 +704,9 @@ export default function DocsPage() {
                   After the expiration period, anyone can call <code className={`px-2 py-1 rounded ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>settleOracle()</code> to finalize the result:
                 </p>
                 <ul className={`list-disc list-outside pl-5 space-y-2 mb-4 ${proseMuted}`}>
-                  <li><strong>No dispute:</strong> Assertion accepted, asserter gets bond back</li>
-                  <li><strong>Disputed:</strong> Oracle resolves the vote - majority wins both bonds</li>
-                  <li><strong>No consensus:</strong> Assertion automatically accepted (fallback)</li>
+                  <li><strong>No dispute:</strong> After the assertion window (default 2h), assertion accepted; asserter receives their bond</li>
+                  <li><strong>Disputed + resolved vote:</strong> Compare accept vs reject weight; winner receives <strong>both</strong> bonds</li>
+                  <li><strong>Disputed + no consensus:</strong> Assertion accepted; <strong>each</strong> party gets their own bond back; no bond sweep to one winner</li>
                 </ul>
               </div>
 
@@ -684,8 +716,8 @@ export default function DocsPage() {
                   Finally, call <code className={`px-2 py-1 rounded ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>resolveP2PMarket()</code> to read the oracle result:
                 </p>
                 <ul className={`list-disc list-outside pl-5 space-y-2 mb-4 ${proseMuted}`}>
-                  <li><strong>Result = true:</strong> Market resolves with the asserted option, winners can claim payouts</li>
-                  <li><strong>Result = false:</strong> Market cancels, all stakers can claim refunds (assertion was wrong)</li>
+                  <li><strong>Result = true:</strong> Market resolves to the <strong>asserted option id</strong> from the assertion; winners on that option claim payouts.</li>
+                  <li><strong>Result = false:</strong> Assertion rejected, but the market still <strong>resolves</strong> to the <strong>disputed option id</strong> the disputer submitted with <code className={`px-2 py-1 rounded ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>disputeOracle</code>; payouts follow that winning option.</li>
                 </ul>
               </div>
 
@@ -702,7 +734,7 @@ export default function DocsPage() {
 requestP2PResolution(id, optionId, claim)
   └─ asserter posts bond, oracle stores claim + callbackData
 
-[48h grace period — no dispute filed]
+[after 2h assertion window — no dispute filed]
 
 settleOracle(id)
   └─ oracle sees no disputer → accepts assertion
@@ -717,23 +749,24 @@ resolveP2PMarket(id)
                 <h3 className={`text-lg font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Disputed Flow (Vote Required)</h3>
                 <pre className={`p-3 sm:p-4 rounded-lg overflow-x-auto text-[11px] sm:text-sm leading-relaxed max-w-full ${isDarkMode ? 'bg-black text-green-400' : 'bg-gray-900 text-green-300'}`}>
 {`endMarket(id)
-requestP2PResolution(id, optionId, claim)
+requestP2PResolution(id, assertedOptionId, claim)
 
-[within dispute window]
-disputeOracle(id)
-  └─ disputer posts equal bond
+[12h dispute window after assertion-only phase]
+disputeOracle(id, disputedOptionId)
+  └─ disputer posts equal bond + chosen winning option
   └─ oracle creates vote request in P2PVoting
-  └─ P2P token holders vote 1=accept / 2=reject
+  └─ 24h vote: P2P stakers vote (UI: asserted vs disputed; chain: 1 / 2)
 
-[after vote deadline]
+[after oracle expirationTime — 24h vote must have ended]
 settleOracle(id)
-  └─ oracle resolves the vote, finds majority
-  └─ If majority voted 1: asserter wins, gets both bonds
-  └─ If majority voted 2: disputer wins, gets both bonds
+  └─ resolves vote if needed, compares weight for 1 vs 2
+  └─ If accept (1) wins or ties: asserter gets both bonds
+  └─ If reject (2) wins: disputer gets both bonds
+  └─ If no consensus: both bonds returned; assertion treated accepted
 
-resolveP2PMarket(id)
-  └─ result=true  → market resolves with asserted option
-  └─ result=false → market CANCELS, refunds available`}
+resolveP2PMarket(id)  // P2PMarketManager
+  └─ result=true  → winningOption = assertedOptionId (from callback)
+  └─ result=false → winningOption = disputedOptionId (stored at dispute)`}
                 </pre>
               </div>
 
@@ -745,8 +778,8 @@ resolveP2PMarket(id)
               </p>
               <ul className={`list-disc list-outside pl-5 space-y-3 mb-6 ${proseMuted}`}>
                 <li><strong>No Assertion Grace Period:</strong> If no one asserts within 48 hours after market end, <code className={`px-2 py-1 rounded ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>cancelMarketNoAssertion()</code> can be called to cancel the market and allow refunds.</li>
-                <li><strong>Assertion Rejected:</strong> If the oracle settles with <code className={`px-2 py-1 rounded ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>result=false</code>, the market cancels and all stakers can claim refunds.</li>
-                <li><strong>No Consensus:</strong> If voting has low turnout or no clear majority, the oracle automatically accepts the assertion as true.</li>
+                <li><strong>Vote rejects assertion:</strong> If the oracle settles with <code className={`px-2 py-1 rounded ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>result=false</code>, the market still <strong>resolves</strong> to the <strong>disputed option</strong> recorded at dispute time (via <strong>P2PMarketManager</strong>) — not a full-market cancel.</li>
+                <li><strong>No consensus:</strong> If total vote weight stays below <code className={`px-2 py-1 rounded ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>minParticipation</code>, bonds return to asserter and disputer; the oracle still treats the assertion as <strong>accepted</strong>, so the market resolves to the <strong>asserted</strong> option.</li>
               </ul>
               {renderSectionNavigation('optimistic-oracle')}
             </section>

@@ -869,7 +869,8 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
   // Handle stake placement
   const handleStake = async () => {
     if (!betAmount || !selectedOption || !isConnected || !marketId || !market) return;
-    if (!loadingUserProfile && !userProfile) {
+    if (loadingUserProfile) return;
+    if (!userProfile) {
       setShowSignupModal(true);
       return;
     }
