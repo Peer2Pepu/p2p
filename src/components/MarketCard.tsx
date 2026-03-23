@@ -215,7 +215,7 @@ function MultiSegmentCircle({ segments, size = 60, isDarkMode }: {
               <span className="text-sm font-bold leading-none" style={{ color: topSegment.color }}>
                 {roundedPercentage}%
               </span>
-              <span className="text-[9px] leading-tight mt-0.5" style={{ color: topSegment.color }}>
+              <span className={`text-[9px] leading-tight mt-0.5 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 {topSegment.label.length > 4 ? topSegment.label.substring(0, 4) : topSegment.label}
               </span>
             </>
