@@ -610,6 +610,11 @@ contract EventPool is Ownable {
 
         PoolVault(treasury).claimWinnings(marketId, msg.sender, m.paymentToken, winnings);
         emit WinningsClaimed(marketId, msg.sender, winnings);
+
+        address analytics = IAdminManager(adminManager).analytics();
+        if (analytics != address(0) && winnings > 0 && MetricsHub(analytics).isTrackedPaymentToken(m.paymentToken)) {
+            MetricsHub(analytics).trackWinnings(marketId, msg.sender, winnings, m.paymentToken);
+        }
     }
 
     function calculateWinnings(uint256 marketId, address user) external view returns (uint256) {

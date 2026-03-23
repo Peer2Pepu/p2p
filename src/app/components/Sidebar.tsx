@@ -3,20 +3,18 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { 
+import {
   ChevronRight,
   ChevronLeft,
   X,
-  Home,
-  PieChart,
-  Plus,
-  TrendingUp,
-  Lock,
+  LayoutGrid,
+  Gavel,
+  Coins,
+  ArrowLeftRight,
+  CirclePlus,
+  UserCircle,
+  BookOpen,
   Wallet,
-  Receipt,
-  Shield,
-  User,
-  FileText
 } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useBalance, useChainId, useDisconnect } from 'wagmi';
@@ -38,14 +36,13 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse, isDarkMo
   const [showDisconnectModal, setShowDisconnectModal] = useState(false);
   
   const sidebarItems = [
-    { icon: Home, label: "Markets", href: "/", active: pathname === "/" },
-    { icon: Shield, label: "Assert", href: "/assert", active: pathname === "/assert" },
-    { icon: Receipt, label: "Stakes", href: "/stakes", active: pathname === "/stakes" },
-    { icon: Lock, label: "Interactions", href: "/interactions", active: pathname === "/interactions" },
-    { icon: Plus, label: "Create Market", href: "/create-market", active: pathname === "/create-market" },
-    { icon: User, label: "Profile", href: "/profile", active: pathname === "/profile" },
-    { icon: FileText, label: "Docs", href: "/docs", active: pathname === "/docs" },
-    { icon: Shield, label: "Admin", href: "/admin", active: pathname === "/admin" }
+    { icon: LayoutGrid, label: "Markets", href: "/", active: pathname === "/" },
+    { icon: Gavel, label: "Assert", href: "/assert", active: pathname === "/assert" },
+    { icon: Coins, label: "Stakes", href: "/stakes", active: pathname === "/stakes" },
+    { icon: ArrowLeftRight, label: "Interactions", href: "/interactions", active: pathname === "/interactions" },
+    { icon: CirclePlus, label: "Create Market", href: "/create-market", active: pathname === "/create-market" },
+    { icon: UserCircle, label: "Profile", href: "/profile", active: pathname.startsWith("/profile") },
+    { icon: BookOpen, label: "Docs", href: "/docs", active: pathname === "/docs" },
   ];
 
   return (
@@ -155,19 +152,18 @@ export function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse, isDarkMo
                       <div className="w-2 h-2 bg-[#39FF14] rounded-full"></div>
                       Connected
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Wallet size={16} className="text-[#39FF14]" />
-                      <button
-                        className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2 ${
-                          isDarkMode 
-                            ? 'bg-[#39FF14]/10 hover:bg-[#39FF14]/20 text-white border border-[#39FF14]/30' 
-                            : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-                        }`}
-                        onClick={() => setShowDisconnectModal(true)}
-                      >
-                        <span>{address?.slice(0, 6)}...{address?.slice(-4)}</span>
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      className={`w-full px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2 ${
+                        isDarkMode
+                          ? 'bg-[#39FF14]/10 hover:bg-[#39FF14]/20 text-white border border-[#39FF14]/30'
+                          : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                      }`}
+                      onClick={() => setShowDisconnectModal(true)}
+                    >
+                      <Wallet size={16} className="shrink-0 text-[#39FF14]" />
+                      <span className="truncate">{address?.slice(0, 6)}...{address?.slice(-4)}</span>
+                    </button>
                   </div>
                 ) : (
                   <div className="space-y-3">

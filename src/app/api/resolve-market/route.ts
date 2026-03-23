@@ -16,7 +16,9 @@ export async function POST(request: NextRequest) {
     const provider = new ethers.JsonRpcProvider('https://rpc-pepu-v2-mainnet-0.t.conduit.xyz');
     
     // Contract addresses from environment
-    const MARKET_MANAGER_ADDRESS = process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS;
+    const MARKET_MANAGER_ADDRESS =
+      process.env.NEXT_PUBLIC_P2P_MARKET_MANAGER_ADDRESS ||
+      process.env.NEXT_PUBLIC_P2P_MARKETMANAGER_ADDRESS;
     const VERIFICATION_ADDRESS = process.env.NEXT_PUBLIC_P2P_VERIFICATION_ADDRESS;
 
     if (!MARKET_MANAGER_ADDRESS || !VERIFICATION_ADDRESS) {

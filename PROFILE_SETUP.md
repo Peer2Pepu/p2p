@@ -27,8 +27,8 @@ Run the SQL commands in `setup-profile.sql` in your Supabase SQL editor:
 Add these to your `.env.local` file:
 
 ```env
-# Analytics contract address (you'll need to deploy this)
-NEXT_PUBLIC_ANALYTICS_CONTRACT_ADDRESS=0x...
+# MetricsHub / user analytics (same as elsewhere in the app)
+NEXT_PUBLIC_P2P_ANALYTICS_ADDRESS=0x...
 
 # Supabase (already configured)
 NEXT_PUBLIC_SUPABASE_PROJECT_ID=your_project_id

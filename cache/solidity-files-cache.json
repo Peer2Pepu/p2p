@@ -546,8 +546,8 @@
       ]
     },
     "C:\\Users\\USER\\p2p\\p2p\\contracts\\P2PMarketManager.sol": {
-      "lastModificationDate": 1773913847442,
-      "contentHash": "a75a19a3ef5cb5f794135c365e8f3cf7",
+      "lastModificationDate": 1774133219907,
+      "contentHash": "04b9dc1d4f0a4bbdf4fa5288cd25368d",
       "sourceName": "contracts/P2PMarketManager.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -637,8 +637,8 @@
       ]
     },
     "C:\\Users\\USER\\p2p\\p2p\\contracts\\P2PAnalytics.sol": {
-      "lastModificationDate": 1771880507194,
-      "contentHash": "92ae5e6b95accafb036a002b97789909",
+      "lastModificationDate": 1774133210058,
+      "contentHash": "6756714a36e3d2f103a4af642a048f45",
       "sourceName": "contracts/P2PAnalytics.sol",
       "solcConfig": {
         "version": "0.8.20",

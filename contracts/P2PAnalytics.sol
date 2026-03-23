@@ -8,12 +8,17 @@ contract MetricsHub is Ownable {
     
     // MarketManager reference
     address payable public marketManager;
+
+    /// @notice ERC20 address for the in-app "P2P" token. Native PEPU uses paymentToken == address(0).
+    address public p2pErc20Token;
     
     // User statistics
     struct UserStats {
         uint256 totalStakesPlaced;
+        /// @dev Count of winning claims tracked (native + P2P token only).
         uint256 totalStakesWon;
         uint256 totalStakesLost;
+        /// @dev Deprecated for new claims: amounts are split into native / P2P ERC20. Not incremented by trackWinnings.
         uint256 totalWinnings;
         uint256 totalLosses;
         uint256 totalSupportDonated;
@@ -22,6 +27,14 @@ contract MetricsHub is Ownable {
         uint256 marketsLost;
         uint256 favoriteOption; // Most staked on option
         uint256 lastActivity;
+        /// @dev Winning claims on native (address(0)) markets — count.
+        uint256 totalStakesWonNative;
+        /// @dev Winning claims on {p2pErc20Token} markets — count.
+        uint256 totalStakesWonP2PToken;
+        /// @dev Cumulative payout amount in native wei (PEPU) for tracked wins.
+        uint256 totalWinningsNative;
+        /// @dev Cumulative payout amount in P2P ERC20 smallest units for tracked wins.
+        uint256 totalWinningsP2PToken;
     }
     
     // Market statistics
@@ -62,8 +75,9 @@ contract MetricsHub is Ownable {
     event MarketStatsUpdated(uint256 indexed marketId, uint256 volume, uint256 stakers);
     event GlobalStatsUpdated(uint256 totalMarkets, uint256 totalVolume);
     
-    constructor(address initialOwner, address _marketManager) Ownable(initialOwner) {
+    constructor(address initialOwner, address _marketManager, address _p2pErc20Token) Ownable(initialOwner) {
         marketManager = payable(_marketManager);
+        p2pErc20Token = _p2pErc20Token;
     }
     
     /**
@@ -71,6 +85,19 @@ contract MetricsHub is Ownable {
      */
     function setMarketManager(address _marketManager) external onlyOwner {
         marketManager = payable(_marketManager);
+    }
+
+    /**
+     * @dev Set the P2P ERC20 token used for ERC20-side winnings analytics (native is always address(0)).
+     */
+    function setP2PErc20Token(address _token) external onlyOwner {
+        p2pErc20Token = _token;
+    }
+
+    /// @return True if winnings for this payment token are recorded in split native / P2P stats.
+    function isTrackedPaymentToken(address paymentToken) external view returns (bool) {
+        if (paymentToken == address(0)) return true;
+        return p2pErc20Token != address(0) && paymentToken == p2pErc20Token;
     }
     
     /**
@@ -164,15 +191,27 @@ contract MetricsHub is Ownable {
     }
     
     /**
-     * @dev Track user winnings
+     * @dev Track user winnings (native PEPU = paymentToken address(0), or configured P2P ERC20 only).
      */
-    function trackWinnings(uint256 marketId, address user, uint256 winnings) external {
+    function trackWinnings(uint256 marketId, address user, uint256 winnings, address paymentToken) external {
         require(msg.sender == marketManager, "Analytics: Only MarketManager can track");
+        require(winnings > 0, "Analytics: zero winnings");
+
+        bool native = (paymentToken == address(0));
+        bool p2p = (p2pErc20Token != address(0) && paymentToken == p2pErc20Token);
+        require(native || p2p, "Analytics: payment token not tracked");
         
         UserStats storage stats = userStats[user];
         stats.totalStakesWon++;
-        stats.totalWinnings += winnings;
         stats.lastActivity = block.timestamp;
+
+        if (native) {
+            stats.totalStakesWonNative++;
+            stats.totalWinningsNative += winnings;
+        } else {
+            stats.totalStakesWonP2PToken++;
+            stats.totalWinningsP2PToken += winnings;
+        }
         
         // Check if user won the market they created
         P2PMarketManager.Market memory market = P2PMarketManager(marketManager).getMarket(marketId);
@@ -181,7 +220,11 @@ contract MetricsHub is Ownable {
             marketStats[marketId].creatorWinnings = winnings;
         }
         
-        emit UserStatsUpdated(user, stats.totalStakesPlaced, stats.totalWinnings);
+        emit UserStatsUpdated(
+            user,
+            stats.totalStakesPlaced,
+            native ? stats.totalWinningsNative : stats.totalWinningsP2PToken
+        );
     }
     
     /**

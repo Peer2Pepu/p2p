@@ -27,8 +27,10 @@ export interface UpdateProfileData {
 // Analytics data from contract
 export interface UserAnalytics {
   totalStakesPlaced: bigint;
+  /** Winning claims tracked (native + P2P token markets only). */
   totalStakesWon: bigint;
   totalStakesLost: bigint;
+  /** Legacy field; new claims use totalWinningsNative / totalWinningsP2PToken. */
   totalWinnings: bigint;
   totalLosses: bigint;
   totalSupportDonated: bigint;
@@ -37,6 +39,10 @@ export interface UserAnalytics {
   marketsLost: bigint;
   favoriteOption: bigint;
   lastActivity: bigint;
+  totalStakesWonNative: bigint;
+  totalStakesWonP2PToken: bigint;
+  totalWinningsNative: bigint;
+  totalWinningsP2PToken: bigint;
 }
 
 export interface UserMarketData {

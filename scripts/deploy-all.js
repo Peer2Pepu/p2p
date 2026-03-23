@@ -36,10 +36,10 @@ async function main() {
     const vaultAddress = await vault.getAddress();
     console.log("✅ PoolVault deployed to:", vaultAddress);
 
-    // 4. Deploy MetricsHub (Analytics)
+    // 4. Deploy MetricsHub (Analytics) — native (0x0) + P2P ERC20 winnings split
     console.log("\n4. Deploying MetricsHub (Analytics)...");
     const MetricsHub = await ethers.getContractFactory("MetricsHub");
-    const metricsHub = await MetricsHub.deploy(deployer.address, ethers.ZeroAddress);
+    const metricsHub = await MetricsHub.deploy(deployer.address, ethers.ZeroAddress, poolTokenAddress);
     await metricsHub.waitForDeployment();
     const analyticsAddress = await metricsHub.getAddress();
     console.log("✅ MetricsHub deployed to:", analyticsAddress);

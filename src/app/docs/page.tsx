@@ -97,11 +97,19 @@ export default function DocsPage() {
     navigator.clipboard.writeText(url);
   };
 
+  /** Body copy — neutral; green only on main doc titles (heading1) */
+  const proseMuted = isDarkMode ? 'text-white/80' : 'text-gray-700';
+  const proseLead = isDarkMode ? 'text-white/85' : 'text-gray-700';
+  /** Section title (h1 only): white + thin green rule — not every heading */
+  const heading1 = isDarkMode
+    ? 'text-white border-b border-[#39FF14]/25 pb-3'
+    : 'text-gray-900 border-b border-emerald-200 pb-3';
+
   const HeadingLink = ({ headingId, children, className = '' }: { headingId: string; children: React.ReactNode; className?: string }) => (
     <a 
       href={`#${headingId}`} 
       onClick={(e) => copyHeadingUrl(e, headingId)} 
-      className={`font-inter no-underline hover:text-[#39FF14] transition-colors cursor-pointer inline-flex items-center gap-2 group ${className}`}
+      className={`font-inter text-inherit no-underline hover:text-[#39FF14] transition-colors cursor-pointer inline-flex items-center gap-2 group ${className}`}
     >
       {children}
       <LinkIcon className="w-4 h-4 opacity-0 group-hover:opacity-50 transition-opacity" />
@@ -113,34 +121,42 @@ export default function DocsPage() {
     if (!currentSection) return null;
 
     return (
-      <div className={`mt-auto pt-12 border-t ${isDarkMode ? 'border-[#39FF14]/20' : 'border-gray-200'}`}>
-        <div className="flex items-center justify-between">
+      <div className={`mt-auto pt-8 sm:pt-12 border-t ${isDarkMode ? 'border-[#39FF14]/20' : 'border-gray-200'}`}>
+        <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3">
           {currentSection.prev ? (
             <button
+              type="button"
               onClick={() => navigateToSection(currentSection.prev!)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+              className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-lg transition-colors text-left text-sm sm:text-base w-full sm:w-auto ${
                 isDarkMode 
                   ? 'hover:bg-[#39FF14]/10 text-white/80 hover:text-[#39FF14]' 
                   : 'hover:bg-gray-100 text-gray-700 hover:text-gray-900'
               }`}
             >
-              <ChevronLeft size={18} />
-              Previous: {SECTIONS.find(s => s.id === currentSection.prev)?.title}
+              <ChevronLeft size={18} className="shrink-0" />
+              <span className="min-w-0">
+                <span className="block text-xs opacity-70">Previous</span>
+                <span className="font-medium">{SECTIONS.find(s => s.id === currentSection.prev)?.title}</span>
+              </span>
             </button>
           ) : (
-            <div></div>
+            <div className="hidden sm:block" />
           )}
           {currentSection.next && (
             <button
+              type="button"
               onClick={() => navigateToSection(currentSection.next!)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+              className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-lg transition-colors text-right sm:text-left text-sm sm:text-base w-full sm:w-auto sm:ml-auto flex-row-reverse sm:flex-row ${
                 isDarkMode 
                   ? 'hover:bg-[#39FF14]/10 text-white/80 hover:text-[#39FF14]' 
                   : 'hover:bg-gray-100 text-gray-700 hover:text-gray-900'
               }`}
             >
-              Next: {SECTIONS.find(s => s.id === currentSection.next)?.title}
-              <ChevronRight size={18} />
+              <ChevronRight size={18} className="shrink-0" />
+              <span className="min-w-0 sm:text-right">
+                <span className="block text-xs opacity-70">Next</span>
+                <span className="font-medium">{SECTIONS.find(s => s.id === currentSection.next)?.title}</span>
+              </span>
             </button>
           )}
         </div>
@@ -150,51 +166,95 @@ export default function DocsPage() {
 
   return (
     <div className={`${inter.variable} min-h-screen ${isDarkMode ? 'bg-black' : 'bg-[#F5F3F0]'}`}>
-      {/* Mobile Sidebar Toggle */}
-      <header className={`sticky top-0 z-40 border-b backdrop-blur-sm ${isDarkMode ? 'bg-black border-[#39FF14]/20' : 'bg-[#F5F3F0] border-gray-200'} lg:hidden`}>
-        <div className="px-4 py-3 flex items-center justify-between">
+      {/* Mobile header: nav + tools + search */}
+      <header className={`sticky top-0 z-40 border-b backdrop-blur-md ${isDarkMode ? 'bg-black/95 border-[#39FF14]/20' : 'bg-[#F5F3F0]/95 border-gray-200'} lg:hidden`}>
+        <div className="px-3 pt-2 pb-2 flex items-center gap-2">
           <button
+            type="button"
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-[#39FF14]/10 text-white' : 'hover:bg-gray-200'}`}
+            className={`p-2 rounded-lg transition-colors shrink-0 ${isDarkMode ? 'hover:bg-[#39FF14]/10 text-white' : 'hover:bg-gray-200 text-gray-900'}`}
+            aria-label={sidebarOpen ? 'Close docs menu' : 'Open docs menu'}
           >
             {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
-          <h1 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Documentation</h1>
-          <div className="w-10" />
+          <h1 className={`text-sm font-bold truncate flex-1 text-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            Documentation
+          </h1>
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className={`p-2 rounded-lg transition-colors shrink-0 ${isDarkMode ? 'hover:bg-[#39FF14]/10 text-white' : 'hover:bg-gray-200 text-gray-700'}`}
+            aria-label="Toggle theme"
+          >
+            {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+          <div className="shrink-0 scale-90 origin-right [&_button]:!min-h-0 [&_button]:!py-1.5 [&_button]:!text-xs">
+            {isConnected ? (
+              <span
+                className={`inline-flex items-center px-2 py-1.5 rounded-md text-[10px] font-mono font-medium max-w-[88px] truncate ${
+                  isDarkMode
+                    ? 'bg-[#39FF14]/10 text-[#39FF14] border border-[#39FF14]/30'
+                    : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                }`}
+                title={address ?? ''}
+              >
+                {address?.slice(0, 4)}…{address?.slice(-3)}
+              </span>
+            ) : (
+              <ConnectButton />
+            )}
+          </div>
+        </div>
+        <div className="px-3 pb-2">
+          <div className={`relative rounded-lg border ${isDarkMode ? 'bg-gray-900/80 border-[#39FF14]/25' : 'bg-white border-gray-300'}`}>
+            <Search className={`absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none ${isDarkMode ? 'text-white/40' : 'text-gray-400'}`} />
+            <input
+              type="search"
+              enterKeyHint="search"
+              placeholder="Search docs…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className={`w-full pl-9 pr-3 py-2 text-sm bg-transparent border-0 focus:outline-none focus:ring-2 focus:ring-[#39FF14]/50 rounded-lg ${
+                isDarkMode ? 'text-white placeholder:text-white/40' : 'text-gray-900 placeholder:text-gray-400'
+              }`}
+            />
+          </div>
         </div>
       </header>
 
       <div className="flex">
         {/* Docs Sidebar */}
         <aside className={`
-          fixed lg:sticky top-0 h-screen overflow-y-auto z-30
+          fixed lg:sticky top-0 h-[100dvh] max-h-screen overflow-y-auto z-50 lg:z-30
           ${isDarkMode ? 'bg-black border-r border-[#39FF14]/20' : 'bg-white border-r border-gray-200'}
-          w-64 flex-shrink-0
+          w-[min(100vw-3rem,16rem)] sm:w-64 flex-shrink-0
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
           transition-transform duration-300
+          shadow-xl lg:shadow-none
         `}>
-          <div className="p-4 border-b border-[#39FF14]/20">
-            <Link href="/" className="flex items-center">
+          <div className={`p-3 sm:p-4 border-b ${isDarkMode ? 'border-[#39FF14]/20' : 'border-gray-200'}`}>
+            <Link href="/" className="flex items-center" onClick={() => setSidebarOpen(false)}>
               <Image
                 src="/logo.png"
                 alt="Peer2Pepu Logo"
                 width={180}
                 height={60}
-                className="object-contain"
+                className="object-contain w-[140px] sm:w-[160px] h-auto"
                 priority
               />
             </Link>
           </div>
 
-          <div className="p-6">
-            <nav className="space-y-1">
+          <div className="p-3 sm:p-6 pb-6">
+            <nav className="space-y-0.5 sm:space-y-1">
               {SECTIONS.map((section) => {
                 const isActive = activeSection === section.id;
                 return (
               <button
+                    type="button"
                     key={section.id}
                     onClick={() => navigateToSection(section.id)}
-                className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
+                className={`w-full text-left px-3 py-2.5 sm:py-2 rounded text-sm transition-colors ${
                       isActive
                         ? isDarkMode
                           ? 'bg-[#39FF14]/20 text-[#39FF14] border-l-2 border-[#39FF14]'
@@ -215,8 +275,9 @@ export default function DocsPage() {
         {/* Mobile Overlay */}
         {sidebarOpen && (
           <div
-            className="fixed inset-0 bg-black/50 z-20 lg:hidden"
+            className="fixed inset-0 bg-black/50 z-40 lg:hidden"
             onClick={() => setSidebarOpen(false)}
+            aria-hidden
           />
         )}
 
@@ -264,7 +325,7 @@ export default function DocsPage() {
           </header>
 
           <div 
-            className="h-screen overflow-hidden relative"
+            className="h-[100dvh] min-h-0 lg:h-screen overflow-hidden relative"
             style={{
               scrollbarWidth: 'none',
               msOverflowStyle: 'none'
@@ -283,49 +344,45 @@ export default function DocsPage() {
                 scrollbar-width: none;
               }
             `}</style>
-            <div className="max-w-4xl mx-auto h-full relative">
+            <div className="max-w-4xl mx-auto h-full relative w-full">
             {/* Overview Section */}
             <section 
               id="overview" 
               ref={(el) => { sectionRefs.current['overview'] = el; }}
-              className={`absolute inset-0 flex flex-col px-6 py-12 transition-all duration-500 overflow-y-auto ${activeSection === 'overview' ? 'translate-x-0 opacity-100 z-10' : '-translate-x-full opacity-0 z-0 pointer-events-none'}`}
-              style={{ 
-                paddingTop: '100px',
-                scrollbarWidth: 'none',
-                msOverflowStyle: 'none'
-              }}
+              className={`absolute inset-0 flex flex-col px-4 sm:px-6 pb-8 sm:pb-12 pt-16 lg:pt-[100px] transition-all duration-500 overflow-y-auto overflow-x-hidden ${activeSection === 'overview' ? 'translate-x-0 opacity-100 z-10' : '-translate-x-full opacity-0 z-0 pointer-events-none'}`}
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
-              <h1 id="overview" className={`font-inter text-3xl font-bold mb-6 text-left group ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                <a href="#overview" onClick={(e) => copyHeadingUrl(e, 'overview')} className="no-underline hover:text-[#39FF14] transition-colors cursor-pointer inline-flex items-center gap-2">
+              <h1 id="overview" className={`font-inter text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-left group ${heading1}`}>
+                <a href="#overview" onClick={(e) => copyHeadingUrl(e, 'overview')} className="text-inherit no-underline hover:text-[#39FF14] transition-colors cursor-pointer inline-flex items-center gap-2 group">
                   Overview
                   <LinkIcon className="w-4 h-4 opacity-0 group-hover:opacity-50 transition-opacity" />
                 </a>
               </h1>
 
-              <p className={`text-xl leading-relaxed mb-12 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`text-lg sm:text-xl leading-relaxed mb-8 sm:mb-12 ${proseLead}`}>
                 Welcome to the P2P Prediction Markets platform documentation. This comprehensive guide will help you understand how to create, participate in, and interact with decentralized prediction markets on the Pepe Unchained blockchain.
               </p>
 
-              <h2 id="what-are-prediction-markets" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left group ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                <a href="#what-are-prediction-markets" onClick={(e) => copyHeadingUrl(e, 'what-are-prediction-markets')} className="no-underline hover:text-[#39FF14] transition-colors cursor-pointer inline-flex items-center gap-2">
+              <h2 id="what-are-prediction-markets" className={`font-inter text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4 text-left group ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                <a href="#what-are-prediction-markets" onClick={(e) => copyHeadingUrl(e, 'what-are-prediction-markets')} className="text-inherit no-underline hover:text-[#39FF14] transition-colors cursor-pointer inline-flex items-center gap-2 group">
                   What are Prediction Markets?
                   <LinkIcon className="w-4 h-4 opacity-0 group-hover:opacity-50 transition-opacity" />
                 </a>
               </h2>
-              <p className={`mb-6 leading-relaxed text-lg ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-6 leading-relaxed text-base sm:text-lg ${proseMuted}`}>
                 Prediction markets are decentralized platforms where participants can stake tokens on the outcome of future events. Unlike traditional betting, prediction markets aggregate collective knowledge and provide financial incentives for accurate predictions. They serve multiple purposes including information aggregation, price discovery, and risk management.
               </p>
-              <p className={`mb-6 leading-relaxed text-lg ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-6 leading-relaxed text-base sm:text-lg ${proseMuted}`}>
                 In a prediction market, users stake tokens on their preferred outcome. The market price of each outcome reflects the collective belief about its probability. When the event resolves, winners receive payouts proportional to their stake and the total pool, while losers forfeit their staked tokens.
               </p>
 
-              <h2 id="key-features" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left group ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                <a href="#key-features" onClick={(e) => copyHeadingUrl(e, 'key-features')} className="no-underline hover:text-[#39FF14] transition-colors cursor-pointer inline-flex items-center gap-2">
+              <h2 id="key-features" className={`font-inter text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4 text-left group ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                <a href="#key-features" onClick={(e) => copyHeadingUrl(e, 'key-features')} className="text-inherit no-underline hover:text-[#39FF14] transition-colors cursor-pointer inline-flex items-center gap-2 group">
                   Key Features
                   <LinkIcon className="w-4 h-4 opacity-0 group-hover:opacity-50 transition-opacity" />
                 </a>
               </h2>
-              <ul className={`list-disc list-inside space-y-3 mb-8 text-lg ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <ul className={`list-disc list-outside pl-5 space-y-3 mb-8 text-base sm:text-lg ${proseMuted} ${isDarkMode ? '[&>li>strong]:text-[#39FF14]' : '[&>li>strong]:text-emerald-700'}`}>
                 <li><strong>Decentralized:</strong> Built entirely on the Pepe Unchained blockchain with no central authority controlling markets or outcomes</li>
                 <li><strong>Transparent:</strong> All market data, stakes, and outcomes are recorded on-chain and publicly verifiable</li>
                 <li><strong>Flexible:</strong> Support for binary (Yes/No) and multi-option markets with customizable options</li>
@@ -345,30 +402,26 @@ export default function DocsPage() {
             <section 
               id="getting-started" 
               ref={(el) => { sectionRefs.current['getting-started'] = el; }}
-              className={`absolute inset-0 flex flex-col px-6 py-12 transition-all duration-500 overflow-y-auto ${activeSection === 'getting-started' ? 'translate-x-0 opacity-100 z-10' : getSectionTransform('getting-started') + ' opacity-0 z-0 pointer-events-none'}`}
-              style={{ 
-                paddingTop: '100px',
-                scrollbarWidth: 'none',
-                msOverflowStyle: 'none'
-              }}
+              className={`absolute inset-0 flex flex-col px-4 sm:px-6 pb-8 sm:pb-12 pt-16 lg:pt-[100px] transition-all duration-500 overflow-y-auto overflow-x-hidden ${activeSection === 'getting-started' ? 'translate-x-0 opacity-100 z-10' : getSectionTransform('getting-started') + ' opacity-0 z-0 pointer-events-none'}`}
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
-              <h1 id="getting-started" className={`font-inter text-3xl font-bold mb-6 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h1 id="getting-started" className={`font-inter text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-left ${heading1}`}>
                 <HeadingLink headingId="getting-started">Getting Started</HeadingLink>
               </h1>
-              <p className={`text-xl leading-relaxed mb-12 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`text-lg sm:text-xl leading-relaxed mb-8 sm:mb-12 ${proseLead}`}>
                 Learn how to create and participate in prediction markets on the P2P platform.
               </p>
 
-              <h2 id="market-creation" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="market-creation" className={`font-inter text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="market-creation">Creating a Market</HeadingLink>
               </h2>
-              <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                 Creating a prediction market requires several steps. First, the creator defines the event or question that the market will resolve. This includes writing a clear title, detailed description, and providing relevant resources or links that help participants make informed decisions.
               </p>
-              <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                 The creator must choose between two resolution mechanisms: Price Feed markets for objective price-based questions, or Optimistic Oracle markets for subjective events requiring human judgment. They set the market duration, staking period, and resolution timeframe. A creator deposit is required to ensure commitment, and creators can optionally stake on their preferred outcome.
               </p>
-              <p className={`mb-6 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-6 leading-relaxed ${proseMuted}`}>
                 For Price Feed markets, the creator selects a price feed (ETH/USD, BTC/USD, SOL/USD, or PEPU/USD) and sets a threshold. The market will automatically resolve based on whether the price is above or below this threshold at resolution time. For Optimistic Oracle markets, the creator defines options (Yes/No for binary, or multiple options) and the market requires manual resolution through the oracle system.
               </p>
 
@@ -379,66 +432,62 @@ export default function DocsPage() {
             <section 
               id="participating" 
               ref={(el) => { sectionRefs.current['participating'] = el; }}
-              className={`absolute inset-0 flex flex-col px-6 py-12 transition-all duration-500 overflow-y-auto ${activeSection === 'participating' ? 'translate-x-0 opacity-100 z-10' : getSectionTransform('participating') + ' opacity-0 z-0 pointer-events-none'}`}
-              style={{ 
-                paddingTop: '100px',
-                scrollbarWidth: 'none',
-                msOverflowStyle: 'none'
-              }}
+              className={`absolute inset-0 flex flex-col px-4 sm:px-6 pb-8 sm:pb-12 pt-16 lg:pt-[100px] transition-all duration-500 overflow-y-auto overflow-x-hidden ${activeSection === 'participating' ? 'translate-x-0 opacity-100 z-10' : getSectionTransform('participating') + ' opacity-0 z-0 pointer-events-none'}`}
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
-              <h1 id="participating" className={`font-inter text-3xl font-bold mb-6 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h1 id="participating" className={`font-inter text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-left ${heading1}`}>
                 <HeadingLink headingId="participating">Participating in Markets</HeadingLink>
               </h1>
-              <p className={`text-xl leading-relaxed mb-12 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`text-lg sm:text-xl leading-relaxed mb-8 sm:mb-12 ${proseLead}`}>
                 Learn how to stake on markets, understand the resolution process, and claim your winnings.
               </p>
 
-              <h2 id="staking-phase" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="staking-phase" className={`font-inter text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="staking-phase">Staking Phase</HeadingLink>
               </h2>
-              <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                 Once a market is created, it enters the staking phase. During this period, any user can stake tokens on their preferred outcome. The amount you stake determines your potential payout if your chosen outcome wins. The payout ratio is calculated based on the total pool and the proportion of stakes on the winning option.
               </p>
-              <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                 Staking requires meeting the minimum stake amount set by the market creator. You can stake using the payment token specified by the creator, which may be native PEPU tokens or any supported ERC20 token. The platform supports multiple tokens to provide flexibility and accessibility.
               </p>
-              <p className={`mb-6 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-6 leading-relaxed ${proseMuted}`}>
                 The staking phase ends at the specified stake end time. After this point, no new stakes can be placed, but the market remains active until the end time is reached. This allows for a period where the market is closed to new participants but hasn't yet ended.
               </p>
 
-              <h2 id="market-end" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="market-end" className={`font-inter text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="market-end">Market End</HeadingLink>
               </h2>
-              <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                 When the market end time is reached, the market automatically transitions to the "Ended" state. Once ended, the market is locked and no further stakes can be placed.
               </p>
-              <p className={`mb-6 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-6 leading-relaxed ${proseMuted}`}>
                 The market remains in the Ended state until resolution occurs. For Price Feed markets, resolution happens automatically after the resolution end time. For Optimistic Oracle markets, resolution requires an assertion to be made and the liveness period to pass.
               </p>
 
-              <h2 id="resolution" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="resolution" className={`font-inter text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="resolution">Resolution</HeadingLink>
               </h2>
-              <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                 Resolution is the process of determining the winning outcome. For Price Feed markets, resolution is automatic. When the resolution end time is reached, the system queries the on-chain price feed and compares it to the threshold. If the price is greater than or equal to the threshold, Option 1 (Yes) wins. Otherwise, Option 2 (No) wins.
               </p>
-              <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                 For Optimistic Oracle markets, resolution is more complex. Any user can make an assertion about which outcome should win. This assertion includes a bond (stake) that can be challenged during the liveness period. If no one disputes the assertion within the liveness period, the market can be settled with the asserted outcome. If disputed, the matter goes to the Decentralized Voting Mechanism (DVM) for final resolution.
               </p>
-              <p className={`mb-6 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-6 leading-relaxed ${proseMuted}`}>
                 The liveness period is a configurable time window (default 2 hours) during which assertions can be challenged. This provides security and ensures that incorrect assertions can be disputed before final settlement.
               </p>
 
-              <h2 id="payouts" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="payouts" className={`font-inter text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="payouts">Claiming Payouts</HeadingLink>
               </h2>
-              <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                 Once a market is resolved, winners can claim their payouts. The payout calculation is based on the total pool size and the proportion of stakes on the winning option. If you staked on the winning outcome, you receive a share of the total pool proportional to your stake.
               </p>
-              <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                 A small platform fee is deducted from the total pool before payouts are distributed. This fee supports the ecosystem, including infrastructure costs, development, and platform sustainability. The fee structure is transparent and visible when creating or participating in markets.
               </p>
-              <p className={`mb-6 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-6 leading-relaxed ${proseMuted}`}>
                 Users who staked on losing options do not receive any payout. Their staked tokens become part of the winning pool. This creates an incentive structure where accurate predictions are rewarded, and the market naturally aggregates information through price discovery.
               </p>
 
@@ -449,43 +498,39 @@ export default function DocsPage() {
             <section 
               id="market-types" 
               ref={(el) => { sectionRefs.current['market-types'] = el; }}
-              className={`absolute inset-0 flex flex-col px-6 py-12 transition-all duration-500 overflow-y-auto ${activeSection === 'market-types' ? 'translate-x-0 opacity-100 z-10' : getSectionTransform('market-types') + ' opacity-0 z-0 pointer-events-none'}`}
-              style={{ 
-                paddingTop: '100px',
-                scrollbarWidth: 'none',
-                msOverflowStyle: 'none'
-              }}
+              className={`absolute inset-0 flex flex-col px-4 sm:px-6 pb-8 sm:pb-12 pt-16 lg:pt-[100px] transition-all duration-500 overflow-y-auto overflow-x-hidden ${activeSection === 'market-types' ? 'translate-x-0 opacity-100 z-10' : getSectionTransform('market-types') + ' opacity-0 z-0 pointer-events-none'}`}
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
-              <h1 id="market-types" className={`font-inter text-3xl font-bold mb-6 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h1 id="market-types" className={`font-inter text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-left ${heading1}`}>
                 <HeadingLink headingId="market-types">Market Types</HeadingLink>
               </h1>
-              <p className={`text-xl leading-relaxed mb-12 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`text-lg sm:text-xl leading-relaxed mb-8 sm:mb-12 ${proseLead}`}>
                 Understand the different types of markets available and when to use each one.
               </p>
 
-              <h2 id="price-feed-markets" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="price-feed-markets" className={`font-inter text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="price-feed-markets">Price Feed Markets</HeadingLink>
               </h2>
-              <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                 Price Feed markets are binary (Yes/No) markets that automatically resolve based on on-chain price data. These markets are perfect for objective, price-based questions where the outcome can be definitively determined by querying a price feed contract.
               </p>
-              <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                 When creating a Price Feed market, you select one of the available price feeds: ETH/USD, BTC/USD, SOL/USD, or PEPU/USD. You then set a price threshold and choose whether "Yes" wins if the price is above the threshold (Over) or below the threshold (Under). The market automatically resolves when the resolution time is reached by comparing the current price from the feed against your threshold.
               </p>
-              <p className={`mb-6 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-6 leading-relaxed ${proseMuted}`}>
                 These markets are ideal for questions like "Will ETH be above $3000 by end of month?" or "Will BTC drop below $40,000 this week?" The resolution is trustless and automatic, requiring no human judgment or oracle intervention beyond the price feed itself.
               </p>
 
-              <h2 id="optimistic-oracle-markets" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="optimistic-oracle-markets" className={`font-inter text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="optimistic-oracle-markets">Optimistic Oracle Markets</HeadingLink>
               </h2>
-              <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                 Optimistic Oracle markets support both binary and multi-option outcomes. These markets are designed for subjective events or complex questions that require human judgment to resolve. Examples include sports outcomes, election results, product launches, or any event where the outcome cannot be determined purely from on-chain data.
               </p>
-              <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                 Resolution for Optimistic Oracle markets follows a specific process. After the market ends, any user can make an assertion about which outcome should win. This assertion includes posting a bond (stake) that can be challenged. During the liveness period (typically 2 hours), anyone can dispute the assertion by posting their own bond. If disputed, the matter goes to the Decentralized Voting Mechanism for token-holder voting.
               </p>
-              <p className={`mb-6 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-6 leading-relaxed ${proseMuted}`}>
                 If no dispute occurs during the liveness period, the market can be settled with the asserted outcome. This optimistic approach allows for fast resolution when assertions are correct, while the dispute mechanism provides security against incorrect assertions.
               </p>
 
@@ -496,165 +541,161 @@ export default function DocsPage() {
             <section 
               id="optimistic-oracle" 
               ref={(el) => { sectionRefs.current['optimistic-oracle'] = el; }}
-              className={`absolute inset-0 flex flex-col px-6 py-12 transition-all duration-500 overflow-y-auto ${activeSection === 'optimistic-oracle' ? 'translate-x-0 opacity-100 z-10' : getSectionTransform('optimistic-oracle') + ' opacity-0 z-0 pointer-events-none'}`}
-              style={{ 
-                paddingTop: '100px',
-                scrollbarWidth: 'none',
-                msOverflowStyle: 'none'
-              }}
+              className={`absolute inset-0 flex flex-col px-4 sm:px-6 pb-8 sm:pb-12 pt-16 lg:pt-[100px] transition-all duration-500 overflow-y-auto overflow-x-hidden ${activeSection === 'optimistic-oracle' ? 'translate-x-0 opacity-100 z-10' : getSectionTransform('optimistic-oracle') + ' opacity-0 z-0 pointer-events-none'}`}
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
-              <h1 id="optimistic-oracle" className={`font-inter text-3xl font-bold mb-6 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h1 id="optimistic-oracle" className={`font-inter text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-left ${heading1}`}>
                 <HeadingLink headingId="optimistic-oracle">P2P Optimistic Oracle</HeadingLink>
               </h1>
-              <p className={`text-xl leading-relaxed mb-12 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`text-lg sm:text-xl leading-relaxed mb-8 sm:mb-12 ${proseLead}`}>
                 The P2P Optimistic Oracle provides a decentralized mechanism for resolving subjective events in prediction markets. It uses an optimistic approach where assertions are assumed correct unless challenged, enabling fast resolution while maintaining security through dispute mechanisms and token-weighted voting.
               </p>
 
-              <h2 id="how-optimistic-works" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="how-optimistic-works" className={`font-inter text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="how-optimistic-works">How It Works</HeadingLink>
               </h2>
-              <p className={`mb-6 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-6 leading-relaxed ${proseMuted}`}>
                 The Optimistic Oracle resolution process consists of four main steps:
               </p>
 
-              <div className={`mb-8 p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
+              <div className={`mb-6 sm:mb-8 p-4 sm:p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
                 <h3 className={`text-xl font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Step 1: Assert</h3>
-                <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                   After a market ends, any user (except the creator) who has staked on the market can make an assertion about which outcome should win. The asserter must:
                 </p>
-                <ul className={`list-disc list-inside space-y-2 mb-4 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                <ul className={`list-disc list-outside pl-5 space-y-2 mb-4 ${proseMuted}`}>
                   <li>Post a bond (stake) to the oracle contract</li>
                   <li>Provide a human-readable claim describing the outcome</li>
                   <li>Encode the winning option ID in callback data</li>
                 </ul>
-                <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                   Once asserted, a 48-hour dispute window begins. If no one disputes during this period, the assertion is automatically accepted.
                 </p>
               </div>
 
-              <div className={`mb-8 p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
+              <div className={`mb-6 sm:mb-8 p-4 sm:p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
                 <h3 className={`text-xl font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Step 2: Dispute (Optional)</h3>
-                <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                   Anyone who disagrees with the assertion can dispute it within the dispute window by:
                 </p>
-                <ul className={`list-disc list-inside space-y-2 mb-4 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                <ul className={`list-disc list-outside pl-5 space-y-2 mb-4 ${proseMuted}`}>
                   <li>Posting an equal bond to challenge the assertion</li>
                   <li>Specifying which option they believe is correct</li>
                   <li>Triggering a vote in the P2PVoting contract</li>
                 </ul>
-                <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                   When disputed, the matter goes to token-weighted voting where P2P token holders vote on which option should win: the asserted option or the disputed option.
                 </p>
               </div>
 
-              <h2 id="voting-mechanism" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="voting-mechanism" className={`font-inter text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="voting-mechanism">How Voting Works</HeadingLink>
               </h2>
-              <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                 When an assertion is disputed, the P2POptimisticOracle creates a vote request in the P2PVoting contract. P2P token holders who have staked tokens can vote on which outcome they believe is correct: the option that was asserted, or the option that was disputed.
               </p>
 
-              <div className={`mb-8 p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
+              <div className={`mb-6 sm:mb-8 p-4 sm:p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
                 <h3 className={`text-xl font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Token-Weighted Voting</h3>
-                <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                   Voting is token-weighted, meaning your voting power is proportional to the amount of P2P tokens you have staked in the P2PVoting contract. To participate in voting:
                 </p>
-                <ul className={`list-disc list-inside space-y-2 mb-4 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                <ul className={`list-disc list-outside pl-5 space-y-2 mb-4 ${proseMuted}`}>
                   <li><strong>Stake P2P tokens:</strong> You must stake P2P tokens in the P2PVoting contract before a vote request is created</li>
                   <li><strong>Voting weight:</strong> Your voting weight equals your staked balance at the time you cast your vote</li>
                   <li><strong>One vote per dispute:</strong> Each voter can only vote once per dispute, but can vote on multiple disputes</li>
                 </ul>
-                <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                   This system ensures that stakeholders with more tokens have proportionally more influence, aligning voting power with economic interest in the platform.
                 </p>
               </div>
 
-              <div className={`mb-8 p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
+              <div className={`mb-6 sm:mb-8 p-4 sm:p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
                 <h3 className={`text-xl font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Vote Options</h3>
-                <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                   When voting on a disputed assertion, you choose between two options:
                 </p>
-                <ul className={`list-disc list-inside space-y-2 mb-4 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                <ul className={`list-disc list-outside pl-5 space-y-2 mb-4 ${proseMuted}`}>
                   <li><strong>Vote for the asserted option:</strong> You believe the asserter is correct. If this wins, the market resolves with the asserted option and winners can claim payouts.</li>
                   <li><strong>Vote for the disputed option:</strong> You believe the disputer is correct. If this wins, the market cancels and all stakers can claim refunds.</li>
                 </ul>
-                <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                   The outcome is determined by the majority of voting weight, not the number of voters. Whichever option receives more total staked tokens wins.
                 </p>
               </div>
 
-              <div className={`mb-8 p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
+              <div className={`mb-6 sm:mb-8 p-4 sm:p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
                 <h3 className={`text-xl font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Voting Timeline</h3>
-                <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                   The voting process follows a specific timeline:
                 </p>
-                <ol className={`list-decimal list-inside space-y-2 mb-4 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                <ol className={`list-decimal list-outside pl-5 space-y-2 mb-4 ${proseMuted}`}>
                   <li><strong>Vote Request Created:</strong> When a dispute is filed, the oracle automatically creates a vote request with a 24-hour voting window (default)</li>
                   <li><strong>Voting Period:</strong> P2P token holders have 24 hours to cast their votes. Votes can be cast at any time during this window</li>
                   <li><strong>Resolution:</strong> After the deadline, anyone can call <code className={`px-2 py-1 rounded ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>settleOracle()</code> to finalize the outcome</li>
                 </ol>
               </div>
 
-              <div className={`mb-8 p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
+              <div className={`mb-6 sm:mb-8 p-4 sm:p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
                 <h3 className={`text-xl font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Minimum Participation & Consensus</h3>
-                <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                   To ensure meaningful participation, the voting system requires a minimum threshold:
                 </p>
-                <ul className={`list-disc list-inside space-y-2 mb-4 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                <ul className={`list-disc list-outside pl-5 space-y-2 mb-4 ${proseMuted}`}>
                   <li><strong>Minimum Participation:</strong> At least 1,000 P2P tokens (default) must be staked and voted for the result to be considered valid</li>
                   <li><strong>Consensus Reached:</strong> If minimum participation is met, the majority vote determines the outcome</li>
                   <li><strong>No Consensus:</strong> If participation is below the threshold, the vote resolves as "NO_CONSENSUS" and the oracle automatically accepts the assertion (fallback mechanism)</li>
                 </ul>
-                <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                   This fallback ensures that markets can still resolve even if voter turnout is low, preventing permanent fund lock.
                 </p>
               </div>
 
-              <div className={`mb-8 p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
+              <div className={`mb-6 sm:mb-8 p-4 sm:p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
                 <h3 className={`text-xl font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Slashing & Rewards</h3>
-                <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                   The voting system includes economic incentives to encourage accurate voting:
                 </p>
-                <ul className={`list-disc list-inside space-y-2 mb-4 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                <ul className={`list-disc list-outside pl-5 space-y-2 mb-4 ${proseMuted}`}>
                   <li><strong>Wrong Voters:</strong> Voters who vote for the losing option lose 20% of their staked balance</li>
                   <li><strong>Correct Voters:</strong> Voters who vote for the winning option can claim a pro-rata share of the slashed tokens as a reward</li>
                   <li><strong>Reward Calculation:</strong> Rewards are distributed proportionally based on each correct voter's stake weight relative to the total correct stake weight</li>
                 </ul>
-                <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                   This mechanism aligns incentives: voters are financially motivated to vote correctly, and incorrect voters face penalties. The slashing percentage and minimum participation thresholds are configurable by the contract owner.
                 </p>
               </div>
 
-              <div className={`mb-8 p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
+              <div className={`mb-6 sm:mb-8 p-4 sm:p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
                 <h3 className={`text-xl font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Step 3: Settle</h3>
-                <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                   After the expiration period, anyone can call <code className={`px-2 py-1 rounded ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>settleOracle()</code> to finalize the result:
                 </p>
-                <ul className={`list-disc list-inside space-y-2 mb-4 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                <ul className={`list-disc list-outside pl-5 space-y-2 mb-4 ${proseMuted}`}>
                   <li><strong>No dispute:</strong> Assertion accepted, asserter gets bond back</li>
                   <li><strong>Disputed:</strong> Oracle resolves the vote - majority wins both bonds</li>
                   <li><strong>No consensus:</strong> Assertion automatically accepted (fallback)</li>
                 </ul>
               </div>
 
-              <div className={`mb-8 p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
+              <div className={`mb-6 sm:mb-8 p-4 sm:p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
                 <h3 className={`text-xl font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Step 4: Resolve</h3>
-                <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                   Finally, call <code className={`px-2 py-1 rounded ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>resolveP2PMarket()</code> to read the oracle result:
                 </p>
-                <ul className={`list-disc list-inside space-y-2 mb-4 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                <ul className={`list-disc list-outside pl-5 space-y-2 mb-4 ${proseMuted}`}>
                   <li><strong>Result = true:</strong> Market resolves with the asserted option, winners can claim payouts</li>
                   <li><strong>Result = false:</strong> Market cancels, all stakers can claim refunds (assertion was wrong)</li>
                 </ul>
               </div>
 
-              <h2 id="optimistic-flow" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="optimistic-flow" className={`font-inter text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="optimistic-flow">Resolution Flow</HeadingLink>
               </h2>
 
-              <div className={`mb-8 p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
+              <div className={`mb-6 sm:mb-8 p-4 sm:p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
                 <h3 className={`text-lg font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Normal Flow (No Dispute)</h3>
-                <pre className={`p-4 rounded overflow-x-auto text-sm ${isDarkMode ? 'bg-black text-green-400' : 'bg-gray-900 text-green-300'}`}>
+                <pre className={`p-3 sm:p-4 rounded-lg overflow-x-auto text-[11px] sm:text-sm leading-relaxed max-w-full ${isDarkMode ? 'bg-black text-green-400' : 'bg-gray-900 text-green-300'}`}>
 {`endMarket(id)
   └─ block.timestamp >= market.endTime
 
@@ -672,9 +713,9 @@ resolveP2PMarket(id)
                 </pre>
                 </div>
 
-              <div className={`mb-8 p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
+              <div className={`mb-6 sm:mb-8 p-4 sm:p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
                 <h3 className={`text-lg font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Disputed Flow (Vote Required)</h3>
-                <pre className={`p-4 rounded overflow-x-auto text-sm ${isDarkMode ? 'bg-black text-green-400' : 'bg-gray-900 text-green-300'}`}>
+                <pre className={`p-3 sm:p-4 rounded-lg overflow-x-auto text-[11px] sm:text-sm leading-relaxed max-w-full ${isDarkMode ? 'bg-black text-green-400' : 'bg-gray-900 text-green-300'}`}>
 {`endMarket(id)
 requestP2PResolution(id, optionId, claim)
 
@@ -696,13 +737,13 @@ resolveP2PMarket(id)
                 </pre>
               </div>
 
-              <h2 id="optimistic-fallback" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="optimistic-fallback" className={`font-inter text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="optimistic-fallback">Fallback Mechanisms</HeadingLink>
               </h2>
-              <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                 The system includes several safety mechanisms to prevent permanent fund lock:
               </p>
-              <ul className={`list-disc list-inside space-y-3 mb-6 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <ul className={`list-disc list-outside pl-5 space-y-3 mb-6 ${proseMuted}`}>
                 <li><strong>No Assertion Grace Period:</strong> If no one asserts within 48 hours after market end, <code className={`px-2 py-1 rounded ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>cancelMarketNoAssertion()</code> can be called to cancel the market and allow refunds.</li>
                 <li><strong>Assertion Rejected:</strong> If the oracle settles with <code className={`px-2 py-1 rounded ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>result=false</code>, the market cancels and all stakers can claim refunds.</li>
                 <li><strong>No Consensus:</strong> If voting has low turnout or no clear majority, the oracle automatically accepts the assertion as true.</li>
@@ -714,68 +755,64 @@ resolveP2PMarket(id)
             <section 
               id="price-feed-oracle" 
               ref={(el) => { sectionRefs.current['price-feed-oracle'] = el; }}
-              className={`absolute inset-0 flex flex-col px-6 py-12 transition-all duration-500 overflow-y-auto ${activeSection === 'price-feed-oracle' ? 'translate-x-0 opacity-100 z-10' : getSectionTransform('price-feed-oracle') + ' opacity-0 z-0 pointer-events-none'}`}
-              style={{ 
-                paddingTop: '100px',
-                scrollbarWidth: 'none',
-                msOverflowStyle: 'none'
-              }}
+              className={`absolute inset-0 flex flex-col px-4 sm:px-6 pb-8 sm:pb-12 pt-16 lg:pt-[100px] transition-all duration-500 overflow-y-auto overflow-x-hidden ${activeSection === 'price-feed-oracle' ? 'translate-x-0 opacity-100 z-10' : getSectionTransform('price-feed-oracle') + ' opacity-0 z-0 pointer-events-none'}`}
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
-              <h1 id="price-feed-oracle" className={`font-inter text-3xl font-bold mb-6 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h1 id="price-feed-oracle" className={`font-inter text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-left ${heading1}`}>
                 <HeadingLink headingId="price-feed-oracle">Price Feed Oracle</HeadingLink>
               </h1>
-              <p className={`text-xl leading-relaxed mb-12 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`text-lg sm:text-xl leading-relaxed mb-8 sm:mb-12 ${proseLead}`}>
                 Price Feed markets use on-chain price data for automatic, trustless resolution. These markets are perfect for objective, price-based questions where the outcome can be definitively determined by querying a Chainlink-compatible price feed contract.
               </p>
 
-              <h2 id="how-price-feed-works" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="how-price-feed-works" className={`font-inter text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="how-price-feed-works">How It Works</HeadingLink>
               </h2>
-              <p className={`mb-6 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-6 leading-relaxed ${proseMuted}`}>
                 Price Feed markets resolve automatically in a single transaction:
               </p>
 
-              <div className={`mb-8 p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
+              <div className={`mb-6 sm:mb-8 p-4 sm:p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
                 <h3 className={`text-xl font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>1. Market Creation</h3>
-                <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                   When creating a Price Feed market, the creator must:
                 </p>
-                <ul className={`list-disc list-inside space-y-2 mb-4 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                <ul className={`list-disc list-outside pl-5 space-y-2 mb-4 ${proseMuted}`}>
                   <li>Select a price feed contract (ETH/USD, BTC/USD, SOL/USD, or PEPU/USD)</li>
                   <li>Set a price threshold value</li>
                   <li>Define the resolution end time</li>
                 </ul>
               </div>
 
-              <div className={`mb-8 p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
+              <div className={`mb-6 sm:mb-8 p-4 sm:p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
                 <h3 className={`text-xl font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>2. Market End</h3>
-                <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                   When the market end time is reached, anyone can call <code className={`px-2 py-1 rounded ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>endMarket()</code> to transition the market to the "Ended" state. This is typically handled automatically by bots.
                 </p>
               </div>
 
-              <div className={`mb-8 p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
+              <div className={`mb-6 sm:mb-8 p-4 sm:p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
                 <h3 className={`text-xl font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>3. Resolution</h3>
-                <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                   After the resolution end time, anyone can call <code className={`px-2 py-1 rounded ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>resolvePriceFeedMarket()</code>. The contract:
                 </p>
-                <ol className={`list-decimal list-inside space-y-2 mb-4 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                <ol className={`list-decimal list-outside pl-5 space-y-2 mb-4 ${proseMuted}`}>
                   <li>Queries the price feed: <code className={`px-2 py-1 rounded ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>feed.latestRoundData()</code></li>
                   <li>Compares price to threshold: <code className={`px-2 py-1 rounded ${isDarkMode ? 'bg-gray-800 text-[#39FF14]' : 'bg-gray-200 text-gray-900'}`}>price &gt;= threshold ? Option 1 : Option 2</code></li>
                   <li>Sets the winning option and marks market as resolved</li>
                   <li>Distributes fees and enables winners to claim payouts</li>
                 </ol>
-                <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                   <strong>Resolution is instant</strong> — no voting, no disputes, no waiting periods. The outcome is determined purely by on-chain data.
                 </p>
                 </div>
 
-              <h2 id="price-feed-flow" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="price-feed-flow" className={`font-inter text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="price-feed-flow">Resolution Flow</HeadingLink>
               </h2>
 
-              <div className={`mb-8 p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
-                <pre className={`p-4 rounded overflow-x-auto text-sm ${isDarkMode ? 'bg-black text-green-400' : 'bg-gray-900 text-green-300'}`}>
+              <div className={`mb-6 sm:mb-8 p-4 sm:p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
+                <pre className={`p-3 sm:p-4 rounded-lg overflow-x-auto text-[11px] sm:text-sm leading-relaxed max-w-full ${isDarkMode ? 'bg-black text-green-400' : 'bg-gray-900 text-green-300'}`}>
 {`createMarket(..., priceFeed, priceThreshold)
   └─ Market created with PRICE_FEED type
 
@@ -795,19 +832,19 @@ resolvePriceFeedMarket(id)
                 </pre>
               </div>
 
-              <h2 id="price-feed-use-cases" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="price-feed-use-cases" className={`font-inter text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="price-feed-use-cases">Use Cases</HeadingLink>
               </h2>
-              <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                 Price Feed markets are ideal for:
               </p>
-              <ul className={`list-disc list-inside space-y-3 mb-6 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <ul className={`list-disc list-outside pl-5 space-y-3 mb-6 ${proseMuted}`}>
                 <li><strong>Price predictions:</strong> "Will ETH be above $3000 by end of month?"</li>
                 <li><strong>Market movements:</strong> "Will BTC drop below $40,000 this week?"</li>
                 <li><strong>Volatility bets:</strong> "Will SOL/USD move more than 10% today?"</li>
                 <li><strong>Any objective metric:</strong> Questions with clear, on-chain verifiable answers</li>
               </ul>
-              <p className={`mb-6 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-6 leading-relaxed ${proseMuted}`}>
                 These markets provide instant resolution with zero ambiguity, making them perfect for high-frequency trading and automated strategies.
               </p>
               {renderSectionNavigation('price-feed-oracle')}
@@ -817,31 +854,27 @@ resolvePriceFeedMarket(id)
             <section 
               id="building-bots" 
               ref={(el) => { sectionRefs.current['building-bots'] = el; }}
-              className={`absolute inset-0 flex flex-col px-6 py-12 transition-all duration-500 overflow-y-auto ${activeSection === 'building-bots' ? 'translate-x-0 opacity-100 z-10' : getSectionTransform('building-bots') + ' opacity-0 z-0 pointer-events-none'}`}
-              style={{ 
-                paddingTop: '100px',
-                scrollbarWidth: 'none',
-                msOverflowStyle: 'none'
-              }}
+              className={`absolute inset-0 flex flex-col px-4 sm:px-6 pb-8 sm:pb-12 pt-16 lg:pt-[100px] transition-all duration-500 overflow-y-auto overflow-x-hidden ${activeSection === 'building-bots' ? 'translate-x-0 opacity-100 z-10' : getSectionTransform('building-bots') + ' opacity-0 z-0 pointer-events-none'}`}
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
-              <h1 id="building-bots" className={`font-inter text-3xl font-bold mb-6 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h1 id="building-bots" className={`font-inter text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-left ${heading1}`}>
                 <HeadingLink headingId="building-bots">Building Bots</HeadingLink>
               </h1>
-              <p className={`text-xl leading-relaxed mb-12 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`text-lg sm:text-xl leading-relaxed mb-8 sm:mb-12 ${proseLead}`}>
                 This guide helps external developers build bots to monitor markets, track wallet activity, and create copy trading systems. All interactions happen directly with the blockchain through the MarketManager contract.
               </p>
 
-              <h2 id="watching-markets" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="watching-markets" className={`font-inter text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="watching-markets">Watching for New Markets</HeadingLink>
               </h2>
-              <p className={`mb-6 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-6 leading-relaxed ${proseMuted}`}>
                 To monitor when new markets are created, listen for the MarketCreated event emitted by the MarketManager contract. This event contains all the essential market information including the market ID, creator address, IPFS hash for metadata, timing information, and market parameters.
               </p>
 
-              <p className={`mb-6 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-6 leading-relaxed ${proseMuted}`}>
                 When a new market is created, the contract emits a MarketCreated event with the following information:
               </p>
-              <ul className={`list-disc list-inside space-y-2 mb-6 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <ul className={`list-disc list-outside pl-5 space-y-2 mb-6 ${proseMuted}`}>
                 <li>Market ID (unique identifier)</li>
                 <li>Creator address (who created the market)</li>
                 <li>IPFS hash (points to market metadata stored on IPFS)</li>
@@ -850,69 +883,69 @@ resolvePriceFeedMarket(id)
                 <li>Timing information (start time, stake end time, market end time, resolution end time)</li>
                 <li>Market parameters (minimum stake, max options, etc.)</li>
               </ul>
-              <p className={`mb-6 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-6 leading-relaxed ${proseMuted}`}>
                 You can listen to these events in real-time using WebSocket connections to the RPC endpoint, or poll for events using HTTP. The IPFS hash can be used to fetch the full market details including title, description, and images from any IPFS gateway.
               </p>
 
-              <h2 id="wallet-tracking" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="wallet-tracking" className={`font-inter text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="wallet-tracking">Tracking Wallet Activity</HeadingLink>
               </h2>
-              <p className={`mb-6 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-6 leading-relaxed ${proseMuted}`}>
                 To track when specific wallets place stakes, listen for the StakePlaced event. This event is emitted every time a user stakes on a market and contains:
               </p>
-              <ul className={`list-disc list-inside space-y-2 mb-6 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <ul className={`list-disc list-outside pl-5 space-y-2 mb-6 ${proseMuted}`}>
                 <li>Market ID (which market they staked on)</li>
                 <li>User address (the wallet that placed the stake)</li>
                 <li>Option ID (which outcome they chose)</li>
                 <li>Amount staked (the token amount)</li>
               </ul>
-              <p className={`mb-6 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-6 leading-relaxed ${proseMuted}`}>
                 You can filter these events by specific wallet addresses to track the activity of successful traders. This enables building copy trading systems that automatically mirror the trades of profitable wallets.
               </p>
 
-              <h2 id="copy-trading" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="copy-trading" className={`font-inter text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="copy-trading">Building a Copy Trading Bot</HeadingLink>
               </h2>
-              <p className={`mb-6 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-6 leading-relaxed ${proseMuted}`}>
                 A copy trading bot automatically mirrors the trades of successful wallets. Here's how to build one:
               </p>
-              <div className={`mb-8 p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
+              <div className={`mb-6 sm:mb-8 p-4 sm:p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
                 <h3 className={`text-xl font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>1. Identify Successful Traders</h3>
-                <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                   Query the contract to get historical market data and calculate win rates for different wallets. You can check which markets have been resolved and which wallets won by comparing their staked options to the winning option.
                 </p>
               </div>
-              <div className={`mb-8 p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
+              <div className={`mb-6 sm:mb-8 p-4 sm:p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
                 <h3 className={`text-xl font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>2. Monitor Their Activity</h3>
-                <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                   Listen for StakePlaced events filtered by the wallet addresses you want to copy. When they place a stake, your bot receives the market ID, option ID, and stake amount.
                 </p>
               </div>
-              <div className={`mb-8 p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
+              <div className={`mb-6 sm:mb-8 p-4 sm:p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
                 <h3 className={`text-xl font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>3. Mirror Their Trades</h3>
-                <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                   When a tracked wallet places a stake, automatically place a stake on the same market with the same option. You can scale the amount proportionally (e.g., copy 50% of their stake amount) or use a fixed amount. Make sure to check that the market is still active and the staking period hasn't ended before placing your stake.
                 </p>
               </div>
-              <div className={`mb-8 p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
+              <div className={`mb-6 sm:mb-8 p-4 sm:p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
                 <h3 className={`text-xl font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>4. Track Performance</h3>
-                <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                   Monitor MarketResolved events to track which markets your copied trades won or lost. Calculate your bot's performance and adjust which wallets you copy based on their recent success rates.
                 </p>
               </div>
-              <p className={`mb-6 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-6 leading-relaxed ${proseMuted}`}>
                 You can also query the contract to check a wallet's historical performance by looking at their past stakes and comparing them to resolved market outcomes. The contract provides view functions to check market states, user stakes, and market pools.
               </p>
 
-              <h2 id="contract-reference" className={`font-inter text-2xl font-semibold mt-12 mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h2 id="contract-reference" className={`font-inter text-xl sm:text-2xl font-semibold mt-8 sm:mt-12 mb-3 sm:mb-4 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 <HeadingLink headingId="contract-reference">Contract Reference</HeadingLink>
               </h2>
-              <p className={`mb-6 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-6 leading-relaxed ${proseMuted}`}>
                 The MarketManager contract provides several events and view functions that bots can use:
               </p>
-              <div className={`mb-8 p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
+              <div className={`mb-6 sm:mb-8 p-4 sm:p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
                 <h3 className={`text-xl font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Events</h3>
-                <ul className={`list-disc list-inside space-y-2 mb-4 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                <ul className={`list-disc list-outside pl-5 space-y-2 mb-4 ${proseMuted}`}>
                   <li><strong>MarketCreated:</strong> Emitted when a new market is created</li>
                   <li><strong>StakePlaced:</strong> Emitted when a user places a stake</li>
                   <li><strong>MarketResolved:</strong> Emitted when a market is resolved</li>
@@ -921,13 +954,13 @@ resolvePriceFeedMarket(id)
                   <li><strong>RefundClaimed:</strong> Emitted when a user claims a refund</li>
                 </ul>
                 </div>
-              <div className={`mb-8 p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
+              <div className={`mb-6 sm:mb-8 p-4 sm:p-6 rounded-lg border ${isDarkMode ? 'bg-gray-900/50 border-[#39FF14]/30' : 'bg-gray-50 border-gray-300'}`}>
                 <h3 className={`text-xl font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>View Functions</h3>
-                <p className={`mb-4 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                <p className={`mb-4 leading-relaxed ${proseMuted}`}>
                   The contract provides view functions to query market data, user stakes, option pools, and market states. These can be called without sending a transaction and are free to use. Check the contract ABI for the complete list of available functions and their parameters.
                 </p>
               </div>
-              <p className={`mb-6 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-6 leading-relaxed ${proseMuted}`}>
                 All interactions with the platform happen directly on-chain. There are no off-chain APIs or centralized services required. You can build bots using any blockchain library that supports the Pepe Unchained network.
               </p>
 
@@ -938,20 +971,16 @@ resolvePriceFeedMarket(id)
             <section 
               id="contract-reference" 
               ref={(el) => { sectionRefs.current['contract-reference'] = el; }}
-              className={`absolute inset-0 flex flex-col px-6 py-12 transition-all duration-500 overflow-y-auto ${activeSection === 'contract-reference' ? 'translate-x-0 opacity-100 z-10' : getSectionTransform('contract-reference') + ' opacity-0 z-0 pointer-events-none'}`}
-              style={{ 
-                paddingTop: '100px',
-                scrollbarWidth: 'none',
-                msOverflowStyle: 'none'
-              }}
+              className={`absolute inset-0 flex flex-col px-4 sm:px-6 pb-8 sm:pb-12 pt-16 lg:pt-[100px] transition-all duration-500 overflow-y-auto overflow-x-hidden ${activeSection === 'contract-reference' ? 'translate-x-0 opacity-100 z-10' : getSectionTransform('contract-reference') + ' opacity-0 z-0 pointer-events-none'}`}
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
-              <h1 id="contract-reference" className={`font-inter text-3xl font-bold mb-6 text-left ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h1 id="contract-reference" className={`font-inter text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-left ${heading1}`}>
                 <HeadingLink headingId="contract-reference">Contract Reference</HeadingLink>
               </h1>
-              <p className={`text-xl leading-relaxed mb-12 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`text-lg sm:text-xl leading-relaxed mb-8 sm:mb-12 ${proseLead}`}>
                 Complete reference for interacting with the MarketManager contract.
               </p>
-              <p className={`mb-6 leading-relaxed ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+              <p className={`mb-6 leading-relaxed ${proseMuted}`}>
                 The MarketManager contract is deployed on Pepe Unchained and provides all the functions needed to create markets, place stakes, resolve markets, and claim winnings. All interactions are on-chain and require no centralized services.
               </p>
               {renderSectionNavigation('contract-reference')}

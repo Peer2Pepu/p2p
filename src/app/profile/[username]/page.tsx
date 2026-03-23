@@ -8,11 +8,7 @@ import {
   User, 
   Edit3,
   TrendingUp,
-  Trophy,
   Target,
-  DollarSign,
-  Users,
-  BarChart3,
   Menu,
   Sun,
   Moon,
@@ -24,11 +20,13 @@ import { Sidebar } from '../../components/Sidebar';
 import { HeaderWallet } from '@/components/HeaderWallet';
 import { useAccount, useReadContract } from 'wagmi';
 import { useTheme } from '../../context/ThemeContext';
-import { formatEther } from 'viem';
 import { UserProfile, UserAnalytics, UserMarketData } from '@/types/profile';
+import { toBigIntSafe } from '@/lib/toBigInt';
+import { normalizeUserStatsContract } from '@/lib/normalizeUserStats';
 import { getUserMarketsFromSupabase, getUserMarketsByCreator } from '@/lib/profile';
 import { SeedAvatar } from '@/components/SeedAvatar';
 import { ProfileMarketCard } from '@/components/ProfileMarketCard';
+import { ProfileTradingAnalytics } from '@/components/ProfileTradingAnalytics';
 
 // Client-only wrapper to prevent hydration issues
 function ClientOnly({ children }: { children: React.ReactNode }) {
@@ -61,7 +59,11 @@ const ANALYTICS_ABI = [
       {"name": "marketsWon", "type": "uint256"},
       {"name": "marketsLost", "type": "uint256"},
       {"name": "favoriteOption", "type": "uint256"},
-      {"name": "lastActivity", "type": "uint256"}
+      {"name": "lastActivity", "type": "uint256"},
+      {"name": "totalStakesWonNative", "type": "uint256"},
+      {"name": "totalStakesWonP2PToken", "type": "uint256"},
+      {"name": "totalWinningsNative", "type": "uint256"},
+      {"name": "totalWinningsP2PToken", "type": "uint256"}
     ],
     "stateMutability": "view",
     "type": "function"
@@ -93,8 +95,9 @@ export default function ProfileViewPage() {
   const [analytics, setAnalytics] = useState<UserAnalytics | null>(null);
   const [userMarkets, setUserMarkets] = useState<UserMarketData[]>([]);
 
-  // Contract addresses
-  const ANALYTICS_CONTRACT = process.env.NEXT_PUBLIC_ANALYTICS_CONTRACT_ADDRESS as `0x${string}`;
+  // MetricsHub / analytics (NEXT_PUBLIC_P2P_ANALYTICS_ADDRESS; legacy NEXT_PUBLIC_ANALYTICS_CONTRACT_ADDRESS as fallback)
+  const ANALYTICS_ADDRESS = (process.env.NEXT_PUBLIC_P2P_ANALYTICS_ADDRESS ||
+    process.env.NEXT_PUBLIC_ANALYTICS_CONTRACT_ADDRESS) as `0x${string}` | undefined;
 
   // Check if viewing own profile
   const isOwnProfile = profile && address && profile.address?.toLowerCase() === address.toLowerCase();
@@ -106,12 +109,12 @@ export default function ProfileViewPage() {
 
   // Read analytics data from contract
   const { data: userStats } = useReadContract({
-    address: ANALYTICS_CONTRACT,
+    address: ANALYTICS_ADDRESS,
     abi: ANALYTICS_ABI,
     functionName: 'getUserStats',
     args: profile?.address ? [profile.address as `0x${string}`] : undefined,
     query: {
-      enabled: !!profile?.address && !!ANALYTICS_CONTRACT
+      enabled: !!profile?.address && !!ANALYTICS_ADDRESS
     }
   });
 
@@ -126,9 +129,11 @@ export default function ProfileViewPage() {
 
   // Update analytics when contract data changes
   useEffect(() => {
-    if (userStats) {
-      setAnalytics(userStats as UserAnalytics);
+    if (userStats == null) {
+      setAnalytics(null);
+      return;
     }
+    setAnalytics(normalizeUserStatsContract(userStats));
   }, [userStats]);
 
   // Load user markets by creator address
@@ -178,8 +183,11 @@ export default function ProfileViewPage() {
   };
 
   const calculateWinRate = () => {
-    if (!analytics || analytics.totalStakesPlaced === BigInt(0)) return 0;
-    return Number((analytics.totalStakesWon * BigInt(100)) / analytics.totalStakesPlaced);
+    if (!analytics) return 0;
+    const placed = toBigIntSafe(analytics.totalStakesPlaced);
+    const won = toBigIntSafe(analytics.totalStakesWon);
+    if (placed === BigInt(0)) return 0;
+    return Number((won * BigInt(100)) / placed);
   };
 
   return (
@@ -318,65 +326,21 @@ export default function ProfileViewPage() {
                         </div>
 
                         {profile?.bio && (
-                          <p className={`mb-4 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                          <p className={`mb-0 ${isDarkMode ? 'text-white/80' : 'text-gray-700'}`}>
                             {profile.bio}
                           </p>
+                        )}
+
+                        {analytics && (
+                          <ProfileTradingAnalytics
+                            isDarkMode={isDarkMode}
+                            analytics={analytics}
+                            winRatePercent={calculateWinRate()}
+                          />
                         )}
                       </div>
                     </div>
                   </div>
-
-                  {/* Analytics Section */}
-                  {analytics && (
-                    <div className={`py-6 sm:py-8 border-t ${isDarkMode ? 'border-white/10' : 'border-gray-300'}`}>
-                      <h2 className={`text-lg sm:text-xl font-bold mb-4 sm:mb-6 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        <BarChart3 className={`h-5 w-5 ${isDarkMode ? 'text-[#39FF14]' : 'text-gray-900'}`} />
-                        Trading Analytics
-                      </h2>
-                      
-                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
-                        <div className="text-center py-1">
-                          <Trophy className={`h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 mx-auto mb-1.5 sm:mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-yellow-500'}`} />
-                          <div className={`text-lg sm:text-xl lg:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                            {calculateWinRate()}%
-                          </div>
-                          <div className={`text-xs ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
-                            Win Rate
-                          </div>
-                        </div>
-                        
-                        <div className="text-center py-1">
-                          <Target className={`h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 mx-auto mb-1.5 sm:mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-blue-500'}`} />
-                          <div className={`text-lg sm:text-xl lg:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                            {analytics.totalStakesPlaced.toString()}
-                          </div>
-                          <div className={`text-xs ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
-                            Total Stakes
-                          </div>
-                        </div>
-                        
-                        <div className="text-center py-1">
-                          <DollarSign className={`h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 mx-auto mb-1.5 sm:mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-green-500'}`} />
-                          <div className={`text-sm sm:text-lg lg:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                            {formatEther(analytics.totalWinnings)} ETH
-                          </div>
-                          <div className={`text-xs ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
-                            Total Winnings
-                          </div>
-                        </div>
-                        
-                        <div className="text-center py-1">
-                          <Users className={`h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 mx-auto mb-1.5 sm:mb-2 ${isDarkMode ? 'text-[#39FF14]' : 'text-purple-500'}`} />
-                          <div className={`text-lg sm:text-xl lg:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                            {analytics.marketsCreated.toString()}
-                          </div>
-                          <div className={`text-xs ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>
-                            Markets Created
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
 
                   {/* User markets — flush to background */}
                   <div className={`py-6 sm:py-8 border-t ${isDarkMode ? 'border-white/10' : 'border-gray-300'}`}>
