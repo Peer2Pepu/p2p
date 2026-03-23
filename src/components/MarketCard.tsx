@@ -210,10 +210,10 @@ function MultiSegmentCircle({ segments, size = 60, isDarkMode }: {
           const roundedPercentage = Math.round(topSegment.percentage); // Round to nearest integer
           return (
             <>
-              <span className={`text-sm font-bold leading-none ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <span className="text-sm font-bold leading-none" style={{ color: topSegment.color }}>
                 {roundedPercentage}%
               </span>
-              <span className={`text-[9px] leading-tight mt-0.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} style={{ color: topSegment.color }}>
+              <span className="text-[9px] leading-tight mt-0.5" style={{ color: topSegment.color }}>
                 {topSegment.label.length > 4 ? topSegment.label.substring(0, 4) : topSegment.label}
               </span>
             </>
@@ -855,6 +855,15 @@ export function MarketCard({
   };
 
   const options = getMarketOptions();
+  const getOptionColor = (option: string, index: number): string => {
+    const optionLower = option.toLowerCase().trim();
+    // Canonical binary colors: YES = blue, NO = yellow.
+    if (optionLower === 'yes') return '#3B82F6';
+    if (optionLower === 'no') return '#F59E0B';
+    // Fallback palette for multi-option markets.
+    const colors = ['#3B82F6', '#F59E0B', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316'];
+    return colors[index % colors.length] || '#6B7280';
+  };
 
   return (
     <div 
@@ -911,16 +920,6 @@ export function MarketCard({
               // Use accurate percentage calculation
               const percentages = calculateAccuratePercentages();
               
-              // Map colors based on option name: Yes=Red, No=Green, others by index
-              const getOptionColor = (option: string, index: number): string => {
-                const optionLower = option.toLowerCase().trim();
-                if (optionLower === 'yes') return '#EF4444'; // Red
-                if (optionLower === 'no') return '#10B981'; // Green
-                // For other options, use a color palette
-                const colors = ['#3B82F6', '#F59E0B', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316'];
-                return colors[index % colors.length] || '#6B7280';
-              };
-              
               // Create segments with accurate percentages and correct colors
               const segments = options.map((option: string, index: number) => {
                 const color = getOptionColor(option, index);
@@ -958,16 +957,6 @@ export function MarketCard({
             {options.map((option: string, index: number) => {
               const percentage = getOptionPercentage(index);
               const isUserStake = userHasStaked && userStakeOption && Number(userStakeOption) === index + 1;
-              
-              // Map colors based on option name: Yes=Red, No=Green, others by index
-              const getOptionColor = (opt: string, idx: number): string => {
-                const optLower = opt.toLowerCase().trim();
-                if (optLower === 'yes') return '#EF4444'; // Red
-                if (optLower === 'no') return '#10B981'; // Green
-                // For other options, use a color palette
-                const colors = ['#3B82F6', '#F59E0B', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316'];
-                return colors[idx % colors.length] || '#6B7280';
-              };
               
               const optionColor = getOptionColor(option, index);
                 

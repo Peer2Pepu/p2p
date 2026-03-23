@@ -959,7 +959,9 @@ export default function CreateMarketPage() {
 
       // Validate market type specific requirements
       if (marketType === 'PRICE_FEED') {
-        if (!selectedPriceFeed || !priceThreshold) {
+        const normalizedFeed = (selectedPriceFeed || '').toLowerCase();
+        const isZeroFeed = normalizedFeed === '0x0000000000000000000000000000000000000000';
+        if (!selectedPriceFeed || isZeroFeed || !priceThreshold) {
           throw new Error('Price feed and threshold are required for price feed markets');
         }
       }

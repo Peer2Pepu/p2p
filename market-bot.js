@@ -53,11 +53,11 @@ const MARKET_MANAGER_ABI = [
           {"name": "state", "type": "uint8"},
           {"name": "winningOption", "type": "uint256"},
           {"name": "isResolved", "type": "bool"},
+          {"name": "resolvedTimestamp", "type": "uint256"},
           {"name": "marketType", "type": "uint8"},
           {"name": "priceFeed", "type": "address"},
           {"name": "priceThreshold", "type": "uint256"},
-          {"name": "p2pAssertionId", "type": "bytes32"},
-          {"name": "p2pAssertionMade", "type": "bool"}
+          {"name": "resolvedPrice", "type": "uint256"}
         ],
         "name": "",
         "type": "tuple"
@@ -114,12 +114,47 @@ class MarketBot {
     this.pollingInterval = 5000; // 5 seconds
   }
 
+  // Support both named tuple objects and index-based tuples.
+  getMarketFields(market) {
+    const hasNamed = market && typeof market === 'object' && !Array.isArray(market);
+    const read = (name, index, fallback) => {
+      const named = hasNamed ? market[name] : undefined;
+      const indexed = market?.[index];
+      return named !== undefined ? named : (indexed !== undefined ? indexed : fallback);
+    };
+
+    // V2 layout: ... isResolved(14), resolvedTimestamp(15), marketType(16), priceFeed(17), priceThreshold(18), resolvedPrice(19)
+    // Legacy layout: ... isResolved(14), marketType(15), priceFeed(16), priceThreshold(17), ...
+    const resolvedTsCandidate = read('resolvedTimestamp', 15, 0n);
+    const hasResolvedTimestampSlot =
+      typeof resolvedTsCandidate === 'bigint' && resolvedTsCandidate > 1000000000n;
+
+    const marketType = Number(
+      read('marketType', hasResolvedTimestampSlot ? 16 : 15, 1n)
+    );
+    const priceFeed = read('priceFeed', hasResolvedTimestampSlot ? 17 : 16, ethers.ZeroAddress);
+
+    return {
+      endTime: Number(read('endTime', 10, 0n)),
+      resolutionEndTime: Number(read('resolutionEndTime', 11, 0n)),
+      state: Number(read('state', 12, 0)),
+      isResolved: Boolean(read('isResolved', 14, false)),
+      marketType,
+      priceFeed,
+      hasPriceFeed:
+        !!priceFeed &&
+        typeof priceFeed === 'string' &&
+        priceFeed.toLowerCase() !== ethers.ZeroAddress.toLowerCase(),
+    };
+  }
+
   async start() {
     console.log('🤖 Market Bot started');
-    
-    // Start event listener for resolved markets
-    this.startEventListener();
-    
+
+    // RPC behind load balancers often drops eth_newFilter state ("filter not found").
+    // Polling flow below handles end + resolve and sends notifications explicitly.
+    console.log('👂 Event listener disabled (using polling-only mode)');
+
     // Start polling for markets to end
     this.startPolling();
   }
@@ -167,15 +202,15 @@ class MarketBot {
         try {
           const market = await this.contract.getMarket(marketId);
           const currentTime = Math.floor(Date.now() / 1000);
-          const endTime = Number(market.endTime);
-          const resolutionEndTime = Number(market.resolutionEndTime);
-          const state = Number(market.state);
-          const marketType = Number(market.marketType);
-          const isResolved = market.isResolved;
-          const priceFeed = market.priceFeed;
-          const hasPriceFeed = priceFeed && priceFeed !== '0x0000000000000000000000000000000000000000';
+          const { endTime, resolutionEndTime, state, marketType, isResolved, hasPriceFeed } = this.getMarketFields(market);
           
           console.log(`Market ${marketId}: state=${state}, type=${marketType}, currentTime=${currentTime}, endTime=${endTime}, resolutionEndTime=${resolutionEndTime}, isResolved=${isResolved}, hasPriceFeed=${hasPriceFeed}`);
+
+          if (state === 1 && marketType === 0 && !hasPriceFeed && !isResolved) {
+            console.warn(
+              `⚠️ Market ${marketId} is PRICE_FEED but has zero priceFeed address; cannot auto-resolve on-chain.`
+            );
+          }
           
           // End active markets that have reached end time (works for both PRICE_FEED and P2POPTIMISTIC)
           if (state === 0 && currentTime >= endTime) {
@@ -204,8 +239,9 @@ class MarketBot {
                   if (currentTime >= endedResolutionEndTime && !endedMarket.isResolved) {
                     const resolveTx = await this.contract.resolvePriceFeedMarket(marketId);
                     console.log(`📝 Resolution transaction sent: ${resolveTx.hash}`);
-                    await resolveTx.wait();
+                    const receipt = await resolveTx.wait();
                     console.log(`✅ Market ${marketId} auto-resolved successfully!`);
+                    await this.sendResolutionNotification(marketId, 0, 0n, endedMarket, receipt?.hash);
                   } else {
                     console.log(`⏳ Market ${marketId} resolution time not yet reached or already resolved`);
                   }
@@ -232,8 +268,9 @@ class MarketBot {
               try {
                 const resolveTx = await this.contract.resolvePriceFeedMarket(marketId);
                 console.log(`📝 Resolution transaction sent: ${resolveTx.hash}`);
-                await resolveTx.wait();
+                const receipt = await resolveTx.wait();
                 console.log(`✅ Market ${marketId} auto-resolved successfully!`);
+                await this.sendResolutionNotification(marketId, 0, 0n, market, receipt?.hash);
               } catch (resolveError) {
                 console.error(`❌ Failed to auto-resolve price feed market ${marketId}:`, resolveError.message);
               }
@@ -293,7 +330,7 @@ class MarketBot {
     }
   }
 
-  async sendResolutionNotification(marketId, winner, totalPayout, market) {
+  async sendResolutionNotification(marketId, winner, totalPayout, market, txHash = null) {
     const message = `
 🎉 *Market Resolved!*
 
@@ -301,6 +338,7 @@ class MarketBot {
 🏆 Winning Option: ${winner}
 💰 Total Payout: ${ethers.formatEther(totalPayout)} PEPU
 ⏰ Resolved At: ${new Date().toLocaleString()}
+${txHash ? `🧾 Tx: \`${txHash}\`\n` : ''}
 
 Market has been successfully resolved!
     `;
