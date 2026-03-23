@@ -859,9 +859,9 @@ export function MarketCard({
   const options = getMarketOptions();
   const getOptionColor = (option: string, index: number): string => {
     const optionLower = option.toLowerCase().trim();
-    // Canonical binary colors: YES = blue, NO = yellow.
-    if (optionLower === 'yes') return '#3B82F6';
-    if (optionLower === 'no') return '#F59E0B';
+    // Canonical binary colors: YES = green, NO = red.
+    if (optionLower === 'yes' || optionLower.startsWith('yes ')) return '#10B981';
+    if (optionLower === 'no' || optionLower.startsWith('no ')) return '#EF4444';
     // Fallback palette for multi-option markets.
     const colors = ['#3B82F6', '#F59E0B', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316'];
     return colors[index % colors.length] || '#6B7280';

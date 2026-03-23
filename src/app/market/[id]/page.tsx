@@ -38,20 +38,24 @@ const supabase = createClient(
 // Price feed to chart URL mapping
 // TradingView widgets for major coins, Gecko Terminal for PEPU
 // Keys are lowercase to match the converted priceFeed address
-const PRICE_FEED_TO_CHART_CONFIG: Record<string, { symbol: string; type: 'tradingview' | 'gecko'; geckoUrl?: string }> = {
+const PRICE_FEED_TO_CHART_CONFIG: Record<string, { label: string; symbol: string; type: 'tradingview' | 'gecko'; geckoUrl?: string }> = {
   '0x20d9bbeae75d9e17176520ad473234be293e4c5d': {
+    label: 'ETH/USD',
     symbol: 'CRYPTOCAP:ETH',
     type: 'tradingview'
   }, // ETH/USD
   '0xa74ccee7759c7bb2ce3f0b1599428fed08fab8ce': {
+    label: 'BTC/USD',
     symbol: 'CRYPTOCAP:BTC',
     type: 'tradingview'
   }, // BTC/USD
   '0x786be298cfff15c49727c0998392ff38e45f99b3': {
+    label: 'SOL/USD',
     symbol: 'CRYPTOCAP:SOL',
     type: 'tradingview'
   }, // SOL/USD
   '0x51c17e20994c6c0ee787fe1604ef14ebafdb7ce9': {
+    label: 'PEPU/USD',
     symbol: '',
     type: 'gecko',
     geckoUrl: 'https://www.geckoterminal.com/eth/pools/0xb1b10b05aa043dd8d471d4da999782bc694993e3ecbe8e7319892b261b412ed5'
@@ -78,6 +82,20 @@ const getChartUrl = (config: { symbol: string; type: 'tradingview' | 'gecko'; ge
   
   return null;
 };
+
+function formatScaledPrice(value: bigint, decimals: number): string {
+  const scaleDecimals = Math.max(0, decimals);
+  const divisor = BigInt(10 ** scaleDecimals);
+  const wholePart = value / divisor;
+  const fractionalPart = value % divisor;
+  const wholeRaw = wholePart.toString();
+  if (scaleDecimals === 0) return wholeRaw;
+
+  // Keep the on-chain scale correct, but show at most 6 decimals for readability.
+  const fractionalFull = fractionalPart.toString().padStart(scaleDecimals, '0');
+  const fractionalShown = fractionalFull.slice(0, Math.min(6, scaleDecimals)).replace(/0+$/, '');
+  return fractionalShown ? `${wholeRaw}.${fractionalShown}` : wholeRaw;
+}
 
 /** Contract `address` fields may not be plain strings (tuple decode / empty market); never call .toLowerCase() blindly. */
 function safeAddressLower(value: unknown): string | undefined {
@@ -127,10 +145,13 @@ const MARKET_MANAGER_ABI = [
           {"name": "winningOption", "type": "uint256"},
           {"name": "isResolved", "type": "bool"},
           {"name": "resolvedTimestamp", "type": "uint256"},
+          {"name": "resolvedPrice", "type": "uint256"},
           {"name": "marketType", "type": "uint8"},
           {"name": "priceFeed", "type": "address"},
           {"name": "priceThreshold", "type": "uint256"},
-          {"name": "resolvedPrice", "type": "uint256"}
+          {"name": "p2pAssertionId", "type": "bytes32"},
+          {"name": "p2pAssertionMade", "type": "bool"},
+          {"name": "p2pDisputedOptionId", "type": "uint256"}
         ],
         "name": "",
         "type": "tuple"
@@ -213,10 +234,13 @@ const GET_MARKET_ABI_V2 = [
           { "name": "winningOption", "type": "uint256" },
           { "name": "isResolved", "type": "bool" },
           { "name": "resolvedTimestamp", "type": "uint256" },
+          { "name": "resolvedPrice", "type": "uint256" },
           { "name": "marketType", "type": "uint8" },
           { "name": "priceFeed", "type": "address" },
           { "name": "priceThreshold", "type": "uint256" },
-          { "name": "resolvedPrice", "type": "uint256" }
+          { "name": "p2pAssertionId", "type": "bytes32" },
+          { "name": "p2pAssertionMade", "type": "bool" },
+          { "name": "p2pDisputedOptionId", "type": "uint256" }
         ],
         "name": "",
         "type": "tuple"
@@ -377,10 +401,10 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
 
         // Decide whether the returned tuple matches the v2 layout.
         // Heuristic:
-        // - If `priceFeed` (v2 index 17) is one of our known feed addresses, it's v2.
+        // - If `priceFeed` (v2 index 18) is one of our known feed addresses, it's v2.
         // - If `resolvedTimestamp` (v2 index 15) looks like a unix timestamp (> 1e9 seconds), it's v2.
         const resolvedTimestampCandidate = (fetchedMarket?.[15] ?? BigInt(0)) as bigint;
-        const priceFeedIfV2 = fetchedMarket?.[17];
+        const priceFeedIfV2 = fetchedMarket?.[18];
         const priceFeedIfLegacy = fetchedMarket?.[16];
         const priceFeedV2Key = safeAddressLower(priceFeedIfV2);
         const isKnownV2PriceFeed =
@@ -409,15 +433,15 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
           // v2 adds resolvedTimestamp + resolvedPrice; legacy does not.
           resolvedTimestamp: useV2Layout ? (fetchedMarket?.[15] ?? BigInt(0)) : BigInt(0),
           marketType: useV2Layout
-            ? (fetchedMarket?.[16] ?? BigInt(0))
+            ? (fetchedMarket?.[17] ?? BigInt(0))
             : (fetchedMarket?.[15] ?? BigInt(0)),
           priceFeed:
             (useV2Layout ? safeAddressLower(priceFeedIfV2) : safeAddressLower(priceFeedIfLegacy)) ??
             ZERO_ADDRESS,
           priceThreshold: useV2Layout
-            ? (fetchedMarket?.[18] ?? BigInt(0))
+            ? (fetchedMarket?.[19] ?? BigInt(0))
             : (fetchedMarket?.[17] ?? BigInt(0)),
-          resolvedPrice: useV2Layout ? (fetchedMarket?.[19] ?? BigInt(0)) : BigInt(0),
+          resolvedPrice: useV2Layout ? (fetchedMarket?.[16] ?? BigInt(0)) : BigInt(0),
         };
 
         if (!cancelled) {
@@ -463,6 +487,13 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
     priceFeedAddress !== SENTINEL_NON_FEED_ADDRESS &&
     !!chartConfig;
   const chartUrl = getChartUrl(chartConfig, isDarkMode);
+
+  // Price-feed markets should open on the price tab by default.
+  useEffect(() => {
+    if (isPriceFeedMarket) {
+      setChartType((prev) => (prev === 'activity' ? 'price' : prev));
+    }
+  }, [isPriceFeedMarket]);
 
   // Fetch decimals from price feed contract for all price feed markets
   useEffect(() => {
@@ -510,17 +541,7 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
 
       try {
         const thresholdBigInt = BigInt(market.priceThreshold.toString());
-        // Cap display decimals so the UI can't create an infinitely-long number string.
-        const displayDecimals = Math.min(priceDecimals, 6);
-        const divisor = BigInt(10 ** displayDecimals);
-        const wholePart = thresholdBigInt / divisor;
-        const fractionalPart = thresholdBigInt % divisor;
-        const fractionalStr = fractionalPart.toString().padStart(displayDecimals, '0');
-        
-        // Remove trailing zeros but keep at least one decimal place
-        const trimmed = fractionalStr.replace(/0+$/, '');
-        const thresholdStr = `${wholePart}.${trimmed || '0'}`;
-        setFormattedThreshold(thresholdStr);
+        setFormattedThreshold(formatScaledPrice(thresholdBigInt, priceDecimals));
       } catch (error) {
         console.error('Error formatting threshold:', error);
         setFormattedThreshold(null);
@@ -549,37 +570,7 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
       try {
         // Format resolved price from contract
         const priceValue = BigInt(market.resolvedPrice.toString());
-        // Cap decimals + abbreviate huge integer part so the UI doesn't print
-        // extremely long numbers.
-        const displayDecimals = Math.min(priceDecimals, 6);
-        const divisor = BigInt(10 ** displayDecimals);
-        const wholePart = priceValue / divisor;
-        const fractionalPart = priceValue % divisor;
-        const fractionalStr = fractionalPart.toString().padStart(displayDecimals, '0');
-        
-        // Format price with full decimals
-        let priceStr: string;
-        if (wholePart === BigInt(0)) {
-          // Remove trailing zeros but keep at least one decimal place
-          const trimmed = fractionalStr.replace(/0+$/, '');
-          priceStr = `0.${trimmed || '0'}`;
-        } else {
-          // Remove trailing zeros but keep at least one decimal place
-          const trimmed = fractionalStr.replace(/0+$/, '');
-          const wholeStr = wholePart.toString();
-
-          // If the integer part is enormous, abbreviate (e.g. 6.86e42) for readability.
-          if (wholeStr.length > 10) {
-            const exp = wholeStr.length - 1;
-            const first4 = wholeStr.slice(0, 4); // 4 digits
-            const mantissa = `${first4[0]}.${first4.slice(1)}`;
-            priceStr = `${mantissa}e${exp}`;
-          } else {
-            priceStr = `${wholeStr}.${trimmed || '0'}`;
-          }
-        }
-        
-        setResolvedPrice(priceStr);
+        setResolvedPrice(formatScaledPrice(priceValue, priceDecimals));
       } catch (error) {
         console.error('Error formatting resolved price:', error);
         setResolvedPrice(null);
@@ -1297,6 +1288,14 @@ export default function MarketDetailPage({ params }: { params: Promise<{ id: str
                       {Number(market?.state) === 0 ? 'Active' : Number(market?.state) === 1 ? 'Ended' : 'Resolved'}
                     </p>
                   </div>
+                  {isPriceFeedMarket && (
+                    <div>
+                      <span className={`text-xs sm:text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>Market Type</span>
+                      <p className={`text-sm sm:text-base font-medium mt-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        Price Feed ({chartConfig?.label || 'Unknown'})
+                      </p>
+                    </div>
+                  )}
                   {isPriceFeedMarket && formattedThreshold && (
                     <div>
                       <span className={`text-xs sm:text-sm ${isDarkMode ? 'text-white/60' : 'text-gray-600'}`}>Price Threshold</span>

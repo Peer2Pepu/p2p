@@ -2267,6 +2267,21 @@ export default function CreateMarketPage() {
                     <div className={`text-xs space-y-0.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                       <div>Type: {outcomeType === 'multiple' ? 'Multiple Options' : 'Yes/No'}</div>
                       <div>Market Type: {marketType === 'PRICE_FEED' ? 'Price Feed' : 'P2P Optimistic'}</div>
+                      {marketType === 'PRICE_FEED' && (
+                        <>
+                          <div>
+                            Selected Feed: {{
+                              '0x20D9BBEAE75d9E17176520aD473234BE293e4C5d': 'ETH/USD',
+                              '0xA74CCEe7759c7bb2cE3f0b1599428fed08FaB8Ce': 'BTC/USD',
+                              '0x786BE298CFfF15c49727C0998392Ff38e45f99b3': 'SOL/USD',
+                              '0x51C17E20994C6c0eE787fE1604ef14EBafdB7ce9': 'PEPU/USD'
+                            }[selectedPriceFeed] || 'Unknown'}
+                          </div>
+                          <div>
+                            Feed Address: {selectedPriceFeed ? `${selectedPriceFeed.slice(0, 6)}...${selectedPriceFeed.slice(-4)}` : 'Not selected'}
+                          </div>
+                        </>
+                      )}
                       <div>Min Stake: {minimumStake} {tokens.find(t => t.address === selectedToken)?.symbol || 'PEPU'}</div>
                       <div>Creator Deposit: {creatorDeposit} {tokens.find(t => t.address === selectedToken)?.symbol || 'PEPU'}</div>
                     </div>

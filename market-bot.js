@@ -54,10 +54,13 @@ const MARKET_MANAGER_ABI = [
           {"name": "winningOption", "type": "uint256"},
           {"name": "isResolved", "type": "bool"},
           {"name": "resolvedTimestamp", "type": "uint256"},
+          {"name": "resolvedPrice", "type": "uint256"},
           {"name": "marketType", "type": "uint8"},
           {"name": "priceFeed", "type": "address"},
           {"name": "priceThreshold", "type": "uint256"},
-          {"name": "resolvedPrice", "type": "uint256"}
+          {"name": "p2pAssertionId", "type": "bytes32"},
+          {"name": "p2pAssertionMade", "type": "bool"},
+          {"name": "p2pDisputedOptionId", "type": "uint256"}
         ],
         "name": "",
         "type": "tuple"
@@ -123,16 +126,21 @@ class MarketBot {
       return named !== undefined ? named : (indexed !== undefined ? indexed : fallback);
     };
 
-    // V2 layout: ... isResolved(14), resolvedTimestamp(15), marketType(16), priceFeed(17), priceThreshold(18), resolvedPrice(19)
-    // Legacy layout: ... isResolved(14), marketType(15), priceFeed(16), priceThreshold(17), ...
-    const resolvedTsCandidate = read('resolvedTimestamp', 15, 0n);
-    const hasResolvedTimestampSlot =
-      typeof resolvedTsCandidate === 'bigint' && resolvedTsCandidate > 1000000000n;
+    // V2 layout: ... isResolved(14), resolvedTimestamp(15), resolvedPrice(16),
+    // marketType(17), priceFeed(18), priceThreshold(19), ...
+    // Legacy fallback: marketType(15), priceFeed(16), priceThreshold(17)
+    const marketTypeRaw = hasNamed
+      ? read('marketType', 17, 1n)
+      : (market?.[17] ?? market?.[15] ?? 1n);
+    const priceFeedRaw = hasNamed
+      ? read('priceFeed', 18, ethers.ZeroAddress)
+      : (market?.[18] ?? market?.[16] ?? ethers.ZeroAddress);
+    const thresholdRaw = hasNamed
+      ? read('priceThreshold', 19, 0n)
+      : (market?.[19] ?? market?.[17] ?? 0n);
 
-    const marketType = Number(
-      read('marketType', hasResolvedTimestampSlot ? 16 : 15, 1n)
-    );
-    const priceFeed = read('priceFeed', hasResolvedTimestampSlot ? 17 : 16, ethers.ZeroAddress);
+    const marketType = Number(marketTypeRaw);
+    const priceFeed = priceFeedRaw;
 
     return {
       endTime: Number(read('endTime', 10, 0n)),
@@ -141,6 +149,7 @@ class MarketBot {
       isResolved: Boolean(read('isResolved', 14, false)),
       marketType,
       priceFeed,
+      priceThreshold: thresholdRaw,
       hasPriceFeed:
         !!priceFeed &&
         typeof priceFeed === 'string' &&

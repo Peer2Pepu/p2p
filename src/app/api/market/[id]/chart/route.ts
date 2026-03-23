@@ -53,10 +53,13 @@ export async function GET(
               {"name": "winningOption", "type": "uint256"},
               {"name": "isResolved", "type": "bool"},
               {"name": "resolvedTimestamp", "type": "uint256"},
+              {"name": "resolvedPrice", "type": "uint256"},
               {"name": "marketType", "type": "uint8"},
               {"name": "priceFeed", "type": "address"},
               {"name": "priceThreshold", "type": "uint256"},
-              {"name": "resolvedPrice", "type": "uint256"}
+              {"name": "p2pAssertionId", "type": "bytes32"},
+              {"name": "p2pAssertionMade", "type": "bool"},
+              {"name": "p2pDisputedOptionId", "type": "uint256"}
             ],
             "name": "",
             "type": "tuple"
